@@ -18,7 +18,7 @@ struct GameShellView: View {
     var body: some View {
         GeometryReader { _ in
             ZStack {
-                Color.black.ignoresSafeArea()
+                MetalSurface().ignoresSafeArea()
                 VStack(spacing: 18) {
                     Text("S.T.A.L.K.E.R. MOBILE")
                         .font(.system(size: 27, weight: .bold, design: .monospaced))

@@ -27,4 +27,15 @@ Or visit **Actions → Build iOS starter → Run workflow**. Check the job logs 
 
 See `APK_AUDIT.md` and `PORTING.md` for details.
 
-**No successful CI run has been verified in this project documentation.**
+## Verified build status
+
+[GitHub Actions run #12](https://github.com/soskamolisha/STALKER-iOS/actions/runs/42667557712) completed successfully on 2026-11-09 (UTC), using commit `d32844ac50cd3eb7cf7939f5d0d8ce7cbf0f26ac`.
+
+- Simulator compilation: **passed**.
+- Unsigned physical-device compilation: **passed**.
+- Artifact upload: **passed**, artifact `STALKERiOSStarter-builds` (183,043 bytes).
+- Physical iPhone launch and gameplay: **not tested**.
+
+This verifies compilation of the existing SwiftUI/Metal prototype only. The artifact contains application ZIPs; it is not a signed, installable IPA and does not contain the X-Ray game engine.
+
+The next blocker is obtaining and identifying the corresponding engine source for the Android port. The APK inspection and public-source search did not establish a matching repository or revision; see `APK_AUDIT.md`. Code signing alone cannot supply the missing game engine.

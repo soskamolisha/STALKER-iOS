@@ -1,12 +1,12 @@
 import Foundation
 
-/// Contract for a future native X-Ray iOS engine integration.
-/// The starter deliberately does not pretend to run Android binaries.
+/// Boundary between the Swift UI and a future native X-Ray iOS port.
+/// This repository does not yet contain the actual X-Ray engine.
 protocol GameEngine {
     var isAvailable: Bool { get }
     func start() throws
     func stop()
-    func handle(_ input: GameInput)
+    func handle(_ input: GameInput, pressed: Bool)
 }
 
 enum GameInput {
@@ -26,5 +26,5 @@ final class UnavailableEngine: GameEngine {
     let isAvailable = false
     func start() throws { throw EngineStartError.notPorted }
     func stop() {}
-    func handle(_ input: GameInput) {}
+    func handle(_ input: GameInput, pressed: Bool) {}
 }

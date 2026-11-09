@@ -54,17 +54,27 @@ struct GameShellView: View {
     }
 
     private func control(_ title: String, input: GameInput) -> some View {
-        Button(title) {
-            if engine.isAvailable {
-                engine.handle(input)
-            } else {
-                status = "Управление недоступно: движок не подключён"
-            }
-        }
-        .font(.system(size: 12, weight: .bold))
-        .foregroundStyle(.white)
-        .padding(12)
-        .background(.gray.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
-        .accessibilityLabel(title)
+        Text(title)
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(12)
+            .background(.gray.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if engine.isAvailable {
+                            engine.handle(input, pressed: true)
+                        } else {
+                            status = "Управление недоступно: движок не подключён"
+                        }
+                    }
+                    .onEnded { _ in
+                        if engine.isAvailable {
+                            engine.handle(input, pressed: false)
+                        }
+                    }
+            )
+            .accessibilityLabel(title)
     }
 }

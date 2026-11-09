@@ -1,0 +1,11 @@
+.DS_Store
+build/
+build-device/
+build-simulator/
+DerivedData/
+*.xcuserstate
+*.ipa
+*.mobileprovision
+*.p12
+*.cer
+STALKERiOSStarter.xcodeproj/

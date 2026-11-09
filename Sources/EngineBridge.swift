@@ -9,7 +9,7 @@ protocol GameEngine {
     func handle(_ input: GameInput, pressed: Bool)
 }
 
-enum GameInput {
+enum GameInput: Int32 {
     case moveLeft, moveForward, moveRight, aim, fire
 }
 
@@ -25,6 +25,10 @@ enum EngineStartError: LocalizedError {
 final class UnavailableEngine: GameEngine {
     let isAvailable = false
     func start() throws { throw EngineStartError.notPorted }
-    func stop() {}
-    func handle(_ input: GameInput, pressed: Bool) {}
+    private let nativeInput = st_input_create()
+    deinit { st_input_destroy(nativeInput) }
+    func stop() { st_input_reset(nativeInput) }
+    func handle(_ input: GameInput, pressed: Bool) {
+        st_input_set(nativeInput, input.rawValue, pressed ? 1 : 0)
+    }
 }

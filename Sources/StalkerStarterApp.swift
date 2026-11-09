@@ -12,7 +12,8 @@ struct StalkerStarterApp: App {
 
 /// Prototype shell. No game rendering or native X-Ray runtime is bundled.
 struct GameShellView: View {
-    private let engine: any GameEngine = UnavailableEngine()
+    @State private var engine = UnavailableEngine()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var status = "Движок X-Ray не подключён"
 
     var body: some View {
@@ -51,6 +52,10 @@ struct GameShellView: View {
                 .padding(24)
             }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { engine.stop() }
+        }
+        .onDisappear { engine.stop() }
     }
 
     private func control(_ title: String, input: GameInput) -> some View {
@@ -63,16 +68,10 @@ struct GameShellView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
-                        if engine.isAvailable {
-                            engine.handle(input, pressed: true)
-                        } else {
-                            status = "Управление недоступно: движок не подключён"
-                        }
+                        engine.handle(input, pressed: true)
                     }
                     .onEnded { _ in
-                        if engine.isAvailable {
-                            engine.handle(input, pressed: false)
-                        }
+                        engine.handle(input, pressed: false)
                     }
             )
             .accessibilityLabel(title)

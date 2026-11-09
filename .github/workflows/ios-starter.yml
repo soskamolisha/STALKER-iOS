@@ -1,0 +1,28 @@
+name: Build iOS starter
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Sources/**'
+      - 'project.yml'
+      - '.github/workflows/ios-starter.yml'
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build unsigned iOS simulator app
+        run: |
+          xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package simulator app
+        run: |
+          cd build/Build/Products/Debug-iphonesimulator
+          zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-simulator.zip" STALKERiOSStarter.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STALKERiOSStarter-simulator
+          path: STALKERiOSStarter-simulator.zip

@@ -30,7 +30,7 @@ jobs:
       - name: Package unsigned prototype IPA
         run: |
           APP="build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
-          lipo -verify_arch arm64 "$APP/STALKERiOSStarter"
+          lipo "$APP/STALKERiOSStarter" -verify_arch arm64
           python3 scripts/package_unsigned_ipa.py "$APP" STALKERiOSStarter-unsigned.ipa
       - name: Package build outputs
         run: |

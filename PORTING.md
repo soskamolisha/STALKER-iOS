@@ -26,6 +26,7 @@
 - [x] SwiftUI placeholder and touch-control mockup
 - [x] XcodeGen configuration
 - [x] CI build recipes for simulator and device
+- [x] Add minimal Metal clear-pass surface (not X-Ray rendering)
 - [ ] Verify CI compilation succeeded
 - [ ] Port native X-Ray engine and render backend
 - [ ] Integrate engine through bridge

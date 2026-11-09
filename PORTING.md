@@ -1,0 +1,33 @@
+# X-Ray to iOS: implementation checklist
+
+**Status:** No native X-Ray port is present in this repository. The existing SwiftUI screen is a prototype, not gameplay.
+
+## Source and licensing gate
+- Identify the exact engine source revision matching the Android APK.
+- Verify source licenses and third-party dependencies before redistribution.
+- Do not commit proprietary original game data or extracted copyrighted assets.
+
+## Native engine work
+1. Build C/C++ engine libraries for arm64-apple-ios with Apple clang.
+2. Replace Android JNI/Activity, input, asset manager, filesystem and lifecycle calls.
+3. Audit graphics backend. Android OpenGL ES/Vulkan code cannot be assumed to work on iOS; implement a compatible Metal rendering path or other supported backend.
+4. Port audio and touch/gamepad input.
+5. Provide a stable C ABI or Objective-C++ adapter callable from Swift.
+6. Validate loading and saving, shader compilation, performance and device memory.
+7. Test with legally obtained Shadow of Chernobyl data and verify that the selected X-Ray fork actually supports that game.
+
+## Signing and installation
+- The GitHub workflow currently builds unsigned application bundles for compilation checks only.
+- An unsigned .app ZIP is not an installable IPA.
+- For an installable IPA, configure Apple code signing and provisioning for the device and export a signed iOS archive.
+- Never upload Apple private signing keys or game assets to a public repository.
+
+## Milestones
+- [x] SwiftUI placeholder and touch-control mockup
+- [x] XcodeGen configuration
+- [x] CI build recipes for simulator and device
+- [ ] Verify CI compilation succeeded
+- [ ] Port native X-Ray engine and render backend
+- [ ] Integrate engine through bridge
+- [ ] Load authorized game data and test on device
+- [ ] Sign and export installable IPA

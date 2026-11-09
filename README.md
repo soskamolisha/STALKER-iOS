@@ -39,3 +39,9 @@ See `APK_AUDIT.md` and `PORTING.md` for details.
 This verifies compilation of the existing SwiftUI/Metal prototype only. The artifact contains application ZIPs; it is not a signed, installable IPA and does not contain the X-Ray game engine.
 
 The next blocker is obtaining and identifying the corresponding engine source for the Android port. The APK inspection and public-source search did not establish a matching repository or revision; see `APK_AUDIT.md`. Code signing alone cannot supply the missing game engine.
+
+## Native input and unsigned IPA packaging
+
+The original C++ input adapter and Swift lifecycle integration compiled successfully in [run #13](https://github.com/soskamolisha/STALKER-iOS/actions/runs/42718666828) at commit `57f25a8784325fe2679cd830bc5704be6506cd48`. This is still not an X-Ray engine.
+
+Subsequent workflow runs also execute the native input tests and package the device app as `STALKERiOSStarter-unsigned.ipa`, with the required `Payload/STALKERiOSStarter.app` layout. The packager rejects simulator bundles and checks archive integrity. This file still needs valid Apple signing and provisioning before installation; packaging does not add gameplay. Packaging was checked locally with the supplied device artifact; the new CI run must complete before its artifact is available.

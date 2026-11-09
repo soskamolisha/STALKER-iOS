@@ -5,12 +5,18 @@ on:
     paths:
       - 'Sources/**'
       - 'project.yml'
+      - 'Tests/**'
+      - 'scripts/package_unsigned_ipa.py'
       - '.github/workflows/ios-starter.yml'
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Test native input
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests
+          /tmp/stalker-input-tests
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
@@ -21,6 +27,11 @@ jobs:
       - name: Build unsigned physical-device app
         run: |
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned prototype IPA
+        run: |
+          APP="build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          lipo -verify_arch arm64 "$APP/STALKERiOSStarter"
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERiOSStarter-unsigned.ipa
       - name: Package build outputs
         run: |
           cd build-simulator/Build/Products/Debug-iphonesimulator
@@ -30,6 +41,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: STALKERiOSStarter-builds
+          if-no-files-found: error
           path: |
+            STALKERiOSStarter-unsigned.ipa
             STALKERiOSStarter-simulator.zip
             STALKERiOSStarter-unsigned-device.zip

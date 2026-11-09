@@ -10,40 +10,61 @@ struct StalkerStarterApp: App {
     }
 }
 
+/// Prototype shell. No game rendering or native X-Ray runtime is bundled.
 struct GameShellView: View {
-    @State private var status = "Движок iOS ещё не подключён"
+    private let engine: any GameEngine = UnavailableEngine()
+    @State private var status = "Движок X-Ray не подключён"
+
     var body: some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             ZStack {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 18) {
                     Text("S.T.A.L.K.E.R. MOBILE")
                         .font(.system(size: 27, weight: .bold, design: .monospaced))
                         .foregroundStyle(.orange)
-                    Text("iOS — подготовительный проект")
+                    Text("iOS — прототип интерфейса")
                         .foregroundStyle(.white)
                     Text(status)
                         .foregroundStyle(.gray)
                         .font(.footnote)
+                    Button("Проверить движок") {
+                        do {
+                            try engine.start()
+                            status = "Движок запущен"
+                        } catch {
+                            status = error.localizedDescription
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
                     Spacer()
                     HStack {
-                        control("◀")
-                        control("▲")
-                        control("▶")
+                        control("◀", input: .moveLeft)
+                        control("▲", input: .moveForward)
+                        control("▶", input: .moveRight)
                         Spacer()
-                        control("ПРИЦЕЛ")
-                        control("ОГОНЬ")
+                        control("ПРИЦЕЛ", input: .aim)
+                        control("ОГОНЬ", input: .fire)
                     }
                 }
                 .padding(24)
             }
         }
     }
-    private func control(_ title: String) -> some View {
-        Button(title) { status = "Управление: ожидает подключения движка" }
-            .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(.white)
-            .padding(12)
-            .background(.gray.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+
+    private func control(_ title: String, input: GameInput) -> some View {
+        Button(title) {
+            if engine.isAvailable {
+                engine.handle(input)
+            } else {
+                status = "Управление недоступно: движок не подключён"
+            }
+        }
+        .font(.system(size: 12, weight: .bold))
+        .foregroundStyle(.white)
+        .padding(12)
+        .background(.gray.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityLabel(title)
     }
 }

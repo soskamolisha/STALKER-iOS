@@ -18,23 +18,23 @@ final class GameResourceStore: ObservableObject {
             .appendingPathComponent("ImportedGames", isDirectory: true)
     }
 
-    func refresh(gameID: String) {
+    func refresh(gameID: String) async {
+        guard ["shadow", "clearSky", "pripyat"].contains(gameID) else { return }
         let folder = root.appendingPathComponent(gameID, isDirectory: true)
-        guard FileManager.default.fileExists(atPath: folder.path) else { return }
-        let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey])
-        var count = 0
-        while let file = enumerator?.nextObject() as? URL {
-            if (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true { count += 1 }
-        }
-        fileCounts[gameID] = count
-        let detected = Self.containsXRayResources(in: folder)
-        detectedResources[gameID] = detected
-        diagnostics[gameID] = Self.resourceSummary(in: folder)
-        storageBytes[gameID] = Self.folderSize(in: folder)
-        archiveCounts[gameID] = Self.xrayArchiveCount(in: folder)
-        archiveHeaders[gameID] = Self.archiveHeaderSummary(in: folder)
-        archiveSummaries[gameID] = XRayArchiveInspector.summary(XRayArchiveInspector.inspect(in: folder))
-        status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
+        let inventory = await Task.detached(priority: .utility) {
+            GameResourceScanner.scan(folder)
+        }.value
+        guard let inventory else { return }
+        fileCounts[gameID] = inventory.count
+        detectedResources[gameID] = inventory.detected
+        diagnostics[gameID] = inventory.diagnostics
+        storageBytes[gameID] = inventory.bytes
+        archiveCounts[gameID] = inventory.archiveCount
+        archiveHeaders[gameID] = inventory.firstArchiveHeader
+        archiveSummaries[gameID] = inventory.archiveSummary
+        status[gameID] = inventory.detected
+            ? "Found \\(inventory.count) files; X-Ray resource markers detected"
+            : "Found \\(inventory.count) files; X-Ray resource markers not found"
     }
 
     func importFolder(_ source: URL, gameID: String) throws {

@@ -77,9 +77,10 @@ struct TrilogyLauncherView: View {
         if result == 0 {
             let loose = st_xray_has_loose_data(handle) == 1
             let packed = st_xray_has_packed_data(handle) == 1
+            let levels = st_xray_level_count(handle)
             engineDiagnostics[game.rawValue] = russian
-                ? "Ядро готово: папка \\(loose ? "✓" : "—"), архивы \\(packed ? "✓" : "—")"
-                : "Core ready: folder \\(loose ? "✓" : "—"), archives \\(packed ? "✓" : "—")"
+                ? "Ядро готово: папка \\(loose ? "✓" : "—"), архивы \\(packed ? "✓" : "—"), уровней \\(levels)"
+                : "Core ready: folder \\(loose ? "✓" : "—"), archives \\(packed ? "✓" : "—"), levels \\(levels)"
         } else {
             engineDiagnostics[game.rawValue] = russian
                 ? "Ядро: ресурсы не найдены или не распознаны"

@@ -1,4 +1,5 @@
 #include "XRayBootstrap.hpp"
+#include "XRayLevelCatalog.hpp"
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -46,6 +47,7 @@ bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     resourceRoot_ = resourceRoot;
     hasLooseGameData_ = loose;
     hasPackedGameData_ = packed;
+    looseLevels_ = loose ? discoverLooseLevels(resourceRoot) : std::vector<std::string>{};
     state_ = EngineState::resourcesReady;
     return true;
 }
@@ -54,6 +56,7 @@ void XRayBootstrap::shutdown() {
     resourceRoot_.clear();
     hasLooseGameData_ = false;
     hasPackedGameData_ = false;
+    looseLevels_.clear();
     state_ = EngineState::cold;
 }
 }

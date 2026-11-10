@@ -6,6 +6,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var status: [String: String] = [:]
     @Published private(set) var fileCounts: [String: Int] = [:]
     @Published private(set) var detectedResources: [String: Bool] = [:]
+    @Published private(set) var importInProgress = false
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -27,6 +28,9 @@ final class GameResourceStore: ObservableObject {
     }
 
     func importFolder(_ source: URL, gameID: String) throws {
+        guard !importInProgress else { throw ImportError.alreadyImporting }
+        importInProgress = true
+        defer { importInProgress = false }
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else {
             throw ImportError.invalidEdition
         }
@@ -91,10 +95,11 @@ final class GameResourceStore: ObservableObject {
     }
 
     enum ImportError: LocalizedError {
-        case invalidEdition, invalidFolder, emptyFolder, missingGameResources
+        case invalidEdition, invalidFolder, emptyFolder, missingGameResources, alreadyImporting
         var errorDescription: String? {
             switch self {
             case .invalidEdition: return "Unsupported game edition"
+            case .alreadyImporting: return "Another import is in progress"
             case .invalidFolder: return "Select an extracted game folder, not an archive"
             case .emptyFolder: return "The selected folder contains no files"
             case .missingGameResources: return "No recognizable X-Ray resource files were found (fsgame.ltx, gamedata or gamedata.db*)"

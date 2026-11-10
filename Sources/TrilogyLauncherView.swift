@@ -68,6 +68,10 @@ struct TrilogyLauncherView: View {
                                     Text(russian ? "Архивов X-Ray: \(archiveCount)" : "X-Ray archives: \(archiveCount)")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
+                                if let header = resources.archiveHeaders[game.rawValue] {
+                                    Text(header).font(.caption2.monospaced()).foregroundStyle(.gray)
+                                        .lineLimit(1)
+                                }
                                 if let bytes = resources.storageBytes[game.rawValue] {
                                     Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
                                         .font(.caption).foregroundStyle(.secondary)

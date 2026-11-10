@@ -138,6 +138,21 @@ enum XRayParserSelfTest {
             }
         } catch { failed.append("Nested folder fixture test: \\(error)") }
 
+        do {
+            let base = FileManager.default.temporaryDirectory
+                .appendingPathComponent("xray-import-safety-" + UUID().uuidString, isDirectory: true)
+            let managed = base.appendingPathComponent("App/ImportedGames", isDirectory: true)
+            let existing = managed.appendingPathComponent("shadow", isDirectory: true)
+            let external = base.appendingPathComponent("Downloads/Stalker", isDirectory: true)
+            try FileManager.default.createDirectory(at: existing, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: external, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: base) }
+            check("Reject managed root", !GameResourceImporter.isSafeImportSource(managed, managedRoot: managed))
+            check("Reject managed child", !GameResourceImporter.isSafeImportSource(existing, managedRoot: managed))
+            check("Reject managed ancestor", !GameResourceImporter.isSafeImportSource(base, managedRoot: managed))
+            check("Allow separate game folder", GameResourceImporter.isSafeImportSource(external, managedRoot: managed))
+        } catch { failed.append("Import source safety fixture test: \\(error)") }
+
         return Result(passed: passed, failed: failed)
     }
 }

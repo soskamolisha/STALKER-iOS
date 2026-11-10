@@ -1,6 +1,7 @@
 #include "STXRayBootstrap.h"
 #include "XRayBootstrap.hpp"
 #include <new>
+#include <cstring>
 
 using stalker::XRayBootstrap;
 extern "C" {
@@ -28,6 +29,19 @@ int32_t st_xray_has_loose_data(STXRayHandle handle) {
 }
 int32_t st_xray_has_packed_data(STXRayHandle handle) {
     return handle && static_cast<XRayBootstrap*>(handle)->hasPackedGameData() ? 1 : 0;
+}
+int32_t st_xray_level_count(STXRayHandle handle) {
+    if (!handle) return -1;
+    return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());
+}
+int32_t st_xray_level_name(STXRayHandle handle, uint32_t index, char* destination, uint32_t capacity) {
+    if (!handle || !destination || capacity == 0) return -1;
+    const auto& levels = static_cast<XRayBootstrap*>(handle)->looseLevels();
+    if (index >= levels.size()) return -2;
+    const std::string& name = levels[index];
+    if (name.size() + 1 > capacity) return -3;
+    std::memcpy(destination, name.c_str(), name.size() + 1);
+    return 0;
 }
 void st_xray_shutdown(STXRayHandle handle) {
     if (handle) static_cast<XRayBootstrap*>(handle)->shutdown();

@@ -46,9 +46,18 @@ enum GameResourceImporter {
             do {
                 try fm.moveItem(at: incomingFolder, to: target)
             } catch {
-                if fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: target) }
+                // Do not hide a failed rollback behind the original move error.
+                if fm.fileExists(atPath: backup.path) {
+                    do {
+                        try fm.moveItem(at: backup, to: target)
+                    } catch {
+                        throw ImportFailure.restoreFailed
+                    }
+                }
                 throw error
             }
+            // The replacement is committed. A cleanup failure must not
+            // report the import as failed or delete the newly installed game.
             if fm.fileExists(atPath: backup.path) { try? fm.removeItem(at: backup) }
         } catch {
             try? fm.removeItem(at: incomingFolder)
@@ -105,9 +114,10 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected
+        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed
         var errorDescription: String? {
             switch self {
+            case .restoreFailed: return "Import failed and the previous game backup could not be restored; the backup was kept for recovery"
             case .managedFolderSelected: return "Choose an external game folder, not an already imported game"
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder"

@@ -49,8 +49,31 @@ int main() {
     assert(std::strcmp(levelName, "zaton") == 0);
     assert(st_xray_level_name(handle, 0, levelName, 2) == -3);
     assert(st_xray_level_chunk_count(handle, 0) == 1);
+    std::uint32_t chunkID = 0, chunkSize = 0;
+    std::uint64_t offset = 0;
+    std::int32_t compressed = -1;
+    assert(st_xray_level_chunk_info(handle, 0, 0, &chunkID, &offset, &chunkSize, &compressed) == 0);
+    assert(chunkID == 7 && offset == 8 && chunkSize == 2 && compressed == 0);
+    assert(st_xray_level_chunk_info(handle, 0, 1, &chunkID, &offset, &chunkSize, &compressed) == -1);
+    const std::string cform = zaton + "/level.cform";
+    {
+        std::ofstream file(cform, std::ios::binary);
+        const unsigned char header[] = {
+            4,0,0,0, 1,0,0,0, 0,0,0,0,
+            0,0,0,0, 0,0,0,0, 0,0,0,0,
+            0,0,128,63, 0,0,128,63, 0,0,128,63,
+            0,0,0,0, 0,0,0,0, 0,0,0,0
+        };
+        file.write(reinterpret_cast<const char*>(header), sizeof(header));
+    }
+    std::uint32_t vertices = 0, triangles = 0;
+    float minimum[3] = {}, maximum[3] = {};
+    assert(st_xray_level_collision_info(handle, 0, &vertices, &triangles, minimum, maximum) == 0);
+    assert(vertices == 1 && triangles == 0 && minimum[0] == 0.0f && maximum[0] == 1.0f);
+    assert(st_xray_level_collision_info(handle, 1, &vertices, &triangles, minimum, maximum) == -1);
     st_xray_shutdown(handle);
     assert(st_xray_level_count(handle) == 0);
+    assert(std::remove(cform.c_str()) == 0);
     assert(std::remove((zaton + "/level").c_str()) == 0);
     assert(rmdir(zaton.c_str()) == 0);
     assert(rmdir(levels.c_str()) == 0);

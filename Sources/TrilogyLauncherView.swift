@@ -59,6 +59,10 @@ struct TrilogyLauncherView: View {
                                 if let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }
+                                if let bytes = resources.storageBytes[game.rawValue] {
+                                    Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
                                 if let diagnostic = resources.diagnostics[game.rawValue] {
                                     Text(diagnostic).font(.caption2.monospaced()).foregroundStyle(.gray)
                                 }

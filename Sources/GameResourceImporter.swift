@@ -132,20 +132,21 @@ enum GameResourceImporter {
             throw ImportFailure.invalidFolder
         }
         var count = 0
-        var foundMarker = false
+        var foundGameData = false
         var foundFile = false
         while let file = files.nextObject() as? URL {
             count += 1
             if count > 200_000 { throw ImportFailure.tooManyFiles }
             let name = file.lastPathComponent.lowercased()
-            if name == "fsgame.ltx" || name == "gamedata" || name.hasPrefix("gamedata.db") {
-                foundMarker = true
+            if name == "gamedata" || name.hasPrefix("gamedata.db") {
+                foundGameData = true
             }
             if (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
                 foundFile = true
             }
         }
-        return foundMarker && foundFile
+        // fsgame.ltx alone is configuration, not a usable resource set.
+        return foundGameData && foundFile
     }
 
     enum ImportFailure: LocalizedError {

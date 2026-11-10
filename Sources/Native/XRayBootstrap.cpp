@@ -38,17 +38,18 @@ bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
         if (lstat(path.c_str(), &info) != 0) continue;
         if (S_ISREG(info.st_mode) && info.st_size > 0) { found = true; break; }
         if (S_ISDIR(info.st_mode) && hasNonemptyLooseFile(path, depth + 1)) {
-            found = true;
-            break;
+            ++result.count;
+            result.bytes += static_cast<std::uint64_t>(info.st_size);
         }
     }
     closedir(dir);
-    return found;
+    return result;
 }
-bool hasPackedArchives(const std::string& root) {
+struct ArchiveInventory { std::uint32_t count = 0; std::uint64_t bytes = 0; };
+ArchiveInventory inspectPackedArchives(const std::string& root) {
     DIR* dir = opendir(root.c_str());
-    if (!dir) return false;
-    bool found = false;
+    if (!dir) return {};
+    ArchiveInventory result;
     while (auto* entry = readdir(dir)) {
         const std::string name(entry->d_name);
         if (isXRayArchiveName(name) && isRegularFile(root + "/" + name)) {
@@ -75,12 +76,15 @@ bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     if (!isDirectory(resourceRoot)) return false;
     const bool loose = isDirectory(resourceRoot + "/gamedata") &&
                        hasNonemptyLooseFile(resourceRoot + "/gamedata");
-    const bool packed = hasPackedArchives(resourceRoot);
+    const ArchiveInventory archives = inspectPackedArchives(resourceRoot);
+    const bool packed = archives.count > 0;
     // A directory by itself is not a valid game resource installation.
     if (!loose && !packed) return false;
     resourceRoot_ = resourceRoot;
     hasLooseGameData_ = loose;
     hasPackedGameData_ = packed;
+    packedArchiveCount_ = archives.count;
+    packedArchiveBytes_ = archives.bytes;
     looseLevels_ = loose ? discoverLooseLevels(resourceRoot) : std::vector<std::string>{};
     state_ = EngineState::resourcesReady;
     return true;
@@ -90,6 +94,8 @@ void XRayBootstrap::shutdown() {
     resourceRoot_.clear();
     hasLooseGameData_ = false;
     hasPackedGameData_ = false;
+    packedArchiveCount_ = 0;
+    packedArchiveBytes_ = 0;
     looseLevels_.clear();
     state_ = EngineState::cold;
 }

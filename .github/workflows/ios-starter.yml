@@ -49,6 +49,10 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/XRayChunkPayloadTests.cpp -o /tmp/stalker-xray-payload-tests
           /tmp/stalker-xray-payload-tests
+      - name: Test native X-Ray collision header
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Tests/XRayCFormHeaderTests.cpp -o /tmp/stalker-xray-cform-tests
+          /tmp/stalker-xray-cform-tests
       - name: Test archive chunk reader
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests

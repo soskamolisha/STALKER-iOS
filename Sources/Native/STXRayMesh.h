@@ -10,6 +10,11 @@ int32_t st_xray_read_collision_mesh(const char* utf8_path,
                                     float* xyz, uint32_t vertex_capacity,
                                     uint32_t* indices, uint32_t triangle_capacity,
                                     uint32_t* vertex_count, uint32_t* triangle_count);
+// Returns a bounded triangle subset for large maps, remapping referenced vertices.
+int32_t st_xray_read_collision_sample(const char* utf8_path,
+                                      float* xyz, uint32_t vertex_capacity,
+                                      uint32_t* indices, uint32_t triangle_capacity,
+                                      uint32_t* vertex_count, uint32_t* triangle_count);
 #ifdef __cplusplus
 }
 #endif

@@ -9,6 +9,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var importInProgress = false
     @Published private(set) var diagnostics: [String: String] = [:]
     @Published private(set) var storageBytes: [String: Int64] = [:]
+    @Published private(set) var archiveCounts: [String: Int] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -28,6 +29,7 @@ final class GameResourceStore: ObservableObject {
         detectedResources[gameID] = detected
         diagnostics[gameID] = Self.resourceSummary(in: folder)
         storageBytes[gameID] = Self.folderSize(in: folder)
+        archiveCounts[gameID] = Self.xrayArchiveCount(in: folder)
         status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
@@ -83,11 +85,25 @@ final class GameResourceStore: ObservableObject {
             detectedResources[gameID] = true
             diagnostics[gameID] = Self.resourceSummary(in: destination)
             storageBytes[gameID] = Self.folderSize(in: destination)
+            archiveCounts[gameID] = Self.xrayArchiveCount(in: destination)
             status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)
             throw error
         }
+    }
+
+    private static func xrayArchiveCount(in folder: URL) -> Int {
+        let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey])
+        var count = 0
+        while let file = files?.nextObject() as? URL {
+            let name = file.lastPathComponent.lowercased()
+            if name.hasPrefix("gamedata.db"),
+               (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
+                count += 1
+            }
+        }
+        return count
     }
 
     private static func folderSize(in folder: URL) -> Int64 {

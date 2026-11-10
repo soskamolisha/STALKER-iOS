@@ -18,7 +18,7 @@ enum GameResourceScanner {
         let prefix = "gamedata.db"
         guard name.hasPrefix(prefix) else { return false }
         let suffix = name.dropFirst(prefix.count)
-        return !suffix.isEmpty && suffix.unicodeScalars.allSatisfy { scalar in
+        return (1...2).contains(suffix.count) && suffix.unicodeScalars.allSatisfy { scalar in
             (scalar.value >= 48 && scalar.value <= 57) ||
             (scalar.value >= 65 && scalar.value <= 90) ||
             (scalar.value >= 97 && scalar.value <= 122)

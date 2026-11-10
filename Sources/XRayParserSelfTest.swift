@@ -76,6 +76,21 @@ enum XRayParserSelfTest {
             failed.append("Chunk count limit was ignored")
         } catch { passed += 1 }
 
+        do {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("xray-inspector-test-" + UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: root) }
+            try Data([0x01, 0x02, 0x03]).write(to: root.appendingPathComponent("gamedata.db0"))
+            try Data().write(to: root.appendingPathComponent("gamedata.db1"))
+            try Data([0xFF]).write(to: root.appendingPathComponent("notes.txt"))
+            let archives = XRayArchiveInspector.inspect(in: root)
+            check("Only game archives selected", archives.count == 2)
+            check("Archive byte count", archives.reduce(Int64(0)) { $0 + $1.size } == 3)
+            check("Empty archive flagged", archives.filter { $0.appearsEmpty }.count == 1)
+            check("Archive header read", archives.first(where: { $0.name == "gamedata.db0" })?.header == Data([1, 2, 3]))
+        } catch { failed.append("Archive inspector filesystem test: \\(error)") }
+
         return Result(passed: passed, failed: failed)
     }
 }

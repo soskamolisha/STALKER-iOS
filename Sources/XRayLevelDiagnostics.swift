@@ -9,6 +9,50 @@ enum XRayLevelDiagnostics {
         let chunks: Int32
     }
 
+    struct Chunk: Identifiable {
+        let id: Int
+        let chunkID: UInt32
+        let offset: UInt64
+        let size: UInt32
+        let compressed: Bool
+    }
+
+    static func inspectChunks(gameID: String, levelName: String) -> [Chunk] {
+        let editions: [String: Int32] = ["shadow": 0, "clearSky": 1, "pripyat": 2]
+        guard let edition = editions[gameID], let handle = st_xray_create() else { return [] }
+        defer { st_xray_destroy(handle) }
+        guard st_xray_initialize(handle, edition) == 0 else { return [] }
+        defer { st_xray_shutdown(handle) }
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
+        guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return [] }
+        let count = st_xray_level_count(handle)
+        guard count > 0 else { return [] }
+        for index in 0..<min(Int(count), 4096) {
+            var buffer = [CChar](repeating: 0, count: 1024)
+            let status = buffer.withUnsafeMutableBufferPointer {
+                st_xray_level_name(handle, UInt32(index), $0.baseAddress, UInt32($0.count))
+            }
+            guard status == 0, String(cString: buffer) == levelName else { continue }
+            let chunkCount = st_xray_level_chunk_count(handle, UInt32(index))
+            guard chunkCount > 0 else { return [] }
+            var chunks: [Chunk] = []
+            for chunkIndex in 0..<min(Int(chunkCount), 256) {
+                var chunkID: UInt32 = 0
+                var offset: UInt64 = 0
+                var size: UInt32 = 0
+                var compressed: Int32 = 0
+                guard st_xray_level_chunk_info(handle, UInt32(index), UInt32(chunkIndex),
+                                               &chunkID, &offset, &size, &compressed) == 0 else { break }
+                chunks.append(Chunk(id: chunkIndex, chunkID: chunkID, offset: offset,
+                                    size: size, compressed: compressed != 0))
+            }
+            return chunks
+        }
+        return []
+    }
+
     static func inspect(gameID: String) -> [Level] {
         let editions: [String: Int32] = ["shadow": 0, "clearSky": 1, "pripyat": 2]
         guard let edition = editions[gameID],

@@ -19,11 +19,11 @@ jobs:
           /tmp/stalker-input-tests
       - name: Test portable X-Ray engine bootstrap
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
       - name: Test X-Ray Swift bridge C ABI
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
           /tmp/stalker-xray-bridge-tests
       - name: Test native X-Ray level catalog
         run: |

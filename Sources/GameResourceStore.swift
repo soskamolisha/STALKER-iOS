@@ -7,6 +7,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var fileCounts: [String: Int] = [:]
     @Published private(set) var detectedResources: [String: Bool] = [:]
     @Published private(set) var importInProgress = false
+    @Published private(set) var diagnostics: [String: String] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -24,6 +25,7 @@ final class GameResourceStore: ObservableObject {
         fileCounts[gameID] = count
         let detected = Self.containsXRayResources(in: folder)
         detectedResources[gameID] = detected
+        diagnostics[gameID] = Self.resourceSummary(in: folder)
         status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
@@ -72,11 +74,21 @@ final class GameResourceStore: ObservableObject {
             if manager.fileExists(atPath: backup.path) { try? manager.removeItem(at: backup) }
             fileCounts[gameID] = count
             detectedResources[gameID] = true
+            diagnostics[gameID] = Self.resourceSummary(in: destination)
             status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)
             throw error
         }
+    }
+
+    private static func resourceSummary(in folder: URL) -> String {
+        let manager = FileManager.default
+        let entries = (try? manager.contentsOfDirectory(atPath: folder.path)) ?? []
+        let names = Set(entries.map { $0.lowercased() })
+        let hasConfig = names.contains("fsgame.ltx")
+        let hasData = names.contains("gamedata") || names.contains(where: { $0.hasPrefix("gamedata.db") })
+        return "fsgame.ltx: \(hasConfig ? "yes" : "no") · gamedata: \(hasData ? "yes" : "no")"
     }
 
     private static func containsXRayResources(in folder: URL) -> Bool {

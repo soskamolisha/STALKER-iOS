@@ -13,6 +13,17 @@ int main() {
     uint32_t count = 99, id = 99, size = 99;
     assert(st_chunk_scan(v.data(), static_cast<uint32_t>(v.size()), &count, &id, &size) == 0);
     assert(count == 2 && id == 42 && size == 3);
+    uint32_t offset = 0, compressed = 0;
+    assert(st_chunk_at(v.data(), static_cast<uint32_t>(v.size()), 0,
+                       &id, &offset, &size, &compressed) == 0);
+    assert(id == 42 && offset == 8 && size == 3 && compressed == 1);
+    assert(st_chunk_at(v.data(), static_cast<uint32_t>(v.size()), 1,
+                       &id, &offset, &size, &compressed) == 0);
+    assert(id == 7 && offset == 19 && size == 0 && compressed == 0);
+    assert(st_chunk_at(v.data(), static_cast<uint32_t>(v.size()), 2,
+                       &id, &offset, &size, &compressed) == -3);
+    assert(st_chunk_at(v.data(), static_cast<uint32_t>(v.size()-1), 0,
+                       &id, &offset, &size, &compressed) == -1);
     assert(st_chunk_scan(v.data(), static_cast<uint32_t>(v.size()-1), &count, &id, &size) == -1);
     assert(st_chunk_scan(nullptr, 0, &count, &id, &size) == -1);
     std::vector<uint8_t> huge;

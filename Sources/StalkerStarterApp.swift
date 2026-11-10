@@ -78,7 +78,7 @@ struct GameShellView: View {
                         Text(detail)
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.white)
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
                     Button("Проверить движок") {
                         do {
@@ -166,6 +166,18 @@ struct GameShellView: View {
                         break
                     }
                     chunkDetails.append("#\(index + 1) ID=\(id) @\(offset) size=\(size) compressed=\(compressed == 1 ? "yes" : "no")")
+                    // Only show a small preview of uncompressed payloads.
+                    // The native parser has already validated these bounds.
+                    if compressed == 0 && size > 0 {
+                        let begin = Int(offset)
+                        let previewSize = min(Int(size), 16)
+                        if begin <= data.count && previewSize <= data.count - begin {
+                            let preview = data[begin..<(begin + previewSize)]
+                                .map { String(format: "%02X", $0) }
+                                .joined(separator: " ")
+                            chunkDetails.append("  HEX: \(preview)")
+                        }
+                    }
                 }
                 if count > 5 {
                     chunkDetails.append("Показаны первые 5 из \(count)")

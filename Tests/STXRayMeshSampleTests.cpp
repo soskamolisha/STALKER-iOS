@@ -57,6 +57,15 @@ int main() {
     assert(st_xray_read_collision_sample(path.c_str(), xyz, 3, indices, 2, &vertices, &triangles) == 0);
     assert(triangles == 1 && vertices == 3);
     assert(st_xray_read_collision_sample(path.c_str(), xyz, 2, indices, 2, &vertices, &triangles) == -3);
+    // Replace first face with a degenerate triangle; remaining faces still render.
+    {
+        std::fstream file(path, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(36 + 6 * 12 + 4, std::ios::beg);
+        const unsigned char zero[4] = {};
+        file.write(reinterpret_cast<const char*>(zero), 4);
+    }
+    assert(st_xray_read_collision_sample(path.c_str(), xyz, 6, indices, 4, &vertices, &triangles) == 0);
+    assert(triangles == 3);
     assert(st_xray_read_collision_sample(nullptr, xyz, 6, indices, 2, &vertices, &triangles) == -1);
     assert(std::remove(path.c_str()) == 0);
 }

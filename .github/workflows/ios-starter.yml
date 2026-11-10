@@ -45,6 +45,10 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Run Swift X-Ray parser self-tests
+        run: |
+          swiftc Sources/XRayBinaryReader.swift Sources/XRayChunkScanner.swift Sources/XRayParserSelfTest.swift Tests/XRayParserTestMain.swift -o /tmp/stalker-xray-parser-tests
+          /tmp/stalker-xray-parser-tests
       - name: Build iOS simulator app
         run: |
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build

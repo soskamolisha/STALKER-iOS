@@ -24,6 +24,27 @@ bool isXRayArchiveName(const std::string& name) {
     }
     return true;
 }
+// Inspect loose resources without following directory symlinks.
+bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
+    if (depth > 32) return false;
+    DIR* dir = opendir(directory.c_str());
+    if (!dir) return false;
+    bool found = false;
+    while (auto* entry = readdir(dir)) {
+        const std::string name(entry->d_name);
+        if (name == "." || name == "..") continue;
+        const std::string path = directory + "/" + name;
+        struct stat info {};
+        if (lstat(path.c_str(), &info) != 0) continue;
+        if (S_ISREG(info.st_mode) && info.st_size > 0) { found = true; break; }
+        if (S_ISDIR(info.st_mode) && hasNonemptyLooseFile(path, depth + 1)) {
+            found = true;
+            break;
+        }
+    }
+    closedir(dir);
+    return found;
+}
 bool hasPackedArchives(const std::string& root) {
     DIR* dir = opendir(root.c_str());
     if (!dir) return false;
@@ -52,7 +73,8 @@ bool XRayBootstrap::initialize(GameEdition edition) {
 bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     if (state_ != EngineState::initialized || resourceRoot.empty()) return false;
     if (!isDirectory(resourceRoot)) return false;
-    const bool loose = isDirectory(resourceRoot + "/gamedata");
+    const bool loose = isDirectory(resourceRoot + "/gamedata") &&
+                       hasNonemptyLooseFile(resourceRoot + "/gamedata");
     const bool packed = hasPackedArchives(resourceRoot);
     // A directory by itself is not a valid game resource installation.
     if (!loose && !packed) return false;

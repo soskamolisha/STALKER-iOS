@@ -113,6 +113,31 @@ enum XRayParserSelfTest {
             check("Scanner rejects missing folder", GameResourceScanner.scan(root.appendingPathComponent("missing")) == nil)
         } catch { failed.append("Resource scanner fixture test: \\(error)") }
 
+        do {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("xray-nested-test-" + UUID().uuidString, isDirectory: true)
+            let nested = root.appendingPathComponent("gamedata/config", isDirectory: true)
+            try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: root) }
+            try Data([1, 2, 3, 4, 5]).write(to: nested.appendingPathComponent("system.ltx"))
+            if let inventory = GameResourceScanner.scan(root) {
+                check("Nested folder file count", inventory.count == 1)
+                check("Nested folder bytes", inventory.bytes == 5)
+                check("Nested gamedata marker", inventory.detected)
+                check("Nested folder has no archives", inventory.archiveCount == 0)
+            } else {
+                failed.append("Nested resource folder not scanned")
+            }
+            let empty = root.appendingPathComponent("empty", isDirectory: true)
+            try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+            if let inventory = GameResourceScanner.scan(empty) {
+                check("Empty folder zero files", inventory.count == 0)
+                check("Empty folder no resources", !inventory.detected)
+            } else {
+                failed.append("Empty folder not scanned")
+            }
+        } catch { failed.append("Nested folder fixture test: \\(error)") }
+
         return Result(passed: passed, failed: failed)
     }
 }

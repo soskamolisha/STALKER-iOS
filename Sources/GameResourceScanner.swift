@@ -42,7 +42,9 @@ enum GameResourceScanner {
 
     static func scan(_ folder: URL) -> Inventory? {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: folder.path) else { return nil }
+        var rootIsDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: folder.path, isDirectory: &rootIsDirectory),
+              rootIsDirectory.boolValue else { return nil }
         let entries = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? []
         let names = Set(entries.map { $0.lowercased() })
         let config = names.contains("fsgame.ltx")
@@ -66,7 +68,7 @@ enum GameResourceScanner {
             let size = Int64(info.fileSize ?? 0)
             bytes += size
             let relativePath = String(file.standardizedFileURL.path.dropFirst(folder.standardizedFileURL.path.count + 1)).lowercased()
-            if relativePath.hasPrefix("gamedata/") { hasLooseGameFile = true }
+            if relativePath.hasPrefix("gamedata/") && size > 0 { hasLooseGameFile = true }
             guard file.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL,
                   isArchiveName(name) else { continue }
             archiveCount += 1

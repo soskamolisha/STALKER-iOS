@@ -10,6 +10,8 @@ class XRayBootstrap {
 public:
     bool initialize(GameEdition edition);
     bool attachResources(const std::string& resourceRoot);
+    bool hasLooseGameData() const { return hasLooseGameData_; }
+    bool hasPackedGameData() const { return hasPackedGameData_; }
     void shutdown();
     EngineState state() const { return state_; }
     GameEdition edition() const { return edition_; }
@@ -18,5 +20,7 @@ private:
     EngineState state_ = EngineState::cold;
     GameEdition edition_ = GameEdition::shadow;
     std::string resourceRoot_;
+    bool hasLooseGameData_ = false;
+    bool hasPackedGameData_ = false;
 };
 }

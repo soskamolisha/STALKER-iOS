@@ -47,6 +47,21 @@ int main() {
     nested.pop_back();
     assert(st_chunk_scan_children(nested.data(), static_cast<uint32_t>(nested.size()),
                                   0, &children, &childID) == -1);
+    uint8_t copied[3] = {0, 0, 0};
+    std::vector<uint8_t> plain;
+    append32(plain, 5); append32(plain, 3);
+    plain.push_back('X'); plain.push_back('Y'); plain.push_back('Z');
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 1, 2, copied, 3) == 0);
+    assert(copied[0] == 'Y' && copied[1] == 'Z');
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 2, 2, copied, 3) == -5);
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 0, 3, copied, 2) == -6);
+    assert(st_chunk_copy_slice(v.data(), static_cast<uint32_t>(v.size()),
+                               0, 0, 1, copied, 3) == -4);
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 3, 0, nullptr, 0) == 0);
     std::vector<uint8_t> many;
     for (int i = 0; i < 4097; ++i) { append32(many, 1); append32(many, 0); }
     assert(st_chunk_scan(many.data(), static_cast<uint32_t>(many.size()), &count, &id, &size) == -2);

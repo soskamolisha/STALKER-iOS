@@ -56,10 +56,18 @@ int main() {
     assert(engine.hasPackedGameData());
     assert(engine.packedArchiveCount() == 1);
     assert(engine.packedArchiveBytes() == 7);
+    // Count a second valid archive, but ignore empty and backup-like files.
+    { std::ofstream second(root + "/gamedata.dba", std::ios::binary); second << "data"; }
+    engine.shutdown();
+    assert(engine.initialize(GameEdition::shadow));
+    assert(engine.attachResources(root));
+    assert(engine.packedArchiveCount() == 2);
+    assert(engine.packedArchiveBytes() == 11);
     engine.shutdown();
     assert(engine.packedArchiveCount() == 0);
     assert(engine.packedArchiveBytes() == 0);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
+    assert(std::remove((root + "/gamedata.dba").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db1").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db.backup").c_str()) == 0);
     assert(rmdir(root.c_str()) == 0);

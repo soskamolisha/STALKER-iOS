@@ -30,6 +30,10 @@ final class GameResourceStore: ObservableObject {
         let access = source.startAccessingSecurityScopedResource()
         defer { if access { source.stopAccessingSecurityScopedResource() } }
         let manager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard manager.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ImportError.invalidFolder
+        }
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         let destination = root.appendingPathComponent(gameID, isDirectory: true)
         let staging = root.appendingPathComponent(gameID + ".incoming", isDirectory: true)
@@ -67,10 +71,11 @@ final class GameResourceStore: ObservableObject {
     }
 
     enum ImportError: LocalizedError {
-        case invalidEdition, emptyFolder
+        case invalidEdition, invalidFolder, emptyFolder
         var errorDescription: String? {
             switch self {
             case .invalidEdition: return "Unsupported game edition"
+            case .invalidFolder: return "Select an extracted game folder, not an archive"
             case .emptyFolder: return "The selected folder contains no files"
             }
         }

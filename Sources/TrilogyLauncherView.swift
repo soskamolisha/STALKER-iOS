@@ -94,8 +94,8 @@ struct TrilogyLauncherView: View {
             }
             let levelSummary = levelDetails.isEmpty ? "" : " [\(levelDetails.joined(separator: ", "))]"
             engineDiagnostics[game.rawValue] = russian
-                ? "Ядро готово: папка \\(loose ? "✓" : "—"), архивы \\(packed ? "✓" : "—"), уровней \\(levels)"
-                : "Core ready: folder \\(loose ? "✓" : "—"), archives \\(packed ? "✓" : "—"), levels \\(levels)"
+                ? "Ядро: папка \(loose ? "✓" : "—"), архивы \(packed ? "✓" : "—"), уровней \(levels)\(levelSummary)"
+                : "Core: folder \(loose ? "✓" : "—"), archives \(packed ? "✓" : "—"), levels \(levels)\(levelSummary)"
         } else {
             engineDiagnostics[game.rawValue] = russian
                 ? "Ядро: ресурсы не найдены или не распознаны"

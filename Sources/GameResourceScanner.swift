@@ -24,16 +24,12 @@ enum GameResourceScanner {
         let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey])
         var count = 0
         var bytes: Int64 = 0
-        var detected = false
         var archiveCount = 0
         var archiveBytes: Int64 = 0
         var emptyArchives = 0
         var header = "No X-Ray archive header available"
         while let file = enumerator?.nextObject() as? URL {
             let name = file.lastPathComponent.lowercased()
-            if name == "fsgame.ltx" || name == "gamedata" || name.hasPrefix("gamedata.db") {
-                detected = true
-            }
             guard let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
                   info.isRegularFile == true else { continue }
             count += 1
@@ -52,6 +48,8 @@ enum GameResourceScanner {
         }
         let archiveSummary = archiveCount == 0 ? "No gamedata.db archives found" :
             "\(archiveCount) archives, \(ByteCountFormatter.string(fromByteCount: archiveBytes, countStyle: .file)), \(emptyArchives) empty"
+        // A config file by itself must never appear as imported game data.
+        let detected = data && count > 0
         return Inventory(count: count, bytes: bytes, detected: detected,
                          diagnostics: diagnostics, archiveCount: archiveCount,
                          archiveSummary: archiveSummary, firstArchiveHeader: header)

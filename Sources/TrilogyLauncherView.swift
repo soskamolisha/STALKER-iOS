@@ -91,8 +91,10 @@ struct TrilogyLauncherView: View {
                 do {
                     let folder = try result.get()
                     try resources.importFolder(folder, gameID: selectedGame.rawValue)
+                    self.selectedGame = nil
                 } catch {
                     importError = error.localizedDescription
+                    self.selectedGame = nil
                 }
             }
         }

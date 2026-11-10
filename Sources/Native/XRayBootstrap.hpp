@@ -13,6 +13,8 @@ public:
     bool attachResources(const std::string& resourceRoot);
     bool hasLooseGameData() const { return hasLooseGameData_; }
     bool hasPackedGameData() const { return hasPackedGameData_; }
+    std::uint32_t packedArchiveCount() const { return packedArchiveCount_; }
+    std::uint64_t packedArchiveBytes() const { return packedArchiveBytes_; }
     void shutdown();
     EngineState state() const { return state_; }
     GameEdition edition() const { return edition_; }
@@ -24,6 +26,8 @@ private:
     std::string resourceRoot_;
     bool hasLooseGameData_ = false;
     bool hasPackedGameData_ = false;
+    std::uint32_t packedArchiveCount_ = 0;
+    std::uint64_t packedArchiveBytes_ = 0;
     std::vector<std::string> looseLevels_;
 };
 }

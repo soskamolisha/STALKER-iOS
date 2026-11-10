@@ -2,6 +2,7 @@
 #include "XRayLevelCatalog.hpp"
 #include <dirent.h>
 #include <cctype>
+#include <limits>
 #include <sys/stat.h>
 
 namespace stalker {
@@ -52,8 +53,11 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
         const std::string path = root + "/" + name;
         struct stat info {};
         if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) continue;
+        if (result.count == std::numeric_limits<std::uint32_t>::max()) break;
+        const auto size = static_cast<std::uint64_t>(info.st_size);
+        if (size > std::numeric_limits<std::uint64_t>::max() - result.bytes) break;
         ++result.count;
-        result.bytes += static_cast<std::uint64_t>(info.st_size);
+        result.bytes += size;
     }
     closedir(dir);
     return result;
@@ -70,8 +74,12 @@ bool XRayBootstrap::initialize(GameEdition edition) {
 bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     if (state_ != EngineState::initialized || resourceRoot.empty()) return false;
     if (!isDirectory(resourceRoot)) return false;
-    const bool loose = isDirectory(resourceRoot + "/gamedata") &&
-                       hasNonemptyLooseFile(resourceRoot + "/gamedata");
+    // Avoid scanning external paths through a symlinked game-data root.
+    struct stat looseRootInfo {};
+    const std::string looseRoot = resourceRoot + "/gamedata";
+    const bool looseRootIsDirectory = lstat(looseRoot.c_str(), &looseRootInfo) == 0 &&
+                                      S_ISDIR(looseRootInfo.st_mode);
+    const bool loose = looseRootIsDirectory && hasNonemptyLooseFile(looseRoot);
     const ArchiveInventory archives = inspectPackedArchives(resourceRoot);
     const bool packed = archives.count > 0;
     // A directory by itself is not a valid game resource installation.

@@ -122,9 +122,15 @@ enum GameResourceImporter {
         let levels = folder.appendingPathComponent("gamedata/levels", isDirectory: true)
         guard let names = try? fm.contentsOfDirectory(atPath: levels.path).map({ $0.lowercased() }) else { return }
         let set = Set(names)
-        let hasZaton = set.contains("zaton")
-        let hasJupiter = set.contains("jupiter")
-        let hasMarsh = set.contains("marsh")
+        func hasLevelDirectory(_ name: String) -> Bool {
+            guard set.contains(name) else { return false }
+            var isDirectory: ObjCBool = false
+            let level = levels.appendingPathComponent(name, isDirectory: true)
+            return fm.fileExists(atPath: level.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
+        let hasZaton = hasLevelDirectory("zaton")
+        let hasJupiter = hasLevelDirectory("jupiter")
+        let hasMarsh = hasLevelDirectory("marsh")
         let hasPripyatMarker = hasZaton || hasJupiter
         // Mixed markers can occur in mods or merged game-data folders.
         // Do not reject ambiguous content based on a single loose level name.

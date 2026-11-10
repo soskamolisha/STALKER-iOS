@@ -25,6 +25,7 @@ int main() {
     assert(mkdir((root + "/gamedata").c_str(), 0700) == 0);
     assert(engine.attachResources(root));
     assert(engine.hasLooseGameData());
+    assert(engine.looseLevels().empty());
     assert(!engine.hasPackedGameData());
     assert(engine.state() == EngineState::resourcesReady);
     assert(!engine.attachResources(root));
@@ -32,6 +33,7 @@ int main() {
     assert(engine.state() == EngineState::cold);
     assert(!engine.hasLooseGameData());
     assert(!engine.hasPackedGameData());
+    assert(engine.looseLevels().empty());
     assert(rmdir((root + "/gamedata").c_str()) == 0);
     std::ofstream archive(root + "/gamedata.db0", std::ios::binary);
     archive << "fixture";

@@ -29,6 +29,21 @@ It does **not** test xrCore as a whole, xrEngine, any renderer, APK loading,
 iPhone execution, or gameplay. The provided `VERIFY2` shim is only for the
 standalone header; it is not a replacement for OpenXRay's native services.
 
+## Verified result (2026-11-10)
+
+[GitHub Actions probe run #2](https://github.com/soskamolisha/STALKER-iOS/actions/runs/42787599487)
+**passed** at commit `4e2007c51de09c9003c30e41bd2939b720a11fdf`:
+
+- The workflow checked out the exact upstream OpenXRay revision.
+- The native C++ test ran successfully on the macOS runner.
+- The same source cross-compiled for `arm64-apple-ios17.0`, then was
+  packed into `libOpenXRayMathProbe-ios.a` and uploaded as the
+  `openxray-math-arm64-ios` artifact.
+
+This is a **static library with one math component**, not a game executable,
+renderer, signed IPA, or evidence of successful iPhone execution. The full
+xrCore library and engine remain unported.
+
 ## Known subsequent work
 
 - Port an actual xrCore subset and resolve its SDL2, LZO, filesystem and

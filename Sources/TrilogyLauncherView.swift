@@ -65,6 +65,7 @@ struct TrilogyLauncherView: View {
                                         showImporter = true
                                     }
                                     .buttonStyle(.borderedProminent).tint(.yellow)
+                                    .disabled(resources.importInProgress)
                                     Button(russian ? "Запустить" : "Launch") {}
                                         .buttonStyle(.bordered)
                                         .disabled(true)

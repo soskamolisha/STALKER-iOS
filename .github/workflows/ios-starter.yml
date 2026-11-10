@@ -1,6 +1,18 @@
 name: Build iOS starter
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'project.yml'
+      - 'scripts/package_unsigned_ipa.py'
+      - '.github/workflows/ios-starter.yml'
+concurrency:
+  group: ios-starter-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: macos-latest

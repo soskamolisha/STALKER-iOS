@@ -46,6 +46,7 @@ extern "C" int32_t st_xray_read_collision_sample(const char* utf8_path,
         file.seekg(static_cast<std::streamoff>(facesOffset + face * 16), std::ios::beg);
         if (!file.read(reinterpret_cast<char*>(record), 16)) return -2;
         const uint32_t original[3] = {le32(record), le32(record + 4), le32(record + 8)};
+        for (uint32_t index : original) if (index >= header.vertexCount) return -2;
         // Degenerate faces have no drawable area and waste scarce preview capacity.
         if (original[0] == original[1] || original[1] == original[2] ||
             original[0] == original[2]) continue;

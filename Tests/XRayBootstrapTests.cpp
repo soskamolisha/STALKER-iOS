@@ -22,6 +22,10 @@ int main() {
     assert(!engine.initialize(GameEdition::shadow));
     assert(!engine.attachResources(root));
     assert(!engine.attachResources("/definitely/not/a/game/folder"));
+    // A symlink to external data must not be treated as a loose game installation.
+    assert(symlink("/tmp", (root + "/gamedata").c_str()) == 0);
+    assert(!engine.attachResources(root));
+    assert(std::remove((root + "/gamedata").c_str()) == 0);
     assert(mkdir((root + "/gamedata").c_str(), 0700) == 0);
     assert(!engine.attachResources(root));
     { std::ofstream file(root + "/gamedata/fixture.ltx"); file << "fixture"; }
@@ -38,6 +42,11 @@ int main() {
     assert(engine.looseLevels().empty());
     assert(std::remove((root + "/gamedata/fixture.ltx").c_str()) == 0);
     assert(rmdir((root + "/gamedata").c_str()) == 0);
+    { std::ofstream fake(root + "/gamedata.db.backup"); fake << "backup"; }
+    { std::ofstream empty(root + "/gamedata.db1"); }
+    assert(engine.initialize(GameEdition::shadow));
+    assert(!engine.attachResources(root));
+    engine.shutdown();
     std::ofstream archive(root + "/gamedata.db0", std::ios::binary);
     archive << "fixture";
     archive.close();
@@ -51,6 +60,8 @@ int main() {
     assert(engine.packedArchiveCount() == 0);
     assert(engine.packedArchiveBytes() == 0);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
+    assert(std::remove((root + "/gamedata.db1").c_str()) == 0);
+    assert(std::remove((root + "/gamedata.db.backup").c_str()) == 0);
     assert(rmdir(root.c_str()) == 0);
     std::cout << "X-Ray resource discovery lifecycle tests passed\n";
 }

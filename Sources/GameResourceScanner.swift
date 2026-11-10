@@ -12,6 +12,21 @@ enum GameResourceScanner {
         let firstArchiveHeader: String
     }
 
+    /// Edition hints from loose level names only; packed archives are ambiguous.
+    private static func looseLevelEditionHint(in root: URL) -> String {
+        let levels = root.appendingPathComponent("gamedata/levels", isDirectory: true)
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: levels.path) else {
+            return "edition: unknown (packed or no loose levels)"
+        }
+        let names = Set(entries.map { $0.lowercased() })
+        let cop = names.contains("zaton") || names.contains("jupiter")
+        let cs = names.contains("marsh")
+        if cop && cs { return "edition: mixed level markers" }
+        if cop { return "edition hint: Call of Pripyat" }
+        if cs { return "edition hint: Clear Sky" }
+        return "edition: unknown (no distinctive loose levels)"
+    }
+
     static func scan(_ folder: URL) -> Inventory? {
         let fm = FileManager.default
         guard fm.fileExists(atPath: folder.path) else { return nil }
@@ -19,7 +34,7 @@ enum GameResourceScanner {
         let names = Set(entries.map { $0.lowercased() })
         let config = names.contains("fsgame.ltx")
         let data = names.contains("gamedata") || names.contains(where: { $0.hasPrefix("gamedata.db") })
-        let diagnostics = "fsgame.ltx: \(config ? "yes" : "no") · gamedata: \(data ? "yes" : "no")"
+        let diagnostics = "fsgame.ltx: \(config ? "yes" : "no") · gamedata: \(data ? "yes" : "no") · \(looseLevelEditionHint(in: folder))"
 
         let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey])
         var count = 0

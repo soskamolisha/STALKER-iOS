@@ -17,11 +17,7 @@ enum GameResourceImporter {
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         // Reject importing our own managed directory (or a descendant) to avoid
         // recursive copies, accidental replacement, and storage exhaustion.
-        let sourcePath = source.standardizedFileURL.resolvingSymlinksInPath().path
-        let managedPath = root.standardizedFileURL.resolvingSymlinksInPath().path
-        guard sourcePath != managedPath &&
-              !sourcePath.hasPrefix(managedPath + "/") &&
-              !managedPath.hasPrefix(sourcePath + "/") else {
+        guard isSafeImportSource(source, managedRoot: root) else {
             throw ImportFailure.managedFolderSelected
         }
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
@@ -65,6 +61,16 @@ enum GameResourceImporter {
             try? fm.removeItem(at: incomingFolder)
             throw error
         }
+    }
+
+    /// Returns false for the managed root, its descendants, and its ancestors.
+    /// Canonical paths prevent simple symlink-based bypasses.
+    static func isSafeImportSource(_ source: URL, managedRoot: URL) -> Bool {
+        let sourcePath = source.standardizedFileURL.resolvingSymlinksInPath().path
+        let managedPath = managedRoot.standardizedFileURL.resolvingSymlinksInPath().path
+        return sourcePath != managedPath &&
+            !sourcePath.hasPrefix(managedPath + "/") &&
+            !managedPath.hasPrefix(sourcePath + "/")
     }
 
     private static func folderSize(_ url: URL) throws -> Int64 {

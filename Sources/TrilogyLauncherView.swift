@@ -15,6 +15,22 @@ struct TrilogyLauncherView: View {
         case clearSky = "clearSky"
         case pripyat = "pripyat"
         var id: String { rawValue }
+        var artworkURL: URL? {
+            let url: String
+            switch self {
+            case .shadow: url = "https://images.unsplash.com/photo-1511497584788-876760111969?w=1200&q=85"
+            case .clearSky: url = "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=1200&q=85"
+            case .pripyat: url = "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1200&q=85"
+            }
+            return URL(string: url)
+        }
+        var symbol: String {
+            switch self {
+            case .shadow: return "radiation"
+            case .clearSky: return "cloud.sun.fill"
+            case .pripyat: return "bolt.shield.fill"
+            }
+        }
         var russianName: String {
             switch self {
             case .shadow: return "Тень Чернобыля"
@@ -36,11 +52,19 @@ struct TrilogyLauncherView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.075, green: 0.085, blue: 0.075).ignoresSafeArea()
+                LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
+                                         Color(red: 0.11, green: 0.13, blue: 0.10)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
-                            Text("STALKER MOBILE").font(.largeTitle.bold()).foregroundStyle(.yellow)
+                            HStack(spacing: 9) {
+                                Image(systemName: "scope").font(.title.bold())
+                                Text("STALKER").font(.largeTitle.weight(.black)).tracking(3)
+                                Text("MOBILE").font(.caption.bold()).tracking(2)
+                                    .padding(.horizontal, 9).padding(.vertical, 5)
+                                    .background(.yellow.opacity(0.2), in: Capsule())
+                            }.foregroundStyle(.yellow)
                             Spacer()
                             Picker("Language", selection: $language) {
                                 Text("РУС").tag("ru")
@@ -53,12 +77,48 @@ struct TrilogyLauncherView: View {
                             ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
                                 .tint(.yellow)
                         }
-                        Text(russian ? "Выберите игру" : "Choose a game")
-                            .font(.title2).foregroundStyle(.white)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(russian ? "ДОБРО ПОЖАЛОВАТЬ В ЗОНУ" : "WELCOME TO THE ZONE")
+                                    .font(.caption.bold()).tracking(3).foregroundStyle(.yellow)
+                                Text(russian ? "Выберите свою историю" : "Choose your story")
+                                    .font(.title2.bold()).foregroundStyle(.white)
+                            }
+                            Spacer()
+                            Image(systemName: "waveform.path.ecg.rectangle")
+                                .font(.title).foregroundStyle(.yellow.opacity(0.7))
+                        }
                         ForEach(GameEdition.allCases) { game in
                             VStack(alignment: .leading, spacing: 10) {
+                                ZStack(alignment: .bottomLeading) {
+                                    AsyncImage(url: game.artworkURL) { phase in
+                                        if let image = phase.image {
+                                            image.resizable().scaledToFill()
+                                        } else {
+                                            ZStack {
+                                                LinearGradient(colors: [.black, Color(red: 0.22, green: 0.30, blue: 0.19), .black],
+                                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                                                Image(systemName: game.symbol)
+                                                    .font(.system(size: 90, weight: .ultraLight))
+                                                    .foregroundStyle(.yellow.opacity(0.3))
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity).frame(height: 160).clipped()
+                                    LinearGradient(colors: [.clear, .black.opacity(0.9)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                    HStack {
+                                        Image(systemName: game.symbol)
+                                        Text(russian ? game.russianName.uppercased() : game.englishName.uppercased())
+                                            .font(.title3.bold()).tracking(1)
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(16)
+                                }
+                                .frame(height: 160)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                                 Text(russian ? game.russianName : game.englishName)
-                                    .font(.title3.bold()).foregroundStyle(.white)
+                                    .font(.headline).foregroundStyle(.yellow)
                                 Text(russian ? "Игровые ресурсы добавляются отдельно" : "Import your own game resources")
                                     .foregroundStyle(.gray)
                                 if let status = resources.status[game.rawValue] {
@@ -96,7 +156,14 @@ struct TrilogyLauncherView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                            .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 16))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.18), lineWidth: 1))
+                        }
+                        Divider().overlay(.yellow.opacity(0.4))
+                        HStack(spacing: 10) {
+                            Image(systemName: "externaldrive.fill").foregroundStyle(.yellow)
+                            Text(russian ? "РАЗДЕЛ: ДИАГНОСТИКА И ТЕСТЫ" : "SECTION: DIAGNOSTICS & TESTS")
+                                .font(.caption.bold()).tracking(1).foregroundStyle(.white)
                         }
                         NavigationLink(russian ? "Открыть технический прототип" : "Open technical prototype") {
                             GameShellView()

@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace stalker {
 enum class EngineState : std::uint8_t { cold, initialized, resourcesReady };
@@ -16,11 +17,13 @@ public:
     EngineState state() const { return state_; }
     GameEdition edition() const { return edition_; }
     const std::string& resourceRoot() const { return resourceRoot_; }
+    const std::vector<std::string>& looseLevels() const { return looseLevels_; }
 private:
     EngineState state_ = EngineState::cold;
     GameEdition edition_ = GameEdition::shadow;
     std::string resourceRoot_;
     bool hasLooseGameData_ = false;
     bool hasPackedGameData_ = false;
+    std::vector<std::string> looseLevels_;
 };
 }

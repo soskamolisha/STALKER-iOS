@@ -15,6 +15,13 @@ enum GameResourceImporter {
         let root = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ImportedGames", isDirectory: true)
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        // Reject importing our own managed directory (or a descendant) to avoid
+        // recursive copies, accidental replacement, and storage exhaustion.
+        let sourcePath = source.standardizedFileURL.resolvingSymlinksInPath().path
+        let managedPath = root.standardizedFileURL.resolvingSymlinksInPath().path
+        guard sourcePath != managedPath && !sourcePath.hasPrefix(managedPath + "/") else {
+            throw ImportFailure.managedFolderSelected
+        }
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
         let incoming = try folderSize(source)
         // Replacement keeps the existing installation until the new copy is validated.
@@ -98,9 +105,10 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch
+        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected
         var errorDescription: String? {
             switch self {
+            case .managedFolderSelected: return "Choose an external game folder, not an already imported game"
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder"
             case .insufficientStorage: return "Not enough free storage on this device"

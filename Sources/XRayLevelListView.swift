@@ -15,13 +15,13 @@ struct XRayLevelListView: View {
                                        systemImage: "square.stack.3d.up.slash",
                                        description: Text("Import extracted gamedata/levels folders. Packed game archives are not decoded yet."))
             } else {
-                Section("Unpacked locations (\\(levels.count))") {
+                Section("Unpacked locations (\(levels.count))") {
                     ForEach(levels) { level in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(level.name).font(.headline)
                                 Text(level.chunks >= 0
-                                     ? "Geometry chunks: \\(level.chunks)"
+                                     ? "Geometry chunks: \(level.chunks)"
                                      : "Geometry unavailable or invalid")
                                     .font(.caption).foregroundStyle(.secondary)
                             }

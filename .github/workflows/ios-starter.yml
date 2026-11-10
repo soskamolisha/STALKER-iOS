@@ -21,6 +21,22 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests
           /tmp/stalker-archive-tests
+      - name: Fetch pinned genuine OpenXRay xrCore source
+        uses: actions/checkout@v4
+        with:
+          repository: Eternal-Entropia/openxray-android
+          ref: 1b84cfbc5efa3e9af942164e5a3c2dde43b77f51
+          path: openxray-upstream
+          persist-credentials: false
+          sparse-checkout: |
+            src/xrCore/crc32.cpp
+            License.txt
+          sparse-checkout-cone-mode: false
+      - name: Stage upstream CRC32 implementation for XcodeGen
+        run: |
+          test "$(git -C openxray-upstream rev-parse HEAD)" = "1b84cfbc5efa3e9af942164e5a3c2dde43b77f51"
+          test -s openxray-upstream/License.txt
+          cp openxray-upstream/src/xrCore/crc32.cpp Sources/Native/Upstream/crc32.cpp
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

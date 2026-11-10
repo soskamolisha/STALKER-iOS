@@ -103,6 +103,57 @@ struct TrilogyLauncherView: View {
         }
     }
 
+    @State private var selectedSection = "home"
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(["home", "games", "import", "settings", "saves", "about"], id: \.self) { section in
+                let icon: String = {
+                    switch section {
+                    case "home": return "house.fill"
+                    case "games": return "folder"
+                    case "import": return "square.and.arrow.down"
+                    case "settings": return "slider.horizontal.3"
+                    case "saves": return "square.and.arrow.down.on.square"
+                    default: return "info.circle"
+                    }
+                }()
+                let label: String = {
+                    switch section {
+                    case "home": return russian ? "Главная" : "Home"
+                    case "games": return russian ? "Игры" : "Games"
+                    case "import": return russian ? "Импорт ресурсов" : "Import resources"
+                    case "settings": return russian ? "Настройки" : "Settings"
+                    case "saves": return russian ? "Сохранения" : "Saves"
+                    default: return russian ? "О проекте" : "About"
+                    }
+                }()
+                Button {
+                    selectedSection = section
+                    if section == "import" {
+                        selectedGame = .shadow
+                        showImporter = true
+                    }
+                } label: {
+                    Label(label, systemImage: icon)
+                        .font(.subheadline.weight(selectedSection == section ? .bold : .regular))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .foregroundStyle(selectedSection == section ? .yellow : .white.opacity(0.85))
+                        .background(selectedSection == section ? Color.yellow.opacity(0.16) : .clear,
+                                    in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "radiation")
+                .font(.system(size: 80))
+                .foregroundStyle(.yellow.opacity(0.22))
+        }
+        .frame(width: 190)
+        .padding(.top, 8)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -142,6 +193,10 @@ struct TrilogyLauncherView: View {
                             Image(systemName: "waveform.path.ecg.rectangle")
                                 .font(.title).foregroundStyle(.yellow.opacity(0.7))
                         }
+                        HStack(alignment: .top, spacing: 18) {
+                            sidebar
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(alignment: .top, spacing: 14) {
                         ForEach(GameEdition.allCases) { game in
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
@@ -234,10 +289,13 @@ struct TrilogyLauncherView: View {
                                         .disabled(true)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(width: 275, alignment: .leading)
                             .padding()
-                            .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 16))
+                            .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.18), lineWidth: 1))
+                        }
+                                }
+                            }
                         }
                         Divider().overlay(.yellow.opacity(0.4))
                         HStack(spacing: 10) {

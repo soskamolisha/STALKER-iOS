@@ -18,7 +18,11 @@ enum GameResourceScanner {
         let prefix = "gamedata.db"
         guard name.hasPrefix(prefix) else { return false }
         let suffix = name.dropFirst(prefix.count)
-        return !suffix.isEmpty && suffix.allSatisfy { $0.isASCII && $0.isLetter || $0.isNumber && $0.isASCII }
+        return !suffix.isEmpty && suffix.unicodeScalars.allSatisfy { scalar in
+            (scalar.value >= 48 && scalar.value <= 57) ||
+            (scalar.value >= 65 && scalar.value <= 90) ||
+            (scalar.value >= 97 && scalar.value <= 122)
+        }
     }
 
     /// Edition hints from loose level names only; packed archives are ambiguous.

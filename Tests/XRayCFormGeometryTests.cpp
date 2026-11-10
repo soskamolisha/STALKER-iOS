@@ -31,5 +31,23 @@ int main() {
     assert(vertices[1].x == 1.0f && triangles[0].c == 2);
     assert(!stalker::readCFormGeometry(path, header, vertices, triangles, 2, 1));
     assert(vertices.empty() && triangles.empty());
+    // Reject a face that references a vertex outside the declared vertex array.
+    {
+        auto invalid = std::vector<unsigned char>(bytes, bytes + sizeof(bytes));
+        invalid[sizeof(bytes) - 8] = 9; // third vertex index
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out.write(reinterpret_cast<const char*>(invalid.data()), invalid.size());
+    }
+    assert(!stalker::readCFormGeometry(path, header, vertices, triangles));
+    assert(vertices.empty() && triangles.empty());
+    // Reject NaN coordinates before they reach the Metal GPU buffers.
+    {
+        auto invalid = std::vector<unsigned char>(bytes, bytes + sizeof(bytes));
+        invalid[36] = 0; invalid[37] = 0; invalid[38] = 192; invalid[39] = 127;
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out.write(reinterpret_cast<const char*>(invalid.data()), invalid.size());
+    }
+    assert(!stalker::readCFormGeometry(path, header, vertices, triangles));
+    assert(vertices.empty() && triangles.empty());
     assert(std::remove(path.c_str()) == 0);
 }

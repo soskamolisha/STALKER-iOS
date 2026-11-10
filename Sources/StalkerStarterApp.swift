@@ -20,6 +20,7 @@ struct GameShellView: View {
     @State private var chunkCheck = "Чтение чанков не проверено"
     @State private var isImportingFile = false
     @State private var importedFileStatus = "Файл ещё не выбран"
+    @State private var chunkDetails: [String] = []
 
     var body: some View {
         GeometryReader { _ in
@@ -73,6 +74,12 @@ struct GameShellView: View {
                         .font(.footnote)
                         .foregroundStyle(.white)
                         .lineLimit(4)
+                    ForEach(chunkDetails, id: \.self) { detail in
+                        Text(detail)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
                     Button("Проверить движок") {
                         do {
                             try engine.start()
@@ -112,6 +119,7 @@ struct GameShellView: View {
     }
 
     private func inspectSelectedFile(_ url: URL) {
+        chunkDetails = []
         let access = url.startAccessingSecurityScopedResource()
         defer { if access { url.stopAccessingSecurityScopedResource() } }
         do {
@@ -137,21 +145,31 @@ struct GameShellView: View {
                 let crc = st_openxray_crc32(raw.baseAddress, UInt32(raw.count))
                 return (parsed, crc)
             }
-            var payloadOffset: UInt32 = 0
-            var payloadSize: UInt32 = 0
-            var chunkCompressed: UInt32 = 0
-            var indexedID: UInt32 = 0
-            let indexResult = data.withUnsafeBytes { raw in
-                st_chunk_at(raw.bindMemory(to: UInt8.self).baseAddress,
-                            UInt32(raw.count), 0, &indexedID,
-                            &payloadOffset, &payloadSize, &chunkCompressed)
-            }
             let hexCRC = String(format: "%08X", checksum)
             if data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
                 importedFileStatus = "\(url.lastPathComponent): ZIP/APK, CRC32 \(hexCRC). Это не простой контейнер чанков X-Ray."
-            } else if result == 0 && indexResult == 0 {
-                let compression = chunkCompressed == 1 ? "да" : "нет"
-                importedFileStatus = "\(url.lastPathComponent): \(count) чанков; первый ID \(firstID), смещение \(payloadOffset), размер \(payloadSize), сжатие \(compression). CRC32 \(hexCRC). Формат игры не подтверждён."
+            } else if result == 0 {
+                importedFileStatus = "\(url.lastPathComponent): \(count) чанков, CRC32 \(hexCRC). Формат игры не подтверждён."
+                let shown = min(Int(count), 5)
+                for index in 0..<shown {
+                    var id: UInt32 = 0
+                    var offset: UInt32 = 0
+                    var size: UInt32 = 0
+                    var compressed: UInt32 = 0
+                    let code = data.withUnsafeBytes { raw in
+                        st_chunk_at(raw.bindMemory(to: UInt8.self).baseAddress,
+                                    UInt32(raw.count), UInt32(index),
+                                    &id, &offset, &size, &compressed)
+                    }
+                    if code != 0 {
+                        chunkDetails = ["Ошибка чтения списка чанков"]
+                        break
+                    }
+                    chunkDetails.append("#\(index + 1) ID=\(id) @\(offset) size=\(size) compressed=\(compressed == 1 ? "yes" : "no")")
+                }
+                if count > 5 {
+                    chunkDetails.append("Показаны первые 5 из \(count)")
+                }
             } else {
                 importedFileStatus = "\(url.lastPathComponent): CRC32 \(hexCRC). Не распознан как простой контейнер чанков X-Ray."
             }

@@ -38,6 +38,9 @@ enum GameResourceImporter {
         }
         do {
             try fm.copyItem(at: source, to: incomingFolder)
+            // Some iOS ports store the game root inside a Data/ directory.
+            // Flatten only a recognized wrapper, never an arbitrary nested folder.
+            try unwrapPortDataDirectory(in: incomingFolder)
             guard try containsResources(incomingFolder) else { throw ImportFailure.missingResources }
             try validateEdition(in: incomingFolder, selected: gameID)
             if fm.fileExists(atPath: target.path) { try fm.moveItem(at: target, to: backup) }
@@ -61,6 +64,30 @@ enum GameResourceImporter {
             try? fm.removeItem(at: incomingFolder)
             throw error
         }
+    }
+
+    private static func unwrapPortDataDirectory(in staging: URL) throws {
+        let fm = FileManager.default
+        let nested = staging.appendingPathComponent("Data", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: nested.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return }
+        let nestedNames = Set((try fm.contentsOfDirectory(atPath: nested.path))
+            .map { $0.lowercased() })
+        guard nestedNames.contains("gamedata") ||
+              nestedNames.contains(where: { $0.hasPrefix("gamedata.db") }) else { return }
+        let rootNames = Set((try fm.contentsOfDirectory(atPath: staging.path))
+            .map { $0.lowercased() })
+        // Never overwrite existing files or flatten an already valid game root.
+        guard !rootNames.contains("gamedata"),
+              !rootNames.contains(where: { $0.hasPrefix("gamedata.db") }) else { return }
+        let entries = try fm.contentsOfDirectory(at: nested, includingPropertiesForKeys: nil)
+        guard entries.allSatisfy({ !fm.fileExists(atPath:
+            staging.appendingPathComponent($0.lastPathComponent).path) }) else { return }
+        for entry in entries {
+            try fm.moveItem(at: entry, to: staging.appendingPathComponent(entry.lastPathComponent))
+        }
+        try fm.removeItem(at: nested)
     }
 
     /// Returns false for the managed root, its descendants, and its ancestors.

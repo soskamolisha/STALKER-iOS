@@ -12,7 +12,7 @@ struct XRayLevelListView: View {
             if let summary = resourceSummary {
                 Section("Native resource scan") {
                     LabeledContent("Loose game files", value: summary.loose ? "Found" : "Not found")
-                    LabeledContent("Packed archives", value: "\\(summary.archiveCount)")
+                    LabeledContent("Packed archives", value: "\(summary.archiveCount)")
                     LabeledContent("Archive size", value: ByteCountFormatter.string(
                         fromByteCount: Int64(clamping: summary.archiveBytes), countStyle: .file))
                 }

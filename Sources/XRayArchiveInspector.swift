@@ -7,6 +7,7 @@ enum XRayArchiveInspector {
         let name: String
         let size: Int64
         let header: Data
+        let appearsEmpty: Bool
     }
 
     static func inspect(in root: URL, limit: Int = 256) -> [ArchiveInfo] {
@@ -25,10 +26,18 @@ enum XRayArchiveInspector {
             try? handle.close()
             results.append(ArchiveInfo(name: file.lastPathComponent,
                                        size: Int64(values.fileSize ?? 0),
-                                       header: header))
+                                       header: header,
+                                       appearsEmpty: (values.fileSize ?? 0) == 0))
             if results.count >= limit { break }
         }
         return results
+    }
+
+    static func summary(_ archives: [ArchiveInfo]) -> String {
+        guard !archives.isEmpty else { return "No gamedata.db archives found" }
+        let empty = archives.filter { $0.appearsEmpty }.count
+        let bytes = archives.reduce(Int64(0)) { $0 + $1.size }
+        return "\(archives.count) archives, \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)), \(empty) empty"
     }
 
     static func headerHex(_ data: Data) -> String {

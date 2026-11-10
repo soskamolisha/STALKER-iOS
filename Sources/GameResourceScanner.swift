@@ -12,6 +12,15 @@ enum GameResourceScanner {
         let firstArchiveHeader: String
     }
 
+    /// X-Ray archive naming convention: gamedata.db0, gamedata.dba, gamedata.db10.
+    /// Reject lookalikes such as gamedata.db.backup.
+    private static func isArchiveName(_ name: String) -> Bool {
+        let prefix = "gamedata.db"
+        guard name.hasPrefix(prefix) else { return false }
+        let suffix = name.dropFirst(prefix.count)
+        return !suffix.isEmpty && suffix.allSatisfy { $0.isASCII && $0.isLetter || $0.isNumber && $0.isASCII }
+    }
+
     /// Edition hints from loose level names only; packed archives are ambiguous.
     private static func looseLevelEditionHint(in root: URL) -> String {
         let levels = root.appendingPathComponent("gamedata/levels", isDirectory: true)
@@ -33,7 +42,7 @@ enum GameResourceScanner {
         let entries = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? []
         let names = Set(entries.map { $0.lowercased() })
         let config = names.contains("fsgame.ltx")
-        let data = names.contains("gamedata") || names.contains(where: { $0.hasPrefix("gamedata.db") })
+        let data = names.contains("gamedata") || names.contains(where: isArchiveName)
         let diagnostics = "fsgame.ltx: \(config ? "yes" : "no") · gamedata: \(data ? "yes" : "no") · \(looseLevelEditionHint(in: folder))"
 
         let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey])
@@ -50,7 +59,8 @@ enum GameResourceScanner {
             count += 1
             let size = Int64(info.fileSize ?? 0)
             bytes += size
-            guard name.hasPrefix("gamedata.db") else { continue }
+            guard file.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL,
+                  isArchiveName(name) else { continue }
             archiveCount += 1
             archiveBytes += size
             if size == 0 { emptyArchives += 1 }

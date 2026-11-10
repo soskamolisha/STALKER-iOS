@@ -1,13 +1,6 @@
 name: Build iOS starter
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'Sources/**'
-      - 'project.yml'
-      - 'Tests/**'
-      - 'scripts/package_unsigned_ipa.py'
-      - '.github/workflows/ios-starter.yml'
 jobs:
   build:
     runs-on: macos-latest

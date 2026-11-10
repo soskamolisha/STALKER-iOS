@@ -55,6 +55,8 @@ enum GameResourceScanner {
         var archiveCount = 0
         var archiveBytes: Int64 = 0
         var emptyArchives = 0
+        var hasLooseGameFile = false
+        var hasNonemptyArchive = false
         var header = "No X-Ray archive header available"
         while let file = enumerator?.nextObject() as? URL {
             let name = file.lastPathComponent.lowercased()
@@ -63,11 +65,13 @@ enum GameResourceScanner {
             count += 1
             let size = Int64(info.fileSize ?? 0)
             bytes += size
+            let relativePath = String(file.standardizedFileURL.path.dropFirst(folder.standardizedFileURL.path.count + 1)).lowercased()
+            if relativePath.hasPrefix("gamedata/") { hasLooseGameFile = true }
             guard file.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL,
                   isArchiveName(name) else { continue }
             archiveCount += 1
             archiveBytes += size
-            if size == 0 { emptyArchives += 1 }
+            if size == 0 { emptyArchives += 1 } else { hasNonemptyArchive = true }
             if size > 0 && header == "No X-Ray archive header available",
                let handle = try? FileHandle(forReadingFrom: file) {
                 let prefix = (try? handle.read(upToCount: 8)) ?? Data()
@@ -78,7 +82,7 @@ enum GameResourceScanner {
         let archiveSummary = archiveCount == 0 ? "No gamedata.db archives found" :
             "\(archiveCount) archives, \(ByteCountFormatter.string(fromByteCount: archiveBytes, countStyle: .file)), \(emptyArchives) empty"
         // A config file by itself must never appear as imported game data.
-        let detected = data && count > 0
+        let detected = data && (hasLooseGameFile || hasNonemptyArchive)
         return Inventory(count: count, bytes: bytes, detected: detected,
                          diagnostics: diagnostics, archiveCount: archiveCount,
                          archiveSummary: archiveSummary, firstArchiveHeader: header)

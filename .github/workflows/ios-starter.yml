@@ -21,6 +21,10 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests
           /tmp/stalker-archive-tests
+      - name: Test archive file probe
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STArchive.cpp Tests/ArchiveProbeTests.cpp -o /tmp/stalker-archive-probe-tests
+          /tmp/stalker-archive-probe-tests
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

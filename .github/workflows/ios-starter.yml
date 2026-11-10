@@ -122,11 +122,27 @@ jobs:
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-simulator.zip" STALKERiOSStarter.app
           cd "$GITHUB_WORKSPACE/build-device/Build/Products/Debug-iphoneos"
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-unsigned-device.zip" STALKERiOSStarter.app
+      - name: Verify IPA archive before publishing
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          path = "STALKERiOSStarter-unsigned.ipa"
+          with zipfile.ZipFile(path) as archive:
+              bad = archive.testzip()
+              assert bad is None, f"Damaged IPA entry: {bad}"
+              assert any(name.startswith("Payload/STALKERiOSStarter.app/") for name in archive.namelist()), "Missing app payload"
+          print("IPA integrity verified")
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: STALKERiOSStarter-builds
+          name: STALKERiOSStarter-IPA-only
+          if-no-files-found: error
+          compression-level: 0
+          path: STALKERiOSStarter-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STALKERiOSStarter-debug-files
           if-no-files-found: error
           path: |
-            STALKERiOSStarter-unsigned.ipa
             STALKERiOSStarter-simulator.zip
             STALKERiOSStarter-unsigned-device.zip

@@ -125,8 +125,12 @@ enum GameResourceImporter {
         let hasZaton = set.contains("zaton")
         let hasJupiter = set.contains("jupiter")
         let hasMarsh = set.contains("marsh")
-        if selected != "pripyat" && (hasZaton || hasJupiter) { throw ImportFailure.editionMismatch }
-        if selected == "pripyat" && hasMarsh && !hasZaton && !hasJupiter { throw ImportFailure.editionMismatch }
+        let hasPripyatMarker = hasZaton || hasJupiter
+        // Mixed markers can occur in mods or merged game-data folders.
+        // Do not reject ambiguous content based on a single loose level name.
+        guard hasPripyatMarker != hasMarsh else { return }
+        if hasPripyatMarker && selected != "pripyat" { throw ImportFailure.editionMismatch }
+        if hasMarsh && selected != "clearSky" { throw ImportFailure.editionMismatch }
     }
 
     enum ImportFailure: LocalizedError {

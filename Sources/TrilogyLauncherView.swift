@@ -5,6 +5,8 @@ struct TrilogyLauncherView: View {
     @AppStorage("stalker.language") private var language = "ru"
     @State private var selectedGame: GameEdition?
     @State private var showImporter = false
+    @StateObject private var resources = GameResourceStore()
+    @State private var importError: String?
 
     enum GameEdition: String, CaseIterable, Identifiable {
         case shadow = "shadow"
@@ -53,6 +55,9 @@ struct TrilogyLauncherView: View {
                                     .font(.title3.bold()).foregroundStyle(.white)
                                 Text(russian ? "Игровые ресурсы добавляются отдельно" : "Import your own game resources")
                                     .foregroundStyle(.gray)
+                                if let status = resources.status[game.rawValue] {
+                                    Text(status).font(.caption).foregroundStyle(.green)
+                                }
                                 HStack {
                                     Button(russian ? "Импортировать файлы" : "Import files") {
                                         selectedGame = game
@@ -74,10 +79,17 @@ struct TrilogyLauncherView: View {
                     .padding()
                 }
             }
+            .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+                Button("OK", role: .cancel) { importError = nil }
+            } message: { Text(importError ?? "") }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
-                // Folder access is intentionally not treated as a completed import.
-                // Implement security-scoped copying and validation before enabling launch.
-                _ = try? result.get()
+                guard let selectedGame else { return }
+                do {
+                    let folder = try result.get()
+                    try resources.importFolder(folder, gameID: selectedGame.rawValue)
+                } catch {
+                    importError = error.localizedDescription
+                }
             }
         }
     }

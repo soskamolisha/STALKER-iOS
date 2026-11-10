@@ -43,7 +43,8 @@ enum GameResourceScanner {
             archiveCount += 1
             archiveBytes += size
             if size == 0 { emptyArchives += 1 }
-            if archiveCount == 1, let handle = try? FileHandle(forReadingFrom: file) {
+            if size > 0 && header == "No X-Ray archive header available",
+               let handle = try? FileHandle(forReadingFrom: file) {
                 let prefix = (try? handle.read(upToCount: 8)) ?? Data()
                 try? handle.close()
                 header = "\(file.lastPathComponent): \(XRayArchiveInspector.headerHex(prefix))"

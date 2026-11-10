@@ -18,6 +18,11 @@ int32_t st_xray_level_name(STXRayHandle handle, uint32_t index, char* destinatio
 // Returns chunk count for an unpacked level's geometry, or -1 on invalid input,
 // -2 when the level is missing or its chunk stream is malformed.
 int32_t st_xray_level_chunk_count(STXRayHandle handle, uint32_t level_index);
+// Returns 0 for a valid indexed chunk; -1 for invalid input, -2 for missing geometry.
+int32_t st_xray_level_chunk_info(STXRayHandle handle, uint32_t level_index,
+                                 uint32_t chunk_index, uint32_t* chunk_id,
+                                 uint64_t* payload_offset, uint32_t* payload_size,
+                                 int32_t* compressed);
 void st_xray_shutdown(STXRayHandle handle);
 #ifdef __cplusplus
 }

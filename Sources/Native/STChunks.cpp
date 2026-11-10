@@ -57,3 +57,18 @@ extern "C" int32_t st_chunk_at(const uint8_t* bytes, uint32_t length, uint32_t i
     *compressed = selectedCompressed;
     return 0;
 }
+
+extern "C" int32_t st_chunk_scan_children(const uint8_t* bytes, uint32_t length,
+    uint32_t parent_index, uint32_t* child_count, uint32_t* first_child_id) {
+    if (!bytes || !child_count || !first_child_id) return -1;
+    *child_count = 0;
+    *first_child_id = 0;
+    std::uint32_t id = 0, offset = 0, size = 0, compressed = 0;
+    const int32_t result = st_chunk_at(bytes, length, parent_index,
+        &id, &offset, &size, &compressed);
+    if (result != 0) return result;
+    if (compressed != 0) return -4;
+    if (size == 0) return 0;
+    std::uint32_t first_size = 0;
+    return st_chunk_scan(bytes + offset, size, child_count, first_child_id, &first_size);
+}

@@ -78,6 +78,21 @@ struct TrilogyLauncherView: View {
             let loose = st_xray_has_loose_data(handle) == 1
             let packed = st_xray_has_packed_data(handle) == 1
             let levels = st_xray_level_count(handle)
+            var levelDetails: [String] = []
+            if levels > 0 {
+                for index in 0..<min(levels, 3) {
+                    var buffer = [CChar](repeating: 0, count: 256)
+                    let nameResult = buffer.withUnsafeMutableBufferPointer { pointer in
+                        st_xray_level_name(handle, UInt32(index), pointer.baseAddress, UInt32(pointer.count))
+                    }
+                    if nameResult == 0 {
+                        let name = String(cString: buffer)
+                        let chunks = st_xray_level_chunk_count(handle, UInt32(index))
+                        levelDetails.append("\(name): \(chunks >= 0 ? String(chunks) : "—")")
+                    }
+                }
+            }
+            let levelSummary = levelDetails.isEmpty ? "" : " [\(levelDetails.joined(separator: ", "))]"
             engineDiagnostics[game.rawValue] = russian
                 ? "Ядро готово: папка \\(loose ? "✓" : "—"), архивы \\(packed ? "✓" : "—"), уровней \\(levels)"
                 : "Core ready: folder \\(loose ? "✓" : "—"), archives \\(packed ? "✓" : "—"), levels \\(levels)"

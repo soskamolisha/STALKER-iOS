@@ -64,6 +64,10 @@ jobs:
       - name: Compile native sparse collision sampler
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -c Sources/Native/STXRayMeshSample.cpp -o /tmp/stalker-mesh-sampler.o
+      - name: Test native sparse collision sampler
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayMeshSample.cpp Tests/STXRayMeshSampleTests.cpp -o /tmp/stalker-mesh-sample-tests
+          /tmp/stalker-mesh-sample-tests
       - name: Test archive chunk reader
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests

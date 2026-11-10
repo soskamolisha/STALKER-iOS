@@ -17,7 +17,12 @@ enum GameResourceImporter {
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
         let incoming = try folderSize(source)
-        if let available, incoming > available { throw ImportFailure.insufficientStorage }
+        // Replacement keeps the existing installation until the new copy is validated.
+        // Reserve headroom for filesystem metadata and temporary writes.
+        let headroom: Int64 = max(256 * 1024 * 1024, incoming / 20)
+        if let available, incoming > Int64(available) - headroom {
+            throw ImportFailure.insufficientStorage
+        }
         let target = root.appendingPathComponent(gameID, isDirectory: true)
         let incomingFolder = root.appendingPathComponent(gameID + ".incoming", isDirectory: true)
         let backup = root.appendingPathComponent(gameID + ".backup", isDirectory: true)

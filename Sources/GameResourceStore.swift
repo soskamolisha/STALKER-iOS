@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 final class GameResourceStore: ObservableObject {
     @Published private(set) var status: [String: String] = [:]
     @Published private(set) var fileCounts: [String: Int] = [:]
+    @Published private(set) var detectedResources: [String: Bool] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -20,7 +21,9 @@ final class GameResourceStore: ObservableObject {
             if (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true { count += 1 }
         }
         fileCounts[gameID] = count
-        status[gameID] = "Imported \(count) files (engine compatibility not verified)"
+        let detected = Self.containsXRayResources(in: folder)
+        detectedResources[gameID] = detected
+        status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
     func importFolder(_ source: URL, gameID: String) throws {
@@ -53,6 +56,7 @@ final class GameResourceStore: ObservableObject {
                 }
             }
             guard count > 0 else { throw ImportError.emptyFolder }
+            guard Self.containsXRayResources(in: staging) else { throw ImportError.missingGameResources }
             // Keep previous installation if import fails before replacement.
             if manager.fileExists(atPath: destination.path) { try manager.moveItem(at: destination, to: backup) }
             do {
@@ -63,20 +67,37 @@ final class GameResourceStore: ObservableObject {
             }
             if manager.fileExists(atPath: backup.path) { try? manager.removeItem(at: backup) }
             fileCounts[gameID] = count
-            status[gameID] = "Imported \(count) files (engine compatibility not verified)"
+            detectedResources[gameID] = true
+            status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)
             throw error
         }
     }
 
+    private static func containsXRayResources(in folder: URL) -> Bool {
+        let manager = FileManager.default
+        let enumerator = manager.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey])
+        var visited = 0
+        while let item = enumerator?.nextObject() as? URL {
+            visited += 1
+            if visited > 200_000 { break }
+            let name = item.lastPathComponent.lowercased()
+            if name == "fsgame.ltx" || name == "gamedata" || name.hasPrefix("gamedata.db") {
+                return true
+            }
+        }
+        return false
+    }
+
     enum ImportError: LocalizedError {
-        case invalidEdition, invalidFolder, emptyFolder
+        case invalidEdition, invalidFolder, emptyFolder, missingGameResources
         var errorDescription: String? {
             switch self {
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder, not an archive"
             case .emptyFolder: return "The selected folder contains no files"
+            case .missingGameResources: return "No recognizable X-Ray resource files were found (fsgame.ltx, gamedata or gamedata.db*)"
             }
         }
     }

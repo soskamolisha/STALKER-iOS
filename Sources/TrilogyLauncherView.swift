@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Trilogy selection screen. Game launching remains disabled until a compatible iOS engine exists.
 struct TrilogyLauncherView: View {

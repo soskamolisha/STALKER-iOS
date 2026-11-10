@@ -24,6 +24,9 @@ int main() {
     assert(st_xray_state(handle) == 2);
     assert(st_xray_has_packed_data(handle) == 1);
     assert(st_xray_has_loose_data(handle) == 0);
+    assert(st_xray_level_count(handle) == 0);
+    assert(st_xray_level_chunk_count(handle, 0) == -1);
+    assert(st_xray_level_name(handle, 0, nullptr, 0) == -1);
     st_xray_shutdown(handle);
     assert(st_xray_state(handle) == 0);
     st_xray_destroy(handle);

@@ -37,11 +37,15 @@ int main() {
     assert(st_xray_attach_resources(handle, path) == 0);
     assert(st_xray_state(handle) == 2);
     assert(st_xray_has_packed_data(handle) == 1);
+    assert(st_xray_archive_count(handle) == 1);
+    assert(st_xray_archive_bytes(handle) == 7);
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
     assert(st_xray_level_chunk_count(handle, 0) == -1);
     assert(st_xray_level_name(handle, 0, nullptr, 0) == -1);
     st_xray_shutdown(handle);
+    assert(st_xray_archive_count(handle) == 0);
+    assert(st_xray_archive_bytes(handle) == 0);
     assert(st_xray_initialize(handle, 2) == 0);
     const std::string data = std::string(path) + "/gamedata";
     const std::string levels = data + "/levels";

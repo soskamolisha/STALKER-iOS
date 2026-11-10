@@ -9,6 +9,48 @@ enum XRayLevelDiagnostics {
         let chunks: Int32
     }
 
+    struct Collision {
+        let vertices: UInt32
+        let triangles: UInt32
+        let minimum: [Float]
+        let maximum: [Float]
+    }
+
+    static func inspectCollision(gameID: String, levelName: String) -> Collision? {
+        let editions: [String: Int32] = ["shadow": 0, "clearSky": 1, "pripyat": 2]
+        guard let edition = editions[gameID], let handle = st_xray_create() else { return nil }
+        defer { st_xray_destroy(handle) }
+        guard st_xray_initialize(handle, edition) == 0 else { return nil }
+        defer { st_xray_shutdown(handle) }
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
+        guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return nil }
+        let count = st_xray_level_count(handle)
+        guard count > 0 else { return nil }
+        for index in 0..<min(Int(count), 4096) {
+            var buffer = [CChar](repeating: 0, count: 1024)
+            let status = buffer.withUnsafeMutableBufferPointer {
+                st_xray_level_name(handle, UInt32(index), $0.baseAddress, UInt32($0.count))
+            }
+            guard status == 0, String(cString: buffer) == levelName else { continue }
+            var vertices: UInt32 = 0
+            var triangles: UInt32 = 0
+            var minimum = [Float](repeating: 0, count: 3)
+            var maximum = [Float](repeating: 0, count: 3)
+            let result = minimum.withUnsafeMutableBufferPointer { minBuffer in
+                maximum.withUnsafeMutableBufferPointer { maxBuffer in
+                    st_xray_level_collision_info(handle, UInt32(index), &vertices, &triangles,
+                                                 minBuffer.baseAddress, maxBuffer.baseAddress)
+                }
+            }
+            guard result == 0 else { return nil }
+            return Collision(vertices: vertices, triangles: triangles,
+                             minimum: minimum, maximum: maximum)
+        }
+        return nil
+    }
+
     struct Chunk: Identifiable {
         let id: Int
         let chunkID: UInt32

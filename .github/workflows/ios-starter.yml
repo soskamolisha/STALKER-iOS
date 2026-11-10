@@ -25,6 +25,10 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
           /tmp/stalker-xray-bridge-tests
+      - name: Test native X-Ray level catalog
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelCatalog.cpp Tests/XRayLevelCatalogTests.cpp -o /tmp/stalker-xray-level-tests
+          /tmp/stalker-xray-level-tests
       - name: Test archive chunk reader
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests

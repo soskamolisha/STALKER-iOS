@@ -1,6 +1,7 @@
 #include "../Sources/Native/STXRayBootstrap.h"
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <string>
 #include <unistd.h>

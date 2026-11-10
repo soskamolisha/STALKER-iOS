@@ -27,7 +27,8 @@ bool readCFormGeometry(const std::string& path, CFormHeader& header,
     if (!readCFormHeader(path, header)) return false;
     if (header.vertexCount > maxVertices || header.faceCount > maxTriangles) return false;
     std::ifstream input(path, std::ios::binary);
-    if (!input.seekg(36, std::ios::beg)) return false;
+    input.seekg(36, std::ios::beg);
+    if (!input) return false;
     std::vector<CFormVertex> parsedVertices;
     std::vector<CFormTriangle> parsedTriangles;
     parsedVertices.reserve(header.vertexCount);

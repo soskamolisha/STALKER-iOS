@@ -72,3 +72,20 @@ extern "C" int32_t st_chunk_scan_children(const uint8_t* bytes, uint32_t length,
     std::uint32_t first_size = 0;
     return st_chunk_scan(bytes + offset, size, child_count, first_child_id, &first_size);
 }
+
+extern "C" int32_t st_chunk_copy_slice(const uint8_t* bytes, uint32_t length,
+    uint32_t index, uint32_t slice_offset, uint32_t slice_length,
+    uint8_t* destination, uint32_t destination_capacity) {
+    if (!bytes || (slice_length != 0 && !destination)) return -1;
+    std::uint32_t id = 0, offset = 0, size = 0, compressed = 0;
+    const int32_t result = st_chunk_at(bytes, length, index,
+        &id, &offset, &size, &compressed);
+    if (result != 0) return result;
+    if (compressed != 0) return -4;
+    if (slice_offset > size || slice_length > size - slice_offset) return -5;
+    if (slice_length > destination_capacity) return -6;
+    // A zero-byte slice needs no destination pointer.
+    for (std::uint32_t i = 0; i < slice_length; ++i)
+        destination[i] = bytes[static_cast<std::size_t>(offset) + slice_offset + i];
+    return 0;
+}

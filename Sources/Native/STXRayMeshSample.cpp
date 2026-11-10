@@ -1,5 +1,6 @@
 #include "STXRayMesh.h"
 #include "XRayCFormHeader.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <fstream>

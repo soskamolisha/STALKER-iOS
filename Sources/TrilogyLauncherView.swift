@@ -201,6 +201,14 @@ struct TrilogyLauncherView: View {
                                         .font(.caption)
                                         .foregroundStyle(.yellow)
                                 }
+                                NavigationLink {
+                                    XRayLevelListView(gameID: game.rawValue,
+                                                      gameName: russian ? game.russianName : game.englishName)
+                                } label: {
+                                    Label(russian ? "Локации" : "Locations", systemImage: "map")
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.yellow)
                                 HStack {
                                     Button(russian ? "Проверить ядро" : "Check engine") {
                                         checkEngineResources(for: game)

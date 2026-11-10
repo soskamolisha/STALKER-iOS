@@ -29,6 +29,24 @@ int main() {
     std::vector<uint8_t> huge;
     append32(huge, 1); append32(huge, 0xffffffffU);
     assert(st_chunk_scan(huge.data(), static_cast<uint32_t>(huge.size()), &count, &id, &size) == -1);
+    uint32_t children = 99, childID = 99;
+    assert(st_chunk_scan_children(v.data(), static_cast<uint32_t>(v.size()), 0,
+                                  &children, &childID) == -4);
+    assert(st_chunk_scan_children(v.data(), static_cast<uint32_t>(v.size()), 1,
+                                  &children, &childID) == 0);
+    assert(children == 0 && childID == 0);
+    assert(st_chunk_scan_children(v.data(), static_cast<uint32_t>(v.size()), 2,
+                                  &children, &childID) == -3);
+    std::vector<uint8_t> nested;
+    append32(nested, 21); append32(nested, 10);
+    append32(nested, 9); append32(nested, 2);
+    nested.push_back(0xAA); nested.push_back(0xBB);
+    assert(st_chunk_scan_children(nested.data(), static_cast<uint32_t>(nested.size()),
+                                  0, &children, &childID) == 0);
+    assert(children == 1 && childID == 9);
+    nested.pop_back();
+    assert(st_chunk_scan_children(nested.data(), static_cast<uint32_t>(nested.size()),
+                                  0, &children, &childID) == -1);
     std::vector<uint8_t> many;
     for (int i = 0; i < 4097; ++i) { append32(many, 1); append32(many, 0); }
     assert(st_chunk_scan(many.data(), static_cast<uint32_t>(many.size()), &count, &id, &size) == -2);

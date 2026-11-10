@@ -16,6 +16,28 @@ enum XRayLevelDiagnostics {
         let maximum: [Float]
     }
 
+    struct ResourceSummary {
+        let loose: Bool
+        let archiveCount: Int32
+        let archiveBytes: UInt64
+    }
+
+    static func resourceSummary(gameID: String) -> ResourceSummary? {
+        let editions: [String: Int32] = ["shadow": 0, "clearSky": 1, "pripyat": 2]
+        guard let edition = editions[gameID], let handle = st_xray_create() else { return nil }
+        defer { st_xray_destroy(handle) }
+        guard st_xray_initialize(handle, edition) == 0 else { return nil }
+        defer { st_xray_shutdown(handle) }
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory,
+                                                      in: .userDomainMask).first else { return nil }
+        let root = support.appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
+        guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return nil }
+        return ResourceSummary(loose: st_xray_has_loose_data(handle) != 0,
+                               archiveCount: st_xray_archive_count(handle),
+                               archiveBytes: st_xray_archive_bytes(handle))
+    }
+
     static func inspectCollision(gameID: String, levelName: String) -> Collision? {
         let editions: [String: Int32] = ["shadow": 0, "clearSky": 1, "pripyat": 2]
         guard let edition = editions[gameID], let handle = st_xray_create() else { return nil }

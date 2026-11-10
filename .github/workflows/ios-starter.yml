@@ -23,7 +23,7 @@ jobs:
           /tmp/stalker-xray-bootstrap-tests
       - name: Test X-Ray Swift bridge C ABI
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
           /tmp/stalker-xray-bridge-tests
       - name: Test native X-Ray level catalog
         run: |

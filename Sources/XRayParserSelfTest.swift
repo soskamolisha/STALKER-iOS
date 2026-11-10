@@ -52,6 +52,30 @@ enum XRayParserSelfTest {
             passed += 1
         }
 
+        do {
+            var reader = XRayBinaryReader(data: Data([0x10, 0x20, 0x30]))
+            try reader.seek(to: 3)
+            check("Seek to end", reader.remaining == 0)
+            do {
+                try reader.seek(to: 4)
+                failed.append("Out-of-range seek was accepted")
+            } catch { passed += 1 }
+            do {
+                try reader.skip(-1)
+                failed.append("Negative skip was accepted")
+            } catch { passed += 1 }
+        } catch { failed.append("Seek validation: \(error)") }
+
+        do {
+            _ = try XRayChunkScanner.scan(Data([0x01, 0x00, 0x00]))
+            failed.append("Partial chunk header was accepted")
+        } catch { passed += 1 }
+
+        do {
+            _ = try XRayChunkScanner.scan(Data([0, 0, 0, 0, 0, 0, 0, 0]), maximumChunks: 0)
+            failed.append("Chunk count limit was ignored")
+        } catch { passed += 1 }
+
         return Result(passed: passed, failed: failed)
     }
 }

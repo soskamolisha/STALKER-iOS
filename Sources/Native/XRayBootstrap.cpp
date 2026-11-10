@@ -10,10 +10,6 @@ bool isDirectory(const std::string& path) {
     struct stat info {};
     return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
-bool isRegularFile(const std::string& path) {
-    struct stat info {};
-    return stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
-}
 bool isXRayArchiveName(const std::string& name) {
     const std::string prefix = "gamedata.db";
     if (name.compare(0, prefix.size(), prefix) != 0) return false;
@@ -38,12 +34,12 @@ bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
         if (lstat(path.c_str(), &info) != 0) continue;
         if (S_ISREG(info.st_mode) && info.st_size > 0) { found = true; break; }
         if (S_ISDIR(info.st_mode) && hasNonemptyLooseFile(path, depth + 1)) {
-            ++result.count;
-            result.bytes += static_cast<std::uint64_t>(info.st_size);
+            found = true;
+            break;
         }
     }
     closedir(dir);
-    return result;
+    return found;
 }
 struct ArchiveInventory { std::uint32_t count = 0; std::uint64_t bytes = 0; };
 ArchiveInventory inspectPackedArchives(const std::string& root) {
@@ -52,15 +48,15 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
     ArchiveInventory result;
     while (auto* entry = readdir(dir)) {
         const std::string name(entry->d_name);
-        if (isXRayArchiveName(name) && isRegularFile(root + "/" + name)) {
-            struct stat info {};
-            if (stat((root + "/" + name).c_str(), &info) != 0 || info.st_size <= 0) continue;
-            found = true;
-            break;
-        }
+        if (!isXRayArchiveName(name)) continue;
+        const std::string path = root + "/" + name;
+        struct stat info {};
+        if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) continue;
+        ++result.count;
+        result.bytes += static_cast<std::uint64_t>(info.st_size);
     }
     closedir(dir);
-    return found;
+    return result;
 }
 }
 

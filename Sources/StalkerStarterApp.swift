@@ -72,7 +72,7 @@ struct GameShellView: View {
                     Text(importedFileStatus)
                         .font(.footnote)
                         .foregroundStyle(.white)
-                        .lineLimit(3)
+                        .lineLimit(4)
                     Button("Проверить движок") {
                         do {
                             try engine.start()
@@ -130,14 +130,20 @@ struct GameShellView: View {
             var count: UInt32 = 0
             var firstID: UInt32 = 0
             var firstSize: UInt32 = 0
-            let result = data.withUnsafeBytes { raw in
-                st_chunk_scan(raw.bindMemory(to: UInt8.self).baseAddress,
-                              UInt32(raw.count), &count, &firstID, &firstSize)
+            let (result, checksum) = data.withUnsafeBytes { raw -> (Int32, UInt32) in
+                let pointer = raw.bindMemory(to: UInt8.self).baseAddress
+                let parsed = st_chunk_scan(pointer, UInt32(raw.count),
+                                           &count, &firstID, &firstSize)
+                let crc = st_openxray_crc32(raw.baseAddress, UInt32(raw.count))
+                return (parsed, crc)
             }
-            if result == 0 {
-                importedFileStatus = "\(url.lastPathComponent): \(count) чанков, первый ID \(firstID), размер \(firstSize) байт. Формат игры не подтверждён."
+            let hexCRC = String(format: "%08X", checksum)
+            if data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
+                importedFileStatus = "\(url.lastPathComponent): ZIP/APK, CRC32 \(hexCRC). Это не простой контейнер чанков X-Ray."
+            } else if result == 0 {
+                importedFileStatus = "\(url.lastPathComponent): \(count) чанков, первый ID \(firstID), размер \(firstSize) байт. CRC32 \(hexCRC). Формат игры не подтверждён."
             } else {
-                importedFileStatus = "\(url.lastPathComponent): не распознан как простой контейнер чанков X-Ray"
+                importedFileStatus = "\(url.lastPathComponent): CRC32 \(hexCRC). Не распознан как простой контейнер чанков X-Ray."
             }
         } catch {
             importedFileStatus = "Ошибка чтения файла: \(error.localizedDescription)"

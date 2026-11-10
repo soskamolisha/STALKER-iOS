@@ -46,6 +46,11 @@ final class GameResourceStore: ObservableObject {
             throw ImportError.invalidFolder
         }
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
+        let incomingBytes = Self.folderSize(in: source)
+        let availableBytes = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
+        if let availableBytes, incomingBytes > availableBytes {
+            throw ImportError.insufficientStorage
+        }
         let destination = root.appendingPathComponent(gameID, isDirectory: true)
         let staging = root.appendingPathComponent(gameID + ".incoming", isDirectory: true)
         let backup = root.appendingPathComponent(gameID + ".backup", isDirectory: true)
@@ -121,11 +126,12 @@ final class GameResourceStore: ObservableObject {
     }
 
     enum ImportError: LocalizedError {
-        case invalidEdition, invalidFolder, emptyFolder, missingGameResources, alreadyImporting
+        case invalidEdition, invalidFolder, emptyFolder, missingGameResources, alreadyImporting, insufficientStorage
         var errorDescription: String? {
             switch self {
             case .invalidEdition: return "Unsupported game edition"
             case .alreadyImporting: return "Another import is in progress"
+            case .insufficientStorage: return "Not enough free storage to import this game"
             case .invalidFolder: return "Select an extracted game folder, not an archive"
             case .emptyFolder: return "The selected folder contains no files"
             case .missingGameResources: return "No recognizable X-Ray resource files were found (fsgame.ltx, gamedata or gamedata.db*)"

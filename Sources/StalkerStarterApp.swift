@@ -137,11 +137,21 @@ struct GameShellView: View {
                 let crc = st_openxray_crc32(raw.baseAddress, UInt32(raw.count))
                 return (parsed, crc)
             }
+            var payloadOffset: UInt32 = 0
+            var payloadSize: UInt32 = 0
+            var chunkCompressed: UInt32 = 0
+            var indexedID: UInt32 = 0
+            let indexResult = data.withUnsafeBytes { raw in
+                st_chunk_at(raw.bindMemory(to: UInt8.self).baseAddress,
+                            UInt32(raw.count), 0, &indexedID,
+                            &payloadOffset, &payloadSize, &chunkCompressed)
+            }
             let hexCRC = String(format: "%08X", checksum)
             if data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
                 importedFileStatus = "\(url.lastPathComponent): ZIP/APK, CRC32 \(hexCRC). Это не простой контейнер чанков X-Ray."
-            } else if result == 0 {
-                importedFileStatus = "\(url.lastPathComponent): \(count) чанков, первый ID \(firstID), размер \(firstSize) байт. CRC32 \(hexCRC). Формат игры не подтверждён."
+            } else if result == 0 && indexResult == 0 {
+                let compression = chunkCompressed == 1 ? "да" : "нет"
+                importedFileStatus = "\(url.lastPathComponent): \(count) чанков; первый ID \(firstID), смещение \(payloadOffset), размер \(payloadSize), сжатие \(compression). CRC32 \(hexCRC). Формат игры не подтверждён."
             } else {
                 importedFileStatus = "\(url.lastPathComponent): CRC32 \(hexCRC). Не распознан как простой контейнер чанков X-Ray."
             }

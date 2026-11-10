@@ -80,10 +80,18 @@ struct CollisionMetalPreview: UIViewRepresentable {
                 SIMD4<Float>(0, 1, 0, 0),
                 SIMD4<Float>(sin(angle), 0, cos(angle), 0),
                 SIMD4<Float>(0, 0, 0, 1))
-            let extent = mesh.vertices.reduce(Float(1)) { max($0, simd_length($1)) }
-            let scale = Float(0.75) / extent
+            // Center large world-coordinate meshes before rotating them.
+            let first = mesh.vertices.first ?? SIMD3<Float>(repeating: 0)
+            let bounds = mesh.vertices.reduce((first, first)) { partial, point in
+                (simd_min(partial.0, point), simd_max(partial.1, point))
+            }
+            let center = (bounds.0 + bounds.1) * 0.5
+            let extent = max(simd_length(bounds.1 - bounds.0), 0.001)
+            let scale = Float(1.5) / extent
+            var translation = matrix_identity_float4x4
+            translation.columns.3 = SIMD4<Float>(-center.x, -center.y, -center.z, 1)
             let projection = simd_float4x4(diagonal: SIMD4<Float>(scale / max(aspect, 0.01), scale, scale, 1))
-            var transform = projection * rotation
+            var transform = projection * rotation * translation
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float4x4>.stride, index: 1)

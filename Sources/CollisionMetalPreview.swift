@@ -17,6 +17,9 @@ struct CollisionMetalPreview: UIViewRepresentable {
         view.clearDepth = 1
         view.addGestureRecognizer(UIPanGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pan(_:))))
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pinch(_:))))
+        let resetGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Renderer.resetCamera(_:)))
+        resetGesture.numberOfTapsRequired = 2
+        view.addGestureRecognizer(resetGesture)
         view.delegate = context.coordinator
         view.isPaused = true
         view.enableSetNeedsDisplay = true
@@ -44,6 +47,13 @@ struct CollisionMetalPreview: UIViewRepresentable {
             yaw += Float(delta.x) * 0.008
             pitch = min(max(pitch + Float(delta.y) * 0.008, -1.4), 1.4)
             gesture.setTranslation(.zero, in: gesture.view)
+            view?.setNeedsDisplay()
+        }
+        @objc func resetCamera(_ gesture: UITapGestureRecognizer) {
+            guard gesture.state == .ended else { return }
+            yaw = 0.4
+            pitch = 0.25
+            zoom = 1
             view?.setNeedsDisplay()
         }
         @objc func pinch(_ gesture: UIPinchGestureRecognizer) {

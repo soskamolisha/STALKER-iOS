@@ -1,0 +1,76 @@
+name: Probe real OpenXRay C++ component for iOS
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Tests/OpenXRayMathProbe.cpp'
+      - 'docs/OPENXRAY_IOS_PROBE.md'
+      - '.github/workflows/openxray-ios-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  openxray-math-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Check out iOS starter repository
+        uses: actions/checkout@v4
+
+      - name: Fetch pinned upstream OpenXRay sources
+        uses: actions/checkout@v4
+        with:
+          repository: Eternal-Entropia/openxray-android
+          ref: 1b84cfbc5efa3e9af942164e5a3c2dde43b77f51
+          path: openxray-upstream
+          persist-credentials: false
+          sparse-checkout: |
+            src/xrCore/Math/fast_lc16.hpp
+            LICENSE
+            License.txt
+          sparse-checkout-cone-mode: false
+
+      - name: Verify upstream revision and real header
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C openxray-upstream rev-parse HEAD)" = "1b84cfbc5efa3e9af942164e5a3c2dde43b77f51"
+          test -s openxray-upstream/src/xrCore/Math/fast_lc16.hpp
+          test -s openxray-upstream/License.txt
+
+      - name: Run OpenXRay math smoke test on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O2 -Wall -Wextra -Werror \
+            -DSTALKER_PROBE_TEST_MAIN \
+            -I openxray-upstream/src/xrCore/Math \
+            Tests/OpenXRayMathProbe.cpp \
+            -o "$RUNNER_TEMP/openxray-math-host-test"
+          "$RUNNER_TEMP/openxray-math-host-test"
+
+      - name: Cross-compile upstream component for arm64 iPhoneOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ \
+            -target arm64-apple-ios17.0 \
+            -isysroot "$SDK" \
+            -std=c++17 -O2 -Wall -Wextra -Werror \
+            -I openxray-upstream/src/xrCore/Math \
+            -c Tests/OpenXRayMathProbe.cpp \
+            -o "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+          xcrun libtool -static \
+            -o "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+          lipo -verify_arch arm64 "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a"
+          file "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+
+      - name: Upload unsigned iOS arm64 static library (not a game or IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-math-arm64-ios
+          if-no-files-found: error
+          path: ${{ runner.temp }}/libOpenXRayMathProbe-ios.a

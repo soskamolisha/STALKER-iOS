@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct StalkerStarterApp: App {
@@ -15,12 +16,14 @@ struct GameShellView: View {
     @State private var engine = UnavailableEngine()
     @Environment(\.scenePhase) private var scenePhase
     @State private var status = "Движок X-Ray не подключён"
+    @State private var showArchivePicker = false
+    @State private var archiveStatus = "Можно проверить структуру своего файла .db"
 
     var body: some View {
         GeometryReader { _ in
             ZStack {
                 MetalSurface().ignoresSafeArea()
-                VStack(spacing: 18) {
+                VStack(spacing: 9) {
                     Text("S.T.A.L.K.E.R. MOBILE")
                         .font(.system(size: 27, weight: .bold, design: .monospaced))
                         .foregroundStyle(.orange)
@@ -39,7 +42,15 @@ struct GameShellView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
-                    Spacer()
+                    Button("Архив .db") { showArchivePicker = true }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
+                    Text(archiveStatus)
+                        .foregroundStyle(.gray)
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .accessibilityIdentifier("archiveStatus")
+                    Spacer(minLength: 2)
                     HStack {
                         control("◀", input: .moveLeft)
                         control("▲", input: .moveForward)
@@ -50,6 +61,12 @@ struct GameShellView: View {
                     }
                 }
                 .padding(24)
+            }
+        }
+        .fileImporter(isPresented: $showArchivePicker, allowedContentTypes: [.item]) { result in
+            switch result {
+            case .success(let url): archiveStatus = ArchiveProbe.inspect(url)
+            case .failure: archiveStatus = "Выбор файла отменён или недоступен."
             }
         }
         .onChange(of: scenePhase) { _, phase in

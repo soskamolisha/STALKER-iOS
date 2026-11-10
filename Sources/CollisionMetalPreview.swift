@@ -34,6 +34,8 @@ struct CollisionMetalPreview: UIViewRepresentable {
         private var pitch: Float = 0.25
         private var zoom: Float = 1
         private weak var view: MTKView?
+        private let meshCenter: SIMD3<Float>
+        private let meshExtent: Float
         @objc func pan(_ gesture: UIPanGestureRecognizer) {
             let delta = gesture.translation(in: gesture.view)
             yaw += Float(delta.x) * 0.008
@@ -47,7 +49,15 @@ struct CollisionMetalPreview: UIViewRepresentable {
             view?.setNeedsDisplay()
         }
 
-        init(mesh: CollisionPreviewMesh) { self.mesh = mesh }
+        init(mesh: CollisionPreviewMesh) {
+            self.mesh = mesh
+            let first = mesh.vertices.first ?? SIMD3<Float>(repeating: 0)
+            let bounds = mesh.vertices.reduce((first, first)) { partial, point in
+                (simd_min(partial.0, point), simd_max(partial.1, point))
+            }
+            meshCenter = (bounds.0 + bounds.1) * 0.5
+            meshExtent = max(simd_length(bounds.1 - bounds.0), 0.001)
+        }
 
         func configure(view: MTKView) {
             self.view = view
@@ -99,21 +109,15 @@ struct CollisionMetalPreview: UIViewRepresentable {
                 SIMD4<Float>(0, 1, 0, 0),
                 SIMD4<Float>(sin(angle), 0, cos(angle), 0),
                 SIMD4<Float>(0, 0, 0, 1))
-            // Center large world-coordinate meshes before rotating them.
-            let first = mesh.vertices.first ?? SIMD3<Float>(repeating: 0)
-            let bounds = mesh.vertices.reduce((first, first)) { partial, point in
-                (simd_min(partial.0, point), simd_max(partial.1, point))
-            }
-            let center = (bounds.0 + bounds.1) * 0.5
-            let extent = max(simd_length(bounds.1 - bounds.0), 0.001)
-            let scale = Float(1.5) * zoom / extent
+            // Center and extent are cached once, not recalculated on every gesture.
+            let scale = Float(1.5) * zoom / meshExtent
             let tilt = simd_float4x4(
                 SIMD4<Float>(1, 0, 0, 0),
                 SIMD4<Float>(0, cos(pitch), sin(pitch), 0),
                 SIMD4<Float>(0, -sin(pitch), cos(pitch), 0),
                 SIMD4<Float>(0, 0, 0, 1))
             var translation = matrix_identity_float4x4
-            translation.columns.3 = SIMD4<Float>(-center.x, -center.y, -center.z, 1)
+            translation.columns.3 = SIMD4<Float>(-meshCenter.x, -meshCenter.y, -meshCenter.z, 1)
             let projection = simd_float4x4(diagonal: SIMD4<Float>(scale / max(aspect, 0.01), scale, scale, 1))
             var transform = projection * tilt * rotation * translation
             encoder.setRenderPipelineState(pipeline)

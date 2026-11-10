@@ -34,6 +34,7 @@ enum GameResourceImporter {
         do {
             try fm.copyItem(at: source, to: incomingFolder)
             guard try containsResources(incomingFolder) else { throw ImportFailure.missingResources }
+            try validateEdition(in: incomingFolder, selected: gameID)
             if fm.fileExists(atPath: target.path) { try fm.moveItem(at: target, to: backup) }
             do {
                 try fm.moveItem(at: incomingFolder, to: target)
@@ -61,6 +62,20 @@ enum GameResourceImporter {
         return bytes
     }
 
+    /// Known edition-specific level folders provide a conservative mismatch warning.
+    /// If no distinctive level folders are found, do not reject legitimate modded installations.
+    private static func validateEdition(in folder: URL, selected: String) throws {
+        let fm = FileManager.default
+        let levels = folder.appendingPathComponent("gamedata/levels", isDirectory: true)
+        guard let names = try? fm.contentsOfDirectory(atPath: levels.path).map({ $0.lowercased() }) else { return }
+        let set = Set(names)
+        let hasZaton = set.contains("zaton")
+        let hasJupiter = set.contains("jupiter")
+        let hasMarsh = set.contains("marsh")
+        if selected != "pripyat" && (hasZaton || hasJupiter) { throw ImportFailure.editionMismatch }
+        if selected == "pripyat" && hasMarsh && !hasZaton && !hasJupiter { throw ImportFailure.editionMismatch }
+    }
+
     private static func containsResources(_ url: URL) throws -> Bool {
         guard let files = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else {
             throw ImportFailure.invalidFolder
@@ -83,7 +98,7 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles
+        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch
         var errorDescription: String? {
             switch self {
             case .invalidEdition: return "Unsupported game edition"
@@ -91,6 +106,7 @@ enum GameResourceImporter {
             case .insufficientStorage: return "Not enough free storage on this device"
             case .missingResources: return "No recognizable X-Ray game resources found"
             case .tooManyFiles: return "Too many files to validate safely"
+            case .editionMismatch: return "These files appear to belong to a different S.T.A.L.K.E.R. game"
             }
         }
     }

@@ -5,9 +5,18 @@ struct XRayLevelListView: View {
     let gameName: String
     @State private var levels: [XRayLevelDiagnostics.Level] = []
     @State private var loading = true
+    @State private var resourceSummary: XRayLevelDiagnostics.ResourceSummary?
 
     var body: some View {
         List {
+            if let summary = resourceSummary {
+                Section("Native resource scan") {
+                    LabeledContent("Loose game files", value: summary.loose ? "Found" : "Not found")
+                    LabeledContent("Packed archives", value: "\\(summary.archiveCount)")
+                    LabeledContent("Archive size", value: ByteCountFormatter.string(
+                        fromByteCount: Int64(clamping: summary.archiveBytes), countStyle: .file))
+                }
+            }
             if loading {
                 ProgressView("Scanning unpacked levels…")
             } else if levels.isEmpty {
@@ -40,9 +49,12 @@ struct XRayLevelListView: View {
         .navigationTitle(gameName)
         .task {
             loading = true
-            levels = await Task.detached(priority: .utility) {
-                XRayLevelDiagnostics.inspect(gameID: gameID)
+            let result = await Task.detached(priority: .utility) {
+                (XRayLevelDiagnostics.inspect(gameID: gameID),
+                 XRayLevelDiagnostics.resourceSummary(gameID: gameID))
             }.value
+            levels = result.0
+            resourceSummary = result.1
             loading = false
         }
     }

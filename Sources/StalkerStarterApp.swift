@@ -73,7 +73,7 @@ struct GameShellView: View {
                         .font(.footnote)
                         .foregroundStyle(.white)
                         .lineLimit(3)
-                                        Button("Проверить движок") {
+                    Button("Проверить движок") {
                         do {
                             try engine.start()
                             status = "Движок запущен"
@@ -102,7 +102,7 @@ struct GameShellView: View {
             case .success(let url):
                 inspectSelectedFile(url)
             case .failure(let error):
-                importedFileStatus = "Не удалось выбрать файл: \\(error.localizedDescription)"
+                importedFileStatus = "Не удалось выбрать файл: \(error.localizedDescription)"
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -135,12 +135,12 @@ struct GameShellView: View {
                               UInt32(raw.count), &count, &firstID, &firstSize)
             }
             if result == 0 {
-                importedFileStatus = "\\(url.lastPathComponent): \\(count) чанков, первый ID \\(firstID), размер \\(firstSize) байт. Формат игры не подтверждён."
+                importedFileStatus = "\(url.lastPathComponent): \(count) чанков, первый ID \(firstID), размер \(firstSize) байт. Формат игры не подтверждён."
             } else {
-                importedFileStatus = "\\(url.lastPathComponent): не распознан как простой контейнер чанков X-Ray"
+                importedFileStatus = "\(url.lastPathComponent): не распознан как простой контейнер чанков X-Ray"
             }
         } catch {
-            importedFileStatus = "Ошибка чтения файла: \\(error.localizedDescription)"
+            importedFileStatus = "Ошибка чтения файла: \(error.localizedDescription)"
         }
     }
 

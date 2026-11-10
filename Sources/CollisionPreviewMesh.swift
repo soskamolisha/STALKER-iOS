@@ -24,7 +24,7 @@ struct CollisionPreviewMesh {
         let status = path.path.withCString { cpath in
             xyz.withUnsafeMutableBufferPointer { positions in
                 indices.withUnsafeMutableBufferPointer { faces in
-                    st_xray_read_collision_mesh(cpath, positions.baseAddress, UInt32(cap),
+                    st_xray_read_collision_sample(cpath, positions.baseAddress, UInt32(cap),
                                                 faces.baseAddress, UInt32(cap),
                                                 &vertexCount, &triangleCount)
                 }

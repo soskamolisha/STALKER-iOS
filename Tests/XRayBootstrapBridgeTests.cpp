@@ -20,6 +20,14 @@ int main() {
     char* path = mkdtemp(folder);
     assert(path);
     assert(st_xray_attach_resources(handle, path) == -2);
+    const std::string emptyData = std::string(path) + "/gamedata";
+    assert(mkdir(emptyData.c_str(), 0700) == 0);
+    assert(st_xray_attach_resources(handle, path) == -2);
+    const std::string emptyFile = emptyData + "/empty.txt";
+    { std::ofstream file(emptyFile); }
+    assert(st_xray_attach_resources(handle, path) == -2);
+    assert(std::remove(emptyFile.c_str()) == 0);
+    assert(rmdir(emptyData.c_str()) == 0);
     const std::string archive = std::string(path) + "/gamedata.db0";
     const std::string backupLike = std::string(path) + "/gamedata.db.backup";
     { std::ofstream file(backupLike); file << "not an archive"; }

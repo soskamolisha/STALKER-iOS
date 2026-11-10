@@ -65,7 +65,7 @@ jobs:
           xcrun libtool -static \
             -o "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
             "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
-          lipo -verify_arch arm64 "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a"
+          lipo "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" -verify_arch arm64
           file "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
 
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)

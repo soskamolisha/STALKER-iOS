@@ -23,6 +23,7 @@ extern "C" std::uint32_t st_openxray_math_sample(std::uint32_t seed) {
     return rolling;
 }
 
+#ifdef STALKER_PROBE_TEST_MAIN
 int main() {
     if (st_openxray_math_sample(123U) != st_openxray_math_sample(123U)) return 1;
     if (st_openxray_math_sample(123U) == st_openxray_math_sample(124U)) return 2;
@@ -30,3 +31,4 @@ int main() {
     if (generator.min() != 0U || generator.max() != 65535U) return 3;
     return 0;
 }
+#endif // STALKER_PROBE_TEST_MAIN

@@ -41,7 +41,9 @@ enum GameResourceImporter {
             // Some iOS ports store the game root inside a Data/ directory.
             // Flatten only a recognized wrapper, never an arbitrary nested folder.
             try unwrapPortDataDirectory(in: incomingFolder)
-            guard try containsResources(incomingFolder) else { throw ImportFailure.missingResources }
+            guard let inventory = GameResourceScanner.scan(incomingFolder), inventory.detected else {
+                throw ImportFailure.missingResources
+            }
             try validateEdition(in: incomingFolder, selected: gameID)
             if fm.fileExists(atPath: target.path) { try fm.moveItem(at: target, to: backup) }
             do {
@@ -125,28 +127,6 @@ enum GameResourceImporter {
         let hasMarsh = set.contains("marsh")
         if selected != "pripyat" && (hasZaton || hasJupiter) { throw ImportFailure.editionMismatch }
         if selected == "pripyat" && hasMarsh && !hasZaton && !hasJupiter { throw ImportFailure.editionMismatch }
-    }
-
-    private static func containsResources(_ url: URL) throws -> Bool {
-        guard let files = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil) else {
-            throw ImportFailure.invalidFolder
-        }
-        var count = 0
-        var foundGameData = false
-        var foundFile = false
-        while let file = files.nextObject() as? URL {
-            count += 1
-            if count > 200_000 { throw ImportFailure.tooManyFiles }
-            let name = file.lastPathComponent.lowercased()
-            if name == "gamedata" || name.hasPrefix("gamedata.db") {
-                foundGameData = true
-            }
-            if (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
-                foundFile = true
-            }
-        }
-        // fsgame.ltx alone is configuration, not a usable resource set.
-        return foundGameData && foundFile
     }
 
     enum ImportFailure: LocalizedError {

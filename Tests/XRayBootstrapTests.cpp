@@ -45,7 +45,11 @@ int main() {
     assert(engine.attachResources(root));
     assert(!engine.hasLooseGameData());
     assert(engine.hasPackedGameData());
+    assert(engine.packedArchiveCount() == 1);
+    assert(engine.packedArchiveBytes() == 7);
     engine.shutdown();
+    assert(engine.packedArchiveCount() == 0);
+    assert(engine.packedArchiveBytes() == 0);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
     assert(rmdir(root.c_str()) == 0);
     std::cout << "X-Ray resource discovery lifecycle tests passed\n";

@@ -5,3 +5,5 @@
 #include "STChunks.h"
 
 #include "STXRayBootstrap.h"
+
+#include "STXRayMesh.h"

@@ -17,6 +17,9 @@ struct XRayLevelListView: View {
             } else {
                 Section("Unpacked locations (\(levels.count))") {
                     ForEach(levels) { level in
+                        NavigationLink {
+                            XRayLevelDetailView(gameID: gameID, levelName: level.name)
+                        } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(level.name).font(.headline)
@@ -28,6 +31,7 @@ struct XRayLevelListView: View {
                             Spacer()
                             Image(systemName: level.chunks >= 0 ? "checkmark.circle" : "exclamationmark.triangle")
                                 .foregroundStyle(level.chunks >= 0 ? .green : .orange)
+                        }
                         }
                     }
                 }

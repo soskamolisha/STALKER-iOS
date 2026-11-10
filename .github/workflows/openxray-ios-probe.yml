@@ -2,13 +2,6 @@ name: Probe real OpenXRay C++ component for iOS
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'Tests/OpenXRayMathProbe.cpp'
-      - 'Tests/OpenXRayCRCProbe.cpp'
-      - 'Tests/OpenXRayCompat/**'
-      - 'docs/OPENXRAY_IOS_PROBE.md'
-      - '.github/workflows/openxray-ios-probe.yml'
 
 permissions:
   contents: read

@@ -59,6 +59,9 @@ struct TrilogyLauncherView: View {
                                 if let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }
+                                if let diagnostic = resources.diagnostics[game.rawValue] {
+                                    Text(diagnostic).font(.caption2.monospaced()).foregroundStyle(.gray)
+                                }
                                 HStack {
                                     Button(russian ? "Импортировать файлы" : "Import files") {
                                         selectedGame = game

@@ -13,6 +13,8 @@ struct CollisionMetalPreview: UIViewRepresentable {
         view.device = MTLCreateSystemDefaultDevice()
         view.clearColor = MTLClearColor(red: 0.035, green: 0.06, blue: 0.05, alpha: 1)
         view.colorPixelFormat = .bgra8Unorm
+        view.addGestureRecognizer(UIPanGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pan(_:))))
+        view.addGestureRecognizer(UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pinch(_:))))
         view.delegate = context.coordinator
         view.isPaused = false
         view.enableSetNeedsDisplay = false
@@ -28,7 +30,19 @@ struct CollisionMetalPreview: UIViewRepresentable {
         private var vertexBuffer: MTLBuffer?
         private var indexBuffer: MTLBuffer?
         private var indexCount = 0
-        private var start = ProcessInfo.processInfo.systemUptime
+        private var yaw: Float = 0.4
+        private var pitch: Float = 0.25
+        private var zoom: Float = 1
+        @objc func pan(_ gesture: UIPanGestureRecognizer) {
+            let delta = gesture.translation(in: gesture.view)
+            yaw += Float(delta.x) * 0.008
+            pitch = min(max(pitch + Float(delta.y) * 0.008, -1.4), 1.4)
+            gesture.setTranslation(.zero, in: gesture.view)
+        }
+        @objc func pinch(_ gesture: UIPinchGestureRecognizer) {
+            zoom = min(max(zoom * Float(gesture.scale), 0.15), 8)
+            gesture.scale = 1
+        }
 
         init(mesh: CollisionPreviewMesh) { self.mesh = mesh }
 
@@ -72,9 +86,8 @@ struct CollisionMetalPreview: UIViewRepresentable {
                   let pass = view.currentRenderPassDescriptor,
                   let command = queue.makeCommandBuffer(),
                   let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return }
-            let elapsed = Float(ProcessInfo.processInfo.systemUptime - start)
             let aspect = Float(view.drawableSize.width / max(view.drawableSize.height, 1))
-            let angle = elapsed * 0.15
+            let angle = yaw
             let rotation = simd_float4x4(
                 SIMD4<Float>(cos(angle), 0, -sin(angle), 0),
                 SIMD4<Float>(0, 1, 0, 0),
@@ -87,11 +100,16 @@ struct CollisionMetalPreview: UIViewRepresentable {
             }
             let center = (bounds.0 + bounds.1) * 0.5
             let extent = max(simd_length(bounds.1 - bounds.0), 0.001)
-            let scale = Float(1.5) / extent
+            let scale = Float(1.5) * zoom / extent
+            let tilt = simd_float4x4(
+                SIMD4<Float>(1, 0, 0, 0),
+                SIMD4<Float>(0, cos(pitch), sin(pitch), 0),
+                SIMD4<Float>(0, -sin(pitch), cos(pitch), 0),
+                SIMD4<Float>(0, 0, 0, 1))
             var translation = matrix_identity_float4x4
             translation.columns.3 = SIMD4<Float>(-center.x, -center.y, -center.z, 1)
             let projection = simd_float4x4(diagonal: SIMD4<Float>(scale / max(aspect, 0.01), scale, scale, 1))
-            var transform = projection * rotation * translation
+            var transform = projection * tilt * rotation * translation
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float4x4>.stride, index: 1)

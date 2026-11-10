@@ -53,6 +53,24 @@ int32_t st_xray_level_chunk_count(STXRayHandle handle, uint32_t level_index) {
     if (!result.geometryIndexed) return -2;
     return static_cast<int32_t>(result.geometryChunks.size());
 }
+int32_t st_xray_level_chunk_info(STXRayHandle handle, uint32_t level_index,
+                                 uint32_t chunk_index, uint32_t* chunk_id,
+                                 uint64_t* payload_offset, uint32_t* payload_size,
+                                 int32_t* compressed) {
+    if (!handle || !chunk_id || !payload_offset || !payload_size || !compressed) return -1;
+    const auto* engine = static_cast<XRayBootstrap*>(handle);
+    const auto& levels = engine->looseLevels();
+    if (level_index >= levels.size()) return -1;
+    const auto result = stalker::inspectLevel(engine->resourceRoot(), levels[level_index]);
+    if (!result.geometryIndexed) return -2;
+    if (chunk_index >= result.geometryChunks.size()) return -1;
+    const auto& chunk = result.geometryChunks[chunk_index];
+    *chunk_id = chunk.id;
+    *payload_offset = chunk.offset;
+    *payload_size = chunk.size;
+    *compressed = chunk.compressed ? 1 : 0;
+    return 0;
+}
 void st_xray_shutdown(STXRayHandle handle) {
     if (handle) static_cast<XRayBootstrap*>(handle)->shutdown();
 }

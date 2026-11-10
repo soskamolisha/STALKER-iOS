@@ -166,6 +166,18 @@ struct GameShellView: View {
                         break
                     }
                     chunkDetails.append("#\(index + 1) ID=\(id) @\(offset) size=\(size) compressed=\(compressed == 1 ? "yes" : "no")")
+                    if compressed == 0 && size >= 8 {
+                        var nestedCount: UInt32 = 0
+                        var nestedFirstID: UInt32 = 0
+                        let nestedResult = data.withUnsafeBytes { raw in
+                            st_chunk_scan_children(raw.bindMemory(to: UInt8.self).baseAddress,
+                                                   UInt32(raw.count), UInt32(index),
+                                                   &nestedCount, &nestedFirstID)
+                        }
+                        if nestedResult == 0 && nestedCount > 0 {
+                            chunkDetails.append("  nested: \(nestedCount), first ID=\(nestedFirstID)")
+                        }
+                    }
                     // Only show a small preview of uncompressed payloads.
                     // The native parser has already validated these bounds.
                     if compressed == 0 && size > 0 {

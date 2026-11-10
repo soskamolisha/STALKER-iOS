@@ -1,5 +1,6 @@
 #include "STXRayBootstrap.h"
 #include "XRayBootstrap.hpp"
+#include "XRayLevelInspection.hpp"
 #include <new>
 #include <cstring>
 
@@ -42,6 +43,15 @@ int32_t st_xray_level_name(STXRayHandle handle, uint32_t index, char* destinatio
     if (name.size() + 1 > capacity) return -3;
     std::memcpy(destination, name.c_str(), name.size() + 1);
     return 0;
+}
+int32_t st_xray_level_chunk_count(STXRayHandle handle, uint32_t level_index) {
+    if (!handle) return -1;
+    const auto* engine = static_cast<XRayBootstrap*>(handle);
+    const auto& levels = engine->looseLevels();
+    if (level_index >= levels.size()) return -1;
+    const auto result = stalker::inspectLevel(engine->resourceRoot(), levels[level_index]);
+    if (!result.geometryIndexed) return -2;
+    return static_cast<int32_t>(result.geometryChunks.size());
 }
 void st_xray_shutdown(STXRayHandle handle) {
     if (handle) static_cast<XRayBootstrap*>(handle)->shutdown();

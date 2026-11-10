@@ -9,6 +9,7 @@ struct TrilogyLauncherView: View {
     @StateObject private var resources = GameResourceStore()
     @State private var importError: String?
     @State private var isCopying = false
+    @State private var engineDiagnostics: [String: String] = [:]
 
     enum GameEdition: String, CaseIterable, Identifiable {
         case shadow = "shadow"
@@ -48,6 +49,43 @@ struct TrilogyLauncherView: View {
     }
 
     private var russian: Bool { language == "ru" }
+
+    private func checkEngineResources(for game: GameEdition) {
+        guard let handle = st_xray_create() else {
+            engineDiagnostics[game.rawValue] = russian ? "Ошибка создания ядра" : "Engine initialization failed"
+            return
+        }
+        defer { st_xray_destroy(handle) }
+        let edition: Int32
+        switch game {
+        case .shadow: edition = 0
+        case .clearSky: edition = 1
+        case .pripyat: edition = 2
+        }
+        guard st_xray_initialize(handle, edition) == 0 else {
+            engineDiagnostics[game.rawValue] = russian ? "Ошибка инициализации" : "Initialization failed"
+            return
+        }
+        defer { st_xray_shutdown(handle) }
+        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            engineDiagnostics[game.rawValue] = russian ? "Хранилище недоступно" : "Storage unavailable"
+            return
+        }
+        let folder = support.appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(game.rawValue, isDirectory: true)
+        let result = folder.path.withCString { st_xray_attach_resources(handle, $0) }
+        if result == 0 {
+            let loose = st_xray_has_loose_data(handle) == 1
+            let packed = st_xray_has_packed_data(handle) == 1
+            engineDiagnostics[game.rawValue] = russian
+                ? "Ядро готово: папка \\(loose ? "✓" : "—"), архивы \\(packed ? "✓" : "—")"
+                : "Core ready: folder \\(loose ? "✓" : "—"), archives \\(packed ? "✓" : "—")"
+        } else {
+            engineDiagnostics[game.rawValue] = russian
+                ? "Ядро: ресурсы не найдены или не распознаны"
+                : "Core: no recognized resources"
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -142,7 +180,18 @@ struct TrilogyLauncherView: View {
                                 if let diagnostic = resources.diagnostics[game.rawValue] {
                                     Text(diagnostic).font(.caption2.monospaced()).foregroundStyle(.gray)
                                 }
+                                if let engineResult = engineDiagnostics[game.rawValue] {
+                                    Label(engineResult, systemImage: "cpu")
+                                        .font(.caption)
+                                        .foregroundStyle(.yellow)
+                                }
                                 HStack {
+                                    Button(russian ? "Проверить ядро" : "Check engine") {
+                                        checkEngineResources(for: game)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.green)
+                                    .disabled(isCopying)
                                     Button(russian ? "Импортировать файлы" : "Import files") {
                                         selectedGame = game
                                         showImporter = true

@@ -6,8 +6,8 @@ enum XRayLaunchProfile {
     static func arguments(for gameID: String) -> [String]? {
         switch gameID {
         case "shadow": return ["-soc", "-nointro", "-nosplash"]
-        case "clearSky": return ["-cs", "-nointro", "-nosplash"]
-        case "pripyat": return ["-cop", "-nointro", "-nosplash"]
+        case "clearSky": return nil // Unverified for selected engine source
+        case "pripyat": return nil // Unverified for selected engine source
         default: return nil
         }
     }

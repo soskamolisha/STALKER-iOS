@@ -175,6 +175,13 @@ struct TrilogyLauncherView: View {
                                     .font(.headline).foregroundStyle(.yellow)
                                 Text(russian ? "Игровые ресурсы добавляются отдельно" : "Import your own game resources")
                                     .foregroundStyle(.gray)
+                                Label(
+                                    russian ? "Движок iOS пока не подключён" : "iOS game engine not yet integrated",
+                                    systemImage: "exclamationmark.triangle"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .accessibilityLabel(russian ? "Запуск игры пока недоступен" : "Game launch is not yet available")
                                 if let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }

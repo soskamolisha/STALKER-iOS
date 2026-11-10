@@ -21,6 +21,10 @@ int main() {
     assert(path);
     assert(st_xray_attach_resources(handle, path) == -2);
     const std::string archive = std::string(path) + "/gamedata.db0";
+    const std::string backupLike = std::string(path) + "/gamedata.db.backup";
+    { std::ofstream file(backupLike); file << "not an archive"; }
+    { std::ofstream file(archive); }
+    assert(st_xray_attach_resources(handle, path) == -2);
     { std::ofstream file(archive); file << "fixture"; }
     assert(st_xray_attach_resources(handle, path) == 0);
     assert(st_xray_state(handle) == 2);
@@ -81,5 +85,6 @@ int main() {
     assert(st_xray_state(handle) == 0);
     st_xray_destroy(handle);
     assert(std::remove(archive.c_str()) == 0);
+    assert(std::remove(backupLike.c_str()) == 0);
     assert(rmdir(path) == 0);
 }

@@ -1,6 +1,9 @@
 name: Diagnose upstream OpenXRay iOS configuration
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/openxray-full-configure-probe.yml'
 permissions:
   contents: read
 jobs:

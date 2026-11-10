@@ -13,6 +13,8 @@ struct CollisionMetalPreview: UIViewRepresentable {
         view.device = MTLCreateSystemDefaultDevice()
         view.clearColor = MTLClearColor(red: 0.035, green: 0.06, blue: 0.05, alpha: 1)
         view.colorPixelFormat = .bgra8Unorm
+        view.depthStencilPixelFormat = .depth32Float
+        view.clearDepth = 1
         view.addGestureRecognizer(UIPanGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pan(_:))))
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pinch(_:))))
         view.delegate = context.coordinator
@@ -27,6 +29,7 @@ struct CollisionMetalPreview: UIViewRepresentable {
         private let mesh: CollisionPreviewMesh
         private var queue: MTLCommandQueue?
         private var pipeline: MTLRenderPipelineState?
+        private var depthState: MTLDepthStencilState?
         private var vertexBuffer: MTLBuffer?
         private var indexBuffer: MTLBuffer?
         private var indexCount = 0
@@ -82,7 +85,12 @@ struct CollisionMetalPreview: UIViewRepresentable {
             descriptor.vertexFunction = vertex
             descriptor.fragmentFunction = fragment
             descriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat
+            descriptor.depthAttachmentPixelFormat = view.depthStencilPixelFormat
             pipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+            let depthDescriptor = MTLDepthStencilDescriptor()
+            depthDescriptor.depthCompareFunction = .less
+            depthDescriptor.isDepthWriteEnabled = true
+            depthState = device.makeDepthStencilState(descriptor: depthDescriptor)
             guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty else { return }
             let positions = mesh.vertices.flatMap { [$0.x, $0.y, $0.z] }
             vertexBuffer = positions.withUnsafeBytes {
@@ -118,9 +126,12 @@ struct CollisionMetalPreview: UIViewRepresentable {
                 SIMD4<Float>(0, 0, 0, 1))
             var translation = matrix_identity_float4x4
             translation.columns.3 = SIMD4<Float>(-meshCenter.x, -meshCenter.y, -meshCenter.z, 1)
-            let projection = simd_float4x4(diagonal: SIMD4<Float>(scale / max(aspect, 0.01), scale, scale, 1))
+            // Metal clip depth is 0...1. Center the scaled mesh in that interval.
+            var projection = simd_float4x4(diagonal: SIMD4<Float>(scale / max(aspect, 0.01), scale, scale * 0.5, 1))
+            projection.columns.3.z = 0.5
             var transform = projection * tilt * rotation * translation
             encoder.setRenderPipelineState(pipeline)
+            if let depthState { encoder.setDepthStencilState(depthState) }
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBytes(&transform, length: MemoryLayout<simd_float4x4>.stride, index: 1)
             encoder.setTriangleFillMode(.lines)

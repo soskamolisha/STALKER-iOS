@@ -104,6 +104,7 @@ struct TrilogyLauncherView: View {
     }
 
     @State private var selectedSection = "home"
+    @State private var showAbout = false
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -130,6 +131,7 @@ struct TrilogyLauncherView: View {
                 }()
                 Button {
                     selectedSection = section
+                    if section == "about" { showAbout = true }
                     if section == "import" {
                         selectedGame = .shadow
                         showImporter = true
@@ -157,9 +159,17 @@ struct TrilogyLauncherView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
-                                         Color(red: 0.11, green: 0.13, blue: 0.10)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
+                ZStack {
+                    LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
+                                             Color(red: 0.11, green: 0.13, blue: 0.10)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: "building.2.crop.circle")
+                        .font(.system(size: 420, weight: .ultraLight))
+                        .foregroundStyle(.yellow.opacity(0.055))
+                        .offset(x: 180, y: -110)
+                    LinearGradient(colors: [.black.opacity(0.2), .black.opacity(0.75)],
+                                   startPoint: .top, endPoint: .bottom)
+                }.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
@@ -297,6 +307,20 @@ struct TrilogyLauncherView: View {
                                 }
                             }
                         }
+                        HStack(spacing: 14) {
+                            Image(systemName: "newspaper.fill")
+                                .font(.title2)
+                                .foregroundStyle(.yellow)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(russian ? "Новости проекта" : "Project news")
+                                    .font(.headline).foregroundStyle(.yellow)
+                                Text(russian ? "STALKER Mobile — лаунчер трилогии для iOS. Игровой движок пока в разработке." : "STALKER Mobile — iOS trilogy launcher. Game engine integration is in progress.")
+                                    .font(.subheadline).foregroundStyle(.white.opacity(0.75))
+                            }
+                            Spacer()
+                        }
+                        .padding(16)
+                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
                         Divider().overlay(.yellow.opacity(0.4))
                         HStack(spacing: 10) {
                             Image(systemName: "externaldrive.fill").foregroundStyle(.yellow)
@@ -313,6 +337,11 @@ struct TrilogyLauncherView: View {
                     }
                     .padding()
                 }
+            }
+            .alert(russian ? "О проекте" : "About", isPresented: $showAbout) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(russian ? "STALKER Mobile — тестовый лаунчер. Порт X-Ray для iOS ещё не готов." : "STALKER Mobile is a prototype launcher. The iOS X-Ray port is not ready yet.")
             }
             .task {
                 for game in GameEdition.allCases { await resources.refresh(gameID: game.rawValue) }

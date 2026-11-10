@@ -43,8 +43,8 @@ final class GameResourceStore: ObservableObject {
         archiveHeaders[gameID] = inventory.firstArchiveHeader
         archiveSummaries[gameID] = inventory.archiveSummary
         status[gameID] = inventory.detected
-            ? "Found \\(inventory.count) files; X-Ray resource markers detected"
-            : "Found \\(inventory.count) files; X-Ray resource markers not found"
+            ? "Found \(inventory.count) files; X-Ray resource markers detected"
+            : "Found \(inventory.count) files; X-Ray resource markers not found"
     }
 
     func importFolder(_ source: URL, gameID: String) throws {

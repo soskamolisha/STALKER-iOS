@@ -40,10 +40,10 @@ struct CollisionMetalPreview: UIViewRepresentable {
             #include <metal_stdlib>
             using namespace metal;
             struct Uniforms { float4x4 transform; };
-            vertex float4 vs_main(const device float3* positions [[buffer(0)]],
+            vertex float4 vs_main(const device packed_float3* positions [[buffer(0)]],
                                   constant Uniforms& uniforms [[buffer(1)]],
                                   uint vid [[vertex_id]]) {
-                return uniforms.transform * float4(positions[vid], 1.0);
+                return uniforms.transform * float4(float3(positions[vid]), 1.0);
             }
             fragment float4 fs_main() { return float4(0.83, 0.73, 0.28, 1.0); }
             """

@@ -15,6 +15,7 @@ struct GameShellView: View {
     @State private var engine = UnavailableEngine()
     @Environment(\.scenePhase) private var scenePhase
     @State private var status = "Движок X-Ray не подключён"
+    @State private var coreCheck = "xrCore CRC32 не проверен"
 
     var body: some View {
         GeometryReader { _ in
@@ -29,6 +30,18 @@ struct GameShellView: View {
                     Text(status)
                         .foregroundStyle(.gray)
                         .font(.footnote)
+                    Text(coreCheck)
+                        .foregroundStyle(.green)
+                        .font(.footnote)
+                    Button("Проверить xrCore CRC32") {
+                        let bytes = Array("123456789".utf8)
+                        let checksum = bytes.withUnsafeBytes { raw in
+                            st_openxray_crc32(raw.baseAddress, UInt32(raw.count))
+                        }
+                        coreCheck = checksum == 0xCBF43926 ? "xrCore CRC32 работает" : "Ошибка xrCore CRC32"
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
                     Button("Проверить движок") {
                         do {
                             try engine.start()

@@ -10,6 +10,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var diagnostics: [String: String] = [:]
     @Published private(set) var storageBytes: [String: Int64] = [:]
     @Published private(set) var archiveCounts: [String: Int] = [:]
+    @Published private(set) var archiveHeaders: [String: String] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -30,6 +31,7 @@ final class GameResourceStore: ObservableObject {
         diagnostics[gameID] = Self.resourceSummary(in: folder)
         storageBytes[gameID] = Self.folderSize(in: folder)
         archiveCounts[gameID] = Self.xrayArchiveCount(in: folder)
+        archiveHeaders[gameID] = Self.archiveHeaderSummary(in: folder)
         status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
@@ -86,11 +88,19 @@ final class GameResourceStore: ObservableObject {
             diagnostics[gameID] = Self.resourceSummary(in: destination)
             storageBytes[gameID] = Self.folderSize(in: destination)
             archiveCounts[gameID] = Self.xrayArchiveCount(in: destination)
+            archiveHeaders[gameID] = Self.archiveHeaderSummary(in: destination)
             status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)
             throw error
         }
+    }
+
+    private static func archiveHeaderSummary(in folder: URL) -> String {
+        guard let first = XRayArchiveInspector.inspect(in: folder, limit: 1).first else {
+            return "No X-Ray archive header available"
+        }
+        return "\(first.name): \(XRayArchiveInspector.headerHex(first.header))"
     }
 
     private static func xrayArchiveCount(in folder: URL) -> Int {

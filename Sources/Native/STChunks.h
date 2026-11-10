@@ -17,6 +17,11 @@ int32_t st_chunk_at(const uint8_t *bytes, uint32_t length, uint32_t index,
 int32_t st_chunk_scan_children(const uint8_t *bytes, uint32_t length,
                                uint32_t parent_index, uint32_t *child_count,
                                uint32_t *first_child_id);
+// Copy a bounded slice of an uncompressed chunk payload into caller-owned memory.
+// -4: compressed, -5: requested slice out of range, -6: output buffer too small.
+int32_t st_chunk_copy_slice(const uint8_t *bytes, uint32_t length,
+                            uint32_t index, uint32_t slice_offset, uint32_t slice_length,
+                            uint8_t *destination, uint32_t destination_capacity);
 #ifdef __cplusplus
 }
 #endif

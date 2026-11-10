@@ -23,6 +23,8 @@ int main() {
     assert(!engine.attachResources(root));
     assert(!engine.attachResources("/definitely/not/a/game/folder"));
     assert(mkdir((root + "/gamedata").c_str(), 0700) == 0);
+    assert(!engine.attachResources(root));
+    { std::ofstream file(root + "/gamedata/fixture.ltx"); file << "fixture"; }
     assert(engine.attachResources(root));
     assert(engine.hasLooseGameData());
     assert(engine.looseLevels().empty());
@@ -34,6 +36,7 @@ int main() {
     assert(!engine.hasLooseGameData());
     assert(!engine.hasPackedGameData());
     assert(engine.looseLevels().empty());
+    assert(std::remove((root + "/gamedata/fixture.ltx").c_str()) == 0);
     assert(rmdir((root + "/gamedata").c_str()) == 0);
     std::ofstream archive(root + "/gamedata.db0", std::ios::binary);
     archive << "fixture";

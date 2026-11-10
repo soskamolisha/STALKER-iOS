@@ -11,6 +11,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var storageBytes: [String: Int64] = [:]
     @Published private(set) var archiveCounts: [String: Int] = [:]
     @Published private(set) var archiveHeaders: [String: String] = [:]
+    @Published private(set) var archiveSummaries: [String: String] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -32,6 +33,7 @@ final class GameResourceStore: ObservableObject {
         storageBytes[gameID] = Self.folderSize(in: folder)
         archiveCounts[gameID] = Self.xrayArchiveCount(in: folder)
         archiveHeaders[gameID] = Self.archiveHeaderSummary(in: folder)
+        archiveSummaries[gameID] = XRayArchiveInspector.summary(XRayArchiveInspector.inspect(in: folder))
         status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
@@ -89,6 +91,7 @@ final class GameResourceStore: ObservableObject {
             storageBytes[gameID] = Self.folderSize(in: destination)
             archiveCounts[gameID] = Self.xrayArchiveCount(in: destination)
             archiveHeaders[gameID] = Self.archiveHeaderSummary(in: destination)
+            archiveSummaries[gameID] = XRayArchiveInspector.summary(XRayArchiveInspector.inspect(in: destination))
             status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)

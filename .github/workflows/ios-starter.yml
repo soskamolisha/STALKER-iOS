@@ -29,6 +29,10 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelCatalog.cpp Tests/XRayLevelCatalogTests.cpp -o /tmp/stalker-xray-level-tests
           /tmp/stalker-xray-level-tests
+      - name: Test native X-Ray loose level files
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Tests/XRayLevelFilesTests.cpp -o /tmp/stalker-xray-level-files-tests
+          /tmp/stalker-xray-level-files-tests
       - name: Test archive chunk reader
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests

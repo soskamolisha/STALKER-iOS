@@ -91,6 +91,28 @@ enum XRayParserSelfTest {
             check("Archive header read", archives.first(where: { $0.name == "gamedata.db0" })?.header == Data([1, 2, 3]))
         } catch { failed.append("Archive inspector filesystem test: \\(error)") }
 
+        do {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("xray-scanner-test-" + UUID().uuidString, isDirectory: true)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: root) }
+            try Data("game".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+            try Data([0x11, 0x22]).write(to: root.appendingPathComponent("gamedata.db0"))
+            try Data().write(to: root.appendingPathComponent("gamedata.db1"))
+            try Data([0xFF]).write(to: root.appendingPathComponent("notes.txt"))
+            if let inventory = GameResourceScanner.scan(root) {
+                check("Inventory file count", inventory.count == 4)
+                check("Inventory total bytes", inventory.bytes == 7)
+                check("Inventory detects resources", inventory.detected)
+                check("Inventory archive count", inventory.archiveCount == 2)
+                check("Inventory empty archive", inventory.archiveSummary.contains("1 empty"))
+                check("Inventory archive header", inventory.firstArchiveHeader.contains("11 22"))
+            } else {
+                failed.append("Scanner rejected existing folder")
+            }
+            check("Scanner rejects missing folder", GameResourceScanner.scan(root.appendingPathComponent("missing")) == nil)
+        } catch { failed.append("Resource scanner fixture test: \\(error)") }
+
         return Result(passed: passed, failed: failed)
     }
 }

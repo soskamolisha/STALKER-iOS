@@ -23,3 +23,37 @@ extern "C" int32_t st_chunk_scan(const uint8_t* bytes, uint32_t length,
     }
     return 0;
 }
+
+extern "C" int32_t st_chunk_at(const uint8_t* bytes, uint32_t length, uint32_t index,
+    uint32_t* id, uint32_t* payload_offset, uint32_t* payload_size,
+    uint32_t* compressed) {
+    if (!bytes || length == 0 || !id || !payload_offset || !payload_size || !compressed)
+        return -1;
+    std::uint64_t offset = 0;
+    std::uint32_t count = 0;
+    bool found = false;
+    std::uint32_t selectedID = 0, selectedOffset = 0, selectedSize = 0, selectedCompressed = 0;
+    while (offset < length) {
+        if (count == 4096) return -2;
+        if (length - offset < 8) return -1;
+        const std::uint32_t type = read32(bytes + offset);
+        const std::uint32_t size = read32(bytes + offset + 4);
+        offset += 8;
+        if (size > length - offset) return -1;
+        if (count == index) {
+            found = true;
+            selectedID = type & 0x7fffffffU;
+            selectedOffset = static_cast<std::uint32_t>(offset);
+            selectedSize = size;
+            selectedCompressed = (type & 0x80000000U) != 0 ? 1U : 0U;
+        }
+        ++count;
+        offset += size;
+    }
+    if (!found) return -3;
+    *id = selectedID;
+    *payload_offset = selectedOffset;
+    *payload_size = selectedSize;
+    *compressed = selectedCompressed;
+    return 0;
+}

@@ -32,8 +32,15 @@ enum GameResourceScanner {
             return "edition: unknown (packed or no loose levels)"
         }
         let names = Set(entries.map { $0.lowercased() })
-        let cop = names.contains("zaton") || names.contains("jupiter")
-        let cs = names.contains("marsh")
+        func isLevelDirectory(_ name: String) -> Bool {
+            guard names.contains(name) else { return false }
+            var isDirectory: ObjCBool = false
+            let candidate = levels.appendingPathComponent(name, isDirectory: true)
+            return FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory)
+                && isDirectory.boolValue
+        }
+        let cop = isLevelDirectory("zaton") || isLevelDirectory("jupiter")
+        let cs = isLevelDirectory("marsh")
         if cop && cs { return "edition: mixed level markers" }
         if cop { return "edition hint: Call of Pripyat" }
         if cs { return "edition hint: Clear Sky" }

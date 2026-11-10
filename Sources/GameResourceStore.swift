@@ -8,6 +8,7 @@ final class GameResourceStore: ObservableObject {
     @Published private(set) var detectedResources: [String: Bool] = [:]
     @Published private(set) var importInProgress = false
     @Published private(set) var diagnostics: [String: String] = [:]
+    @Published private(set) var storageBytes: [String: Int64] = [:]
 
     private var root: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -26,6 +27,7 @@ final class GameResourceStore: ObservableObject {
         let detected = Self.containsXRayResources(in: folder)
         detectedResources[gameID] = detected
         diagnostics[gameID] = Self.resourceSummary(in: folder)
+        storageBytes[gameID] = Self.folderSize(in: folder)
         status[gameID] = detected ? "Found \(count) files; X-Ray resource markers detected" : "Found \(count) files; X-Ray resource markers not found"
     }
 
@@ -75,11 +77,23 @@ final class GameResourceStore: ObservableObject {
             fileCounts[gameID] = count
             detectedResources[gameID] = true
             diagnostics[gameID] = Self.resourceSummary(in: destination)
+            storageBytes[gameID] = Self.folderSize(in: destination)
             status[gameID] = "Imported \(count) files; X-Ray resource markers detected"
         } catch {
             try? manager.removeItem(at: staging)
             throw error
         }
+    }
+
+    private static func folderSize(in folder: URL) -> Int64 {
+        let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey])
+        var bytes: Int64 = 0
+        while let file = enumerator?.nextObject() as? URL {
+            guard let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                  info.isRegularFile == true else { continue }
+            bytes += Int64(info.fileSize ?? 0)
+        }
+        return bytes
     }
 
     private static func resourceSummary(in folder: URL) -> String {

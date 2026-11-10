@@ -74,6 +74,11 @@ struct TrilogyLauncherView: View {
                             .padding()
                             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                         }
+                        NavigationLink(russian ? "Открыть технический прототип" : "Open technical prototype") {
+                            GameShellView()
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
                         Text(russian ? "Запуск оригинальных игр пока недоступен: требуется порт движка X-Ray." : "Original game launching is not yet available: an iOS X-Ray engine port is required.")
                             .font(.footnote).foregroundStyle(.gray)
                     }

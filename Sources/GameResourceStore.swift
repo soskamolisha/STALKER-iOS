@@ -24,7 +24,17 @@ final class GameResourceStore: ObservableObject {
         let inventory = await Task.detached(priority: .utility) {
             GameResourceScanner.scan(folder)
         }.value
-        guard let inventory else { return }
+        guard let inventory else {
+            fileCounts.removeValue(forKey: gameID)
+            detectedResources.removeValue(forKey: gameID)
+            diagnostics.removeValue(forKey: gameID)
+            storageBytes.removeValue(forKey: gameID)
+            archiveCounts.removeValue(forKey: gameID)
+            archiveHeaders.removeValue(forKey: gameID)
+            archiveSummaries.removeValue(forKey: gameID)
+            status.removeValue(forKey: gameID)
+            return
+        }
         fileCounts[gameID] = inventory.count
         detectedResources[gameID] = inventory.detected
         diagnostics[gameID] = inventory.diagnostics

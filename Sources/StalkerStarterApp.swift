@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct StalkerStarterApp: App {
@@ -17,6 +18,8 @@ struct GameShellView: View {
     @State private var status = "Движок X-Ray не подключён"
     @State private var coreCheck = "xrCore CRC32 не проверен"
     @State private var chunkCheck = "Чтение чанков не проверено"
+    @State private var isImportingFile = false
+    @State private var importedFileStatus = "Файл ещё не выбран"
 
     var body: some View {
         GeometryReader { _ in
@@ -61,7 +64,16 @@ struct GameShellView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.green)
-                    Button("Проверить движок") {
+                    Button("Проверить свой файл") {
+                        isImportingFile = true
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.orange)
+                    Text(importedFileStatus)
+                        .font(.footnote)
+                        .foregroundStyle(.white)
+                        .lineLimit(3)
+                                        Button("Проверить движок") {
                         do {
                             try engine.start()
                             status = "Движок запущен"
@@ -84,10 +96,52 @@ struct GameShellView: View {
                 .padding(24)
             }
         }
+        .fileImporter(isPresented: $isImportingFile,
+                      allowedContentTypes: [.data, .item]) { result in
+            switch result {
+            case .success(let url):
+                inspectSelectedFile(url)
+            case .failure(let error):
+                importedFileStatus = "Не удалось выбрать файл: \\(error.localizedDescription)"
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { engine.stop() }
         }
         .onDisappear { engine.stop() }
+    }
+
+    private func inspectSelectedFile(_ url: URL) {
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            // Limit memory usage: this is a small structural probe, not an archive loader.
+            let maxSize = 32 * 1024 * 1024
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+            guard let size, size > 0, size <= maxSize else {
+                importedFileStatus = "Нужен файл размером до 32 МБ"
+                return
+            }
+            let data = try Data(contentsOf: url)
+            guard !data.isEmpty, data.count <= maxSize else {
+                importedFileStatus = "Файл пустой или превышает 32 МБ"
+                return
+            }
+            var count: UInt32 = 0
+            var firstID: UInt32 = 0
+            var firstSize: UInt32 = 0
+            let result = data.withUnsafeBytes { raw in
+                st_chunk_scan(raw.bindMemory(to: UInt8.self).baseAddress,
+                              UInt32(raw.count), &count, &firstID, &firstSize)
+            }
+            if result == 0 {
+                importedFileStatus = "\\(url.lastPathComponent): \\(count) чанков, первый ID \\(firstID), размер \\(firstSize) байт. Формат игры не подтверждён."
+            } else {
+                importedFileStatus = "\\(url.lastPathComponent): не распознан как простой контейнер чанков X-Ray"
+            }
+        } catch {
+            importedFileStatus = "Ошибка чтения файла: \\(error.localizedDescription)"
+        }
     }
 
     private func control(_ title: String, input: GameInput) -> some View {

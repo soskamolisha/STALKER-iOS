@@ -1,6 +1,7 @@
 #include "STXRayBootstrap.h"
 #include "XRayBootstrap.hpp"
 #include "XRayLevelInspection.hpp"
+#include "XRayCFormHeader.hpp"
 #include <new>
 #include <cstring>
 
@@ -69,6 +70,26 @@ int32_t st_xray_level_chunk_info(STXRayHandle handle, uint32_t level_index,
     *payload_offset = chunk.offset;
     *payload_size = chunk.size;
     *compressed = chunk.compressed ? 1 : 0;
+    return 0;
+}
+int32_t st_xray_level_collision_info(STXRayHandle handle, uint32_t level_index,
+                                      uint32_t* vertex_count, uint32_t* triangle_count,
+                                      float* bounds_min_xyz, float* bounds_max_xyz) {
+    if (!handle || !vertex_count || !triangle_count || !bounds_min_xyz || !bounds_max_xyz)
+        return -1;
+    const auto* engine = static_cast<XRayBootstrap*>(handle);
+    const auto& levels = engine->looseLevels();
+    if (level_index >= levels.size()) return -1;
+    stalker::CFormHeader header;
+    const auto path = engine->resourceRoot() + "/gamedata/levels/" +
+                      levels[level_index] + "/level.cform";
+    if (!stalker::readCFormHeader(path, header)) return -2;
+    *vertex_count = header.vertexCount;
+    *triangle_count = header.faceCount;
+    for (int i = 0; i < 3; ++i) {
+        bounds_min_xyz[i] = header.minimum[i];
+        bounds_max_xyz[i] = header.maximum[i];
+    }
     return 0;
 }
 void st_xray_shutdown(STXRayHandle handle) {

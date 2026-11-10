@@ -8,6 +8,7 @@ struct TrilogyLauncherView: View {
     @State private var showImporter = false
     @StateObject private var resources = GameResourceStore()
     @State private var importError: String?
+    @State private var isCopying = false
 
     enum GameEdition: String, CaseIterable, Identifiable {
         case shadow = "shadow"
@@ -48,6 +49,10 @@ struct TrilogyLauncherView: View {
                             .pickerStyle(.segmented)
                             .frame(width: 150)
                         }
+                        if isCopying {
+                            ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
+                                .tint(.yellow)
+                        }
                         Text(russian ? "Выберите игру" : "Choose a game")
                             .font(.title2).foregroundStyle(.white)
                         ForEach(GameEdition.allCases) { game in
@@ -72,7 +77,7 @@ struct TrilogyLauncherView: View {
                                         showImporter = true
                                     }
                                     .buttonStyle(.borderedProminent).tint(.yellow)
-                                    .disabled(resources.importInProgress)
+                                    .disabled(resources.importInProgress || isCopying)
                                     Button(russian ? "Запустить" : "Launch") {}
                                         .buttonStyle(.bordered)
                                         .disabled(true)
@@ -103,8 +108,19 @@ struct TrilogyLauncherView: View {
                 guard let selectedGame else { return }
                 do {
                     let folder = try result.get()
-                    try resources.importFolder(folder, gameID: selectedGame.rawValue)
-                    self.selectedGame = nil
+                    isCopying = true
+                    let edition = selectedGame.rawValue
+                    Task {
+                        defer { isCopying = false; self.selectedGame = nil }
+                        do {
+                            try await Task.detached(priority: .userInitiated) {
+                                try GameResourceImporter.copy(folder, gameID: edition)
+                            }.value
+                            resources.refresh(gameID: edition)
+                        } catch {
+                            importError = error.localizedDescription
+                        }
+                    }
                 } catch {
                     importError = error.localizedDescription
                     self.selectedGame = nil

@@ -32,6 +32,12 @@ int32_t st_xray_has_loose_data(STXRayHandle handle) {
 int32_t st_xray_has_packed_data(STXRayHandle handle) {
     return handle && static_cast<XRayBootstrap*>(handle)->hasPackedGameData() ? 1 : 0;
 }
+int32_t st_xray_archive_count(STXRayHandle handle) {
+    return handle ? static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->packedArchiveCount()) : -1;
+}
+uint64_t st_xray_archive_bytes(STXRayHandle handle) {
+    return handle ? static_cast<XRayBootstrap*>(handle)->packedArchiveBytes() : 0;
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

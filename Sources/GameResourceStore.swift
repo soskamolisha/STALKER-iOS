@@ -11,6 +11,18 @@ final class GameResourceStore: ObservableObject {
             .appendingPathComponent("ImportedGames", isDirectory: true)
     }
 
+    func refresh(gameID: String) {
+        let folder = root.appendingPathComponent(gameID, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: folder.path) else { return }
+        let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey])
+        var count = 0
+        while let file = enumerator?.nextObject() as? URL {
+            if (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true { count += 1 }
+        }
+        fileCounts[gameID] = count
+        status[gameID] = "Imported \(count) files (engine compatibility not verified)"
+    }
+
     func importFolder(_ source: URL, gameID: String) throws {
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else {
             throw ImportError.invalidEdition
@@ -21,7 +33,12 @@ final class GameResourceStore: ObservableObject {
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         let destination = root.appendingPathComponent(gameID, isDirectory: true)
         let staging = root.appendingPathComponent(gameID + ".incoming", isDirectory: true)
+        let backup = root.appendingPathComponent(gameID + ".backup", isDirectory: true)
         if manager.fileExists(atPath: staging.path) { try manager.removeItem(at: staging) }
+        if manager.fileExists(atPath: backup.path) {
+            if !manager.fileExists(atPath: destination.path) { try manager.moveItem(at: backup, to: destination) }
+            else { try manager.removeItem(at: backup) }
+        }
         do {
             try manager.copyItem(at: source, to: staging)
             let files = manager.enumerator(at: staging, includingPropertiesForKeys: [.isRegularFileKey])
@@ -33,8 +50,14 @@ final class GameResourceStore: ObservableObject {
             }
             guard count > 0 else { throw ImportError.emptyFolder }
             // Keep previous installation if import fails before replacement.
-            if manager.fileExists(atPath: destination.path) { try manager.removeItem(at: destination) }
-            try manager.moveItem(at: staging, to: destination)
+            if manager.fileExists(atPath: destination.path) { try manager.moveItem(at: destination, to: backup) }
+            do {
+                try manager.moveItem(at: staging, to: destination)
+            } catch {
+                if manager.fileExists(atPath: backup.path) { try? manager.moveItem(at: backup, to: destination) }
+                throw error
+            }
+            if manager.fileExists(atPath: backup.path) { try? manager.removeItem(at: backup) }
             fileCounts[gameID] = count
             status[gameID] = "Imported \(count) files (engine compatibility not verified)"
         } catch {

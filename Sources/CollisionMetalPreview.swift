@@ -113,7 +113,9 @@ struct CollisionMetalPreview: UIViewRepresentable {
             view.setNeedsDisplay()
         }
 
-        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+        func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
+            view.setNeedsDisplay()
+        }
         func draw(in view: MTKView) {
             guard let pipeline, let queue, let vertexBuffer, let indexBuffer,
                   indexCount > 0, let drawable = view.currentDrawable,
@@ -128,6 +130,7 @@ struct CollisionMetalPreview: UIViewRepresentable {
                 SIMD4<Float>(sin(angle), 0, cos(angle), 0),
                 SIMD4<Float>(0, 0, 0, 1))
             // Center and extent are cached once, not recalculated on every gesture.
+            // Keep the complete collision bounds within the initial clip volume.
             let scale = Float(1.5) * zoom / meshExtent
             let tilt = simd_float4x4(
                 SIMD4<Float>(1, 0, 0, 0),

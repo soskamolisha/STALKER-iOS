@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - 'Tests/OpenXRayMathProbe.cpp'
+      - 'Tests/OpenXRayCRCProbe.cpp'
+      - 'Tests/OpenXRayCompat/**'
       - 'docs/OPENXRAY_IOS_PROBE.md'
       - '.github/workflows/openxray-ios-probe.yml'
 
@@ -27,6 +29,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             src/xrCore/Math/fast_lc16.hpp
+            src/xrCore/crc32.cpp
             LICENSE
             License.txt
           sparse-checkout-cone-mode: false
@@ -37,6 +40,7 @@ jobs:
           set -euo pipefail
           test "$(git -C openxray-upstream rev-parse HEAD)" = "1b84cfbc5efa3e9af942164e5a3c2dde43b77f51"
           test -s openxray-upstream/src/xrCore/Math/fast_lc16.hpp
+          test -s openxray-upstream/src/xrCore/crc32.cpp
           test -s openxray-upstream/License.txt
 
       - name: Run OpenXRay math smoke test on macOS
@@ -50,6 +54,18 @@ jobs:
             -o "$RUNNER_TEMP/openxray-math-host-test"
           "$RUNNER_TEMP/openxray-math-host-test"
 
+      - name: Run upstream xrCore CRC32 smoke test on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -O2 -Wall -Wextra -Werror \
+            -Wno-unknown-pragmas -DSTALKER_PROBE_TEST_MAIN \
+            -I Tests/OpenXRayCompat \
+            openxray-upstream/src/xrCore/crc32.cpp \
+            Tests/OpenXRayCRCProbe.cpp \
+            -o "$RUNNER_TEMP/openxray-crc-host-test"
+          "$RUNNER_TEMP/openxray-crc-host-test"
+
       - name: Cross-compile upstream component for arm64 iPhoneOS
         shell: bash
         run: |
@@ -62,9 +78,24 @@ jobs:
             -I openxray-upstream/src/xrCore/Math \
             -c Tests/OpenXRayMathProbe.cpp \
             -o "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+          xcrun --sdk iphoneos clang++ \
+            -target arm64-apple-ios17.0 \
+            -isysroot "$SDK" \
+            -std=c++17 -O2 -Wall -Wextra -Werror -Wno-unknown-pragmas \
+            -I Tests/OpenXRayCompat \
+            -c openxray-upstream/src/xrCore/crc32.cpp \
+            -o "$RUNNER_TEMP/OpenXRayCRC-ios.o"
+          xcrun --sdk iphoneos clang++ \
+            -target arm64-apple-ios17.0 \
+            -isysroot "$SDK" \
+            -std=c++17 -O2 -Wall -Wextra -Werror \
+            -c Tests/OpenXRayCRCProbe.cpp \
+            -o "$RUNNER_TEMP/OpenXRayCRCProbe-ios.o"
           xcrun libtool -static \
             -o "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
-            "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+            "$RUNNER_TEMP/OpenXRayMathProbe-ios.o" \
+            "$RUNNER_TEMP/OpenXRayCRC-ios.o" \
+            "$RUNNER_TEMP/OpenXRayCRCProbe-ios.o"
           lipo "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" -verify_arch arm64
           file "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
 

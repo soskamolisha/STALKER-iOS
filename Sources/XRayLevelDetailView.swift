@@ -5,10 +5,16 @@ struct XRayLevelDetailView: View {
     let levelName: String
     @State private var chunks: [XRayLevelDiagnostics.Chunk] = []
     @State private var loading = true
+    @State private var preview: CollisionPreviewMesh?
+    @State private var showPreview = false
     @State private var collision: XRayLevelDiagnostics.Collision?
 
     var body: some View {
         List {
+            if collision != nil {
+                Button("Open 3D collision preview") { showPreview = true }
+                    .disabled(loading)
+            }
             if let collision {
                 Section("Collision geometry") {
                     Text("Vertices: \(collision.vertices)")
@@ -39,6 +45,25 @@ struct XRayLevelDetailView: View {
             }
         }
         .navigationTitle(levelName)
+        .sheet(isPresented: $showPreview) {
+            NavigationStack {
+                Group {
+                    if let preview, !preview.indices.isEmpty {
+                        CollisionMetalPreview(mesh: preview)
+                    } else {
+                        ContentUnavailableView("Preview unavailable", systemImage: "cube.transparent",
+                                               description: Text("Mesh too large, empty or unsupported."))
+                    }
+                }
+                .navigationTitle("Collision preview")
+                .toolbar { Button("Close") { showPreview = false } }
+                .task {
+                    preview = await Task.detached(priority: .utility) {
+                        CollisionPreviewMesh.load(gameID: gameID, levelName: levelName)
+                    }.value
+                }
+            }
+        }
         .task {
             loading = true
             chunks = await Task.detached(priority: .utility) {

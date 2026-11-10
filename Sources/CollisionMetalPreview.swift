@@ -16,8 +16,8 @@ struct CollisionMetalPreview: UIViewRepresentable {
         view.addGestureRecognizer(UIPanGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pan(_:))))
         view.addGestureRecognizer(UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Renderer.pinch(_:))))
         view.delegate = context.coordinator
-        view.isPaused = false
-        view.enableSetNeedsDisplay = false
+        view.isPaused = true
+        view.enableSetNeedsDisplay = true
         context.coordinator.configure(view: view)
         return view
     }
@@ -33,20 +33,24 @@ struct CollisionMetalPreview: UIViewRepresentable {
         private var yaw: Float = 0.4
         private var pitch: Float = 0.25
         private var zoom: Float = 1
+        private weak var view: MTKView?
         @objc func pan(_ gesture: UIPanGestureRecognizer) {
             let delta = gesture.translation(in: gesture.view)
             yaw += Float(delta.x) * 0.008
             pitch = min(max(pitch + Float(delta.y) * 0.008, -1.4), 1.4)
             gesture.setTranslation(.zero, in: gesture.view)
+            view?.setNeedsDisplay()
         }
         @objc func pinch(_ gesture: UIPinchGestureRecognizer) {
             zoom = min(max(zoom * Float(gesture.scale), 0.15), 8)
             gesture.scale = 1
+            view?.setNeedsDisplay()
         }
 
         init(mesh: CollisionPreviewMesh) { self.mesh = mesh }
 
         func configure(view: MTKView) {
+            self.view = view
             guard let device = view.device,
                   let queue = device.makeCommandQueue() else { return }
             self.queue = queue
@@ -69,6 +73,7 @@ struct CollisionMetalPreview: UIViewRepresentable {
             descriptor.fragmentFunction = fragment
             descriptor.colorAttachments[0].pixelFormat = view.colorPixelFormat
             pipeline = try? device.makeRenderPipelineState(descriptor: descriptor)
+            guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty else { return }
             let positions = mesh.vertices.flatMap { [$0.x, $0.y, $0.z] }
             vertexBuffer = positions.withUnsafeBytes {
                 device.makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: [])
@@ -77,6 +82,7 @@ struct CollisionMetalPreview: UIViewRepresentable {
                 device.makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: [])
             }
             indexCount = mesh.indices.count
+            view.setNeedsDisplay()
         }
 
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}

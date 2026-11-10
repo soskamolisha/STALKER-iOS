@@ -12,6 +12,11 @@ int32_t st_chunk_scan(const uint8_t *bytes, uint32_t length,
 int32_t st_chunk_at(const uint8_t *bytes, uint32_t length, uint32_t index,
                     uint32_t *id, uint32_t *payload_offset, uint32_t *payload_size,
                     uint32_t *compressed);
+// Scan the children of an uncompressed top-level chunk as a chunk stream.
+// -4 means parent is compressed (no decompressor is provided).
+int32_t st_chunk_scan_children(const uint8_t *bytes, uint32_t length,
+                               uint32_t parent_index, uint32_t *child_count,
+                               uint32_t *first_child_id);
 #ifdef __cplusplus
 }
 #endif

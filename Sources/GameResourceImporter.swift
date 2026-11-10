@@ -19,7 +19,9 @@ enum GameResourceImporter {
         // recursive copies, accidental replacement, and storage exhaustion.
         let sourcePath = source.standardizedFileURL.resolvingSymlinksInPath().path
         let managedPath = root.standardizedFileURL.resolvingSymlinksInPath().path
-        guard sourcePath != managedPath && !sourcePath.hasPrefix(managedPath + "/") else {
+        guard sourcePath != managedPath &&
+              !sourcePath.hasPrefix(managedPath + "/") &&
+              !managedPath.hasPrefix(sourcePath + "/") else {
             throw ImportFailure.managedFolderSelected
         }
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
@@ -118,7 +120,7 @@ enum GameResourceImporter {
         var errorDescription: String? {
             switch self {
             case .restoreFailed: return "Import failed and the previous game backup could not be restored; the backup was kept for recovery"
-            case .managedFolderSelected: return "Choose an external game folder, not an already imported game"
+            case .managedFolderSelected: return "Choose a game folder outside the app-managed storage directory"
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder"
             case .insufficientStorage: return "Not enough free storage on this device"

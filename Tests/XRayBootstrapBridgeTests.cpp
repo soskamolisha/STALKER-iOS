@@ -258,6 +258,14 @@ int main() {
         assert(st_xray_archive_directory_auto_decompress(
             handle, 0, decoded, 4, &auto_size) == -4);
         assert(auto_size == 0);
+        int32_t key_used = -2;
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(decoded), &auto_size, &key_used) == 0);
+        assert(key_used == -1 && auto_size == sizeof(directory_record));
+        assert(std::memcmp(decoded, directory_record, auto_size) == 0);
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, 4, &auto_size, &key_used) == -4);
+        assert(key_used == -2 && auto_size == 0);
         assert(st_xray_archive_directory_count(handle, 0) == -4);
     }
     // Restore an uncompressed directory for subsequent corruption tests.

@@ -75,6 +75,22 @@ jobs:
           make -j2
           make install
           test -f "$RUNNER_TEMP/ios-deps/include/theora/theora.h"
+      - name: Cross-compile LZO for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz -o lzo.tar.gz
+          tar -xzf lzo.tar.gz
+          cd lzo-2.10
+          sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos --find clang)"
+          export CFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0 -O2"
+          export LDFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0"
+          ./configure --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" --disable-shared --enable-static
+          make -j2
+          make install
+          test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
+          test -f "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |
@@ -96,6 +112,8 @@ jobs:
             -DVORBISFILE_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbisfile.a" \
             -DTHEORA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DTHEORA_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libtheora.a" \
+            -DLZO_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLZO_LIBRARY="$RUNNER_TEMP/ios-deps/lib/liblzo2.a" \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH >> ios-configure.log 2>&1
           result=$?
           echo "$result" > ios-configure-exit-code.txt

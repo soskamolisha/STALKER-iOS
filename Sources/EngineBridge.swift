@@ -82,12 +82,16 @@ struct XRayResourcePreflight {
         }
         var firstArchiveSignature: String?
         if count > 0 {
-            var bytes = [UInt8](repeating: 0, count: 16)
-            let status = bytes.withUnsafeMutableBytes { buffer in
-                st_xray_archive_read(engine, 0, 0, buffer.baseAddress, UInt32(buffer.count))
-            }
-            if status == 0 {
-                firstArchiveSignature = bytes.map { String(format: "%02X", $0) }.joined()
+            // Probe a short prefix only; tiny or truncated archives must not crash diagnostics.
+            for length in [16, 8, 4, 1] {
+                var bytes = [UInt8](repeating: 0, count: length)
+                let status = bytes.withUnsafeMutableBytes { buffer in
+                    st_xray_archive_read(engine, 0, 0, buffer.baseAddress, UInt32(buffer.count))
+                }
+                if status == 0 {
+                    firstArchiveSignature = bytes.map { String(format: "%02X", $0) }.joined()
+                    break
+                }
             }
         }
         return XRayResourcePreflight(

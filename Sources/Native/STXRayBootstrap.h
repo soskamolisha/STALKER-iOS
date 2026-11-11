@@ -31,6 +31,11 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
 // Count records in an uncompressed X-Ray directory without extracting files.
 // -4: compressed directory, -3: malformed directory, -2: directory not found.
 int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index);
+// Decode an LZO1X payload into an exactly sized caller-provided buffer.
+// Returns -4 for corrupt compressed data, -3 for invalid output size.
+int32_t st_xray_lzo_decompress(const void* source, uint32_t source_size,
+                               void* destination, uint32_t destination_capacity,
+                               uint32_t expected_size);
 // Parse one directory record in an uncompressed chunk 1.
 // Returns -4 if the directory chunk is compressed (decompression not implemented).
 int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,

@@ -31,6 +31,18 @@ jobs:
           echo "Configure exit code: $?" >> ios-configure.log
           cat ios-configure.log
           exit 0
+      - name: Attempt native engine compilation when configuration succeeds
+        shell: bash
+        run: |
+          set +e
+          if [ -f ios-build/CMakeCache.txt ] && grep -q '^CMAKE_GENERATOR:' ios-build/CMakeCache.txt; then
+            echo "Attempting iOS engine build; failures are captured, not hidden." > ios-build-attempt.log
+            cmake --build ios-build --parallel 2 >> ios-build-attempt.log 2>&1
+            echo "Build exit code: $?" >> ios-build-attempt.log
+          else
+            echo "CMake configuration did not generate a build tree." > ios-build-attempt.log
+          fi
+          tail -n 120 ios-build-attempt.log
       - name: Upload configuration diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,6 +50,7 @@ jobs:
           name: openxray-ios-cmake-diagnostics
           path: |
             ios-configure.log
+            ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
             ios-build/CMakeFiles/CMakeError.log
           if-no-files-found: warn

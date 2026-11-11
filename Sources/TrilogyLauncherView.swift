@@ -269,6 +269,9 @@ struct TrilogyLauncherView: View {
                                                 if let prefix = probe.firstChunkPayloadPrefix {
                                                     engineDiagnostics[game.rawValue]! += " · payload: " + prefix
                                                 }
+                                                if let status = probe.archiveDirectoryStatus {
+                                                    engineDiagnostics[game.rawValue]! += " · " + status
+                                                }
                                                 if let entry = probe.firstArchiveEntry {
                                                     engineDiagnostics[game.rawValue]! += " · file: " + entry
                                                 }

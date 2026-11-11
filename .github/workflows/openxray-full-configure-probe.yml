@@ -258,7 +258,7 @@ jobs:
           assert anchor in s, "Upstream entry point layout changed"
           bridge = "\n".join([
               '// Experimental C ABI; UIKit/SDL lifecycle is not yet adapted.',
-              'extern "C" int st_xray_embedded_run(const char* command_line)',
+              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
               '{',
               '    return entry_point(command_line ? command_line : "");',
               '}',
@@ -267,7 +267,7 @@ jobs:
           ])
           p.write_text(s.replace(anchor, bridge + anchor, 1))
           patched = p.read_text()
-          assert patched.count('extern "C" int st_xray_embedded_run(') == 1
+          assert patched.count('int st_xray_embedded_run(') == 1
           assert 'return entry_point(command_line ? command_line : "");' in patched
           print("Experimental X-Ray C ABI inserted and verified before CMake configuration")
 
@@ -359,7 +359,10 @@ jobs:
           if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
           binary="upstream/bin/Release/xr_3da.app/xr_3da"
           /usr/bin/nm -gU "$binary" | grep -F '_main'
-          /usr/bin/nm -gU "$binary" | grep -F '_st_xray_embedded_run' || echo "Embedded symbol not exported by final executable; inspect linker dead stripping."
+          if ! /usr/bin/nm -gU "$binary" | grep -F '_st_xray_embedded_run'; then
+            echo "::error::Embedded X-Ray C ABI symbol missing from arm64 executable"
+            exit 1
+          fi
           echo "Entry-point audit complete."
       - name: Inspect engine-to-launcher integration interfaces
         if: ${{ always() }}

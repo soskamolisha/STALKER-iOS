@@ -101,6 +101,25 @@ int main() {
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == -2);
     assert(st_xray_archive_chunk_info(handle, 0, 0, nullptr,
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == -1);
+    // Upstream X-Ray directory record: u16 length, three u32 fields,
+    // raw filename bytes, then u32 absolute archive data offset.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char directory[] = {
+            1,0,0,0, 25,0,0,0,
+            23,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        file.write(reinterpret_cast<const char*>(directory), sizeof(directory));
+    }
+    char entryName[32] {};
+    uint32_t realSize = 0, compressedSize = 0, entryCRC = 0, dataOffset = 0;
+    assert(st_xray_archive_directory_entry(handle, 0, 0, entryName, sizeof(entryName),
+                                           &realSize, &compressedSize, &entryCRC, &dataOffset) == 0);
+    assert(std::strcmp(entryName, "test.ltx") == 0);
+    assert(realSize == 4 && compressedSize == 4 && entryCRC == 0x12345678 && dataOffset == 42);
+    assert(st_xray_archive_directory_entry(handle, 0, 1, entryName, sizeof(entryName),
+                                           &realSize, &compressedSize, &entryCRC, &dataOffset) == -2);
     // Reject malformed chunk sizes before attempting to access a payload.
     {
         std::ofstream file(archive, std::ios::binary | std::ios::trunc);

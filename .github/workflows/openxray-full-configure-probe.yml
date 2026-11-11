@@ -226,6 +226,11 @@ jobs:
               ''
           ])
           p.write_text(s.replace(anchor, bridge + anchor, 1))
+          patched = p.read_text()
+          assert patched.count('extern "C" int st_xray_embedded_run(') == 1
+          assert 'return entry_point(command_line ? command_line : "");' in patched
+          print("Experimental X-Ray C ABI inserted and verified before CMake configuration")
+
           PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash

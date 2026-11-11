@@ -13,8 +13,8 @@ struct TrilogyLauncherView: View {
 
     enum GameEdition: String, CaseIterable, Identifiable {
         case shadow = "shadow"
-        case clearSky = "clearSky"
         case pripyat = "pripyat"
+        case clearSky = "clearSky"
         var id: String { rawValue }
         var artworkURL: URL? {
             let url: String

@@ -42,6 +42,11 @@ struct XRayResourcePreflight {
     let hasLooseData: Bool
     let hasPackedData: Bool
 
+    /// A resource check is not proof that the X-Ray runtime can start.
+    var hasRecognizedGameData: Bool { hasLooseData || hasPackedData }
+    var hasRenderableLooseLevels: Bool { looseLevelCount > 0 }
+    var needsPackedArchiveMounting: Bool { hasPackedData && !hasRenderableLooseLevels }
+
     static func inspect(gameID: String) -> XRayResourcePreflight? {
         let edition: Int32
         switch gameID {

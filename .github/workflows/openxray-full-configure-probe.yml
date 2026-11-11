@@ -9,7 +9,7 @@ permissions:
 jobs:
   configure:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Record iOS toolchain and SDK prerequisites
         shell: bash
@@ -30,6 +30,12 @@ jobs:
           name: openxray-ios-toolchain-diagnostics
           path: engine-diagnostics/
           if-no-files-found: ignore
+      - name: Record runner cancellation context
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p engine-diagnostics
+          printf 'run_id=%s\nrun_attempt=%s\nrunner_os=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_OS" > engine-diagnostics/runner-context.txt
       - name: Checkout upstream engine
         uses: actions/checkout@v4
         with:

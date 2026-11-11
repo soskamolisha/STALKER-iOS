@@ -51,21 +51,42 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2-ios" >> ios-configure.log 2>&1
-          echo "Configure exit code: $?" >> ios-configure.log
+          result=$?
+          echo "$result" > ios-configure-exit-code.txt
+          echo "Configure exit code: $result" >> ios-configure.log
           cat ios-configure.log
           exit 0
       - name: Attempt native engine compilation when configuration succeeds
         shell: bash
         run: |
           set +e
-          if [ -f ios-build/CMakeCache.txt ] && grep -q '^CMAKE_GENERATOR:' ios-build/CMakeCache.txt; then
+          if [ -f ios-configure-exit-code.txt ] && [ "$(cat ios-configure-exit-code.txt)" = 0 ]; then
             echo "Attempting iOS engine build; failures are captured, not hidden." > ios-build-attempt.log
             cmake --build ios-build --parallel 2 >> ios-build-attempt.log 2>&1
-            echo "Build exit code: $?" >> ios-build-attempt.log
+            result=$?
+            echo "$result" > ios-build-exit-code.txt
+            echo "Build exit code: $result" >> ios-build-attempt.log
           else
-            echo "CMake configuration did not generate a build tree." > ios-build-attempt.log
+            echo "CMake configuration failed; engine build skipped." > ios-build-attempt.log
+            echo "skipped" > ios-build-exit-code.txt
           fi
           tail -n 120 ios-build-attempt.log
+      - name: Report actual engine compilation result
+        if: always()
+        shell: bash
+        run: |
+          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
+          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
+          {
+            echo "### OpenXRay iPhoneOS arm64 diagnostic"
+            echo "CMake configuration exit code: $config"
+            echo "Engine compilation exit code: $build"
+            if [ "$config" = 0 ] && [ "$build" = 0 ]; then
+              echo "Engine source compilation succeeded; iPhone gameplay is NOT verified."
+            else
+              echo "Engine compilation is NOT verified. Inspect uploaded logs for blockers."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload configuration diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,6 +94,8 @@ jobs:
           name: openxray-ios-cmake-diagnostics
           path: |
             ios-configure.log
+            ios-configure-exit-code.txt
+            ios-build-exit-code.txt
             ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
             ios-build/CMakeFiles/CMakeError.log

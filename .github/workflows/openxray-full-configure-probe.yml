@@ -104,7 +104,7 @@ jobs:
           s = s.replace(forced, '# Preserve the iPhoneOS SDK selected by the parent toolchain')
           old = 'set(ENV{MACOSX_DEPLOYMENT_TARGET} ${CMAKE_OSX_DEPLOYMENT_TARGET})'
           assert old in s
-          s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\\n        ' + old + '\\n    endif()')
+          s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n        ' + old + '\n    endif()')
           p.write_text(s)
           PY
       - name: Attempt iPhoneOS arm64 CMake configuration

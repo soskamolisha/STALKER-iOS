@@ -197,6 +197,10 @@ struct TrilogyLauncherView: View {
                                 }
                                 .frame(height: 245)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(Color.yellow.opacity(0.42), lineWidth: 1)
+                                }
                                 Text(russian ? game.russianName : game.englishName)
                                     .font(.headline).foregroundStyle(.yellow)
                                 Label(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.status[game.rawValue] == nil ? "arrow.down.circle" : "checkmark.circle.fill")
@@ -268,7 +272,7 @@ struct TrilogyLauncherView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(10)
                             .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.18), lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.3), lineWidth: 1))
                         }
 
             }

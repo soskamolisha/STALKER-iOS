@@ -1,12 +1,17 @@
 name: Diagnose upstream OpenXRay iOS configuration
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - .github/workflows/openxray-full-configure-probe.yml
 permissions:
   contents: read
 jobs:
   configure:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout upstream engine
         uses: actions/checkout@v4

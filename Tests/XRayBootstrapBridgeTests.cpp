@@ -57,6 +57,15 @@ int main() {
     assert(st_xray_archive_read(handle, 0, 5, archiveBytes, 3) == -3);
     assert(st_xray_archive_read(handle, 0, 0, archiveBytes, 65537) == -1);
     assert(st_xray_archive_read(handle, 2, 0, archiveBytes, 1) == -2);
+    assert(st_xray_archive_read(handle, 0, 7, nullptr, 0) == 0);
+    const std::string replacement = std::string(path) + "/replacement.bin";
+    { std::ofstream file(replacement); file << "replacement"; }
+    assert(std::remove(archive.c_str()) == 0);
+    assert(symlink(replacement.c_str(), archive.c_str()) == 0);
+    assert(st_xray_archive_read(handle, 0, 0, archiveBytes, 1) == -3);
+    assert(std::remove(archive.c_str()) == 0);
+    { std::ofstream file(archive); file << "fixture"; }
+    assert(std::remove(replacement.c_str()) == 0);
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
     assert(st_xray_level_chunk_count(handle, 0) == -1);

@@ -36,6 +36,26 @@ jobs:
           cmake --build ogg-build --parallel 2
           cmake --install ogg-build
           test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
+      - name: Build libvorbis for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.7 https://github.com/xiph/vorbis.git vorbis
+          cmake -S vorbis -B vorbis-build \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake --build vorbis-build --parallel 2
+          cmake --install vorbis-build
+          test -f "$RUNNER_TEMP/ios-deps/include/vorbis/codec.h"
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |
@@ -52,6 +72,9 @@ jobs:
             -DSDL2_DIR="$RUNNER_TEMP/ios-deps/lib/cmake/SDL2" \
             -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DVORBIS_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DVORBIS_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbis.a" \
+            -DVORBISFILE_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbisfile.a" \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH >> ios-configure.log 2>&1
           result=$?
           echo "$result" > ios-configure-exit-code.txt

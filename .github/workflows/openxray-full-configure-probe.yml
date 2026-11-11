@@ -7,6 +7,21 @@ on:
 permissions:
   contents: read
 jobs:
+  portable-xray-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run native X-Ray bootstrap regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/xray-bootstrap-tests
+          /tmp/xray-bootstrap-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelCatalog.cpp Tests/XRayLevelCatalogTests.cpp -o /tmp/xray-catalog-tests
+          /tmp/xray-catalog-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Tests/XRayLevelFilesTests.cpp -o /tmp/xray-level-files-tests
+          /tmp/xray-level-files-tests
   configure:
     runs-on: macos-latest
     timeout-minutes: 45

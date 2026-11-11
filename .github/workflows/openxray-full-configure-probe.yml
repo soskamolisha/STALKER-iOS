@@ -107,6 +107,19 @@ jobs:
           s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n        ' + old + '\n    endif()')
           p.write_text(s)
           PY
+      - name: Adapt upstream executable install rule for iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xr_3da/CMakeLists.txt")
+          s = p.read_text()
+          old = 'install(TARGETS xr_3da RUNTIME\n    DESTINATION "${CMAKE_INSTALL_BINDIR}"\n)'
+          assert old in s
+          s = s.replace(old, 'install(TARGETS xr_3da\n    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"\n    BUNDLE DESTINATION "."\n)')
+          p.write_text(s)
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

@@ -21,6 +21,23 @@ jobs:
           submodules: recursive
           path: upstream
           persist-credentials: false
+      - name: Build SDL2 for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git sdl2
+          cmake -S sdl2 -B sdl2-build \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSDL_SHARED=OFF -DSDL_STATIC=ON \
+            -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl2-ios"
+          cmake --build sdl2-build --parallel 2
+          cmake --install sdl2-build
+          find "$RUNNER_TEMP/sdl2-ios" -iname '*SDL2*Config.cmake' -print
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |
@@ -32,7 +49,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF >> ios-configure.log 2>&1
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2-ios" >> ios-configure.log 2>&1
           echo "Configure exit code: $?" >> ios-configure.log
           cat ios-configure.log
           exit 0

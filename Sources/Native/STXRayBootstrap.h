@@ -28,6 +28,12 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
 int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t relative_offset,
                                    void* destination, uint32_t size);
+// Parse one directory record in an uncompressed chunk 1.
+// Returns -4 if the directory chunk is compressed (decompression not implemented).
+int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,
+                                        uint32_t entry_index, char* name, uint32_t name_capacity,
+                                        uint32_t* size_real, uint32_t* size_compressed,
+                                        uint32_t* crc, uint32_t* data_offset);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

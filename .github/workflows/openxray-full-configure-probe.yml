@@ -37,6 +37,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl2-ios"
           cmake --build sdl2-build --parallel 2
           cmake --install sdl2-build
+          test -s "$RUNNER_TEMP/sdl2-ios/lib/cmake/SDL2/SDL2Config.cmake"
           find "$RUNNER_TEMP/sdl2-ios" -iname '*SDL2*Config.cmake' -print
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
@@ -50,7 +51,9 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2-ios" >> ios-configure.log 2>&1
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2-ios" \
+            -DSDL2_DIR="$RUNNER_TEMP/sdl2-ios/lib/cmake/SDL2" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH >> ios-configure.log 2>&1
           result=$?
           echo "$result" > ios-configure-exit-code.txt
           echo "Configure exit code: $result" >> ios-configure.log

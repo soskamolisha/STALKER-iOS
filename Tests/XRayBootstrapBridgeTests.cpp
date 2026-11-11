@@ -39,6 +39,12 @@ int main() {
     assert(st_xray_has_packed_data(handle) == 1);
     assert(st_xray_archive_count(handle) == 1);
     assert(st_xray_archive_bytes(handle) == 7);
+    char archiveName[32] = {};
+    assert(st_xray_archive_name(handle, 0, archiveName, sizeof(archiveName)) == 0);
+    assert(std::strcmp(archiveName, "gamedata.db0") == 0);
+    assert(st_xray_archive_name(handle, 0, archiveName, 4) == -3);
+    assert(st_xray_archive_name(handle, 1, archiveName, sizeof(archiveName)) == -2);
+    assert(st_xray_archive_name(handle, 0, nullptr, 0) == -1);
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
     assert(st_xray_level_chunk_count(handle, 0) == -1);
@@ -46,6 +52,7 @@ int main() {
     st_xray_shutdown(handle);
     assert(st_xray_archive_count(handle) == 0);
     assert(st_xray_archive_bytes(handle) == 0);
+    assert(st_xray_archive_name(handle, 0, archiveName, sizeof(archiveName)) == -2);
     assert(st_xray_initialize(handle, 2) == 0);
     const std::string data = std::string(path) + "/gamedata";
     const std::string levels = data + "/levels";

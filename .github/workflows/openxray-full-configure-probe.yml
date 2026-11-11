@@ -90,6 +90,17 @@ jobs:
               echo "Engine compilation is NOT verified. Inspect uploaded logs for blockers."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Summarize first compiler and configure errors
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "### First diagnostic errors"
+            echo '~~~text'
+            grep -nEi '(^|[[:space:]])(fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error)' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 35 || true
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload configuration diagnostics
         if: always()
         uses: actions/upload-artifact@v4

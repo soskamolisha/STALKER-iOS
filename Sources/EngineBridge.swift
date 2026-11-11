@@ -43,6 +43,7 @@ struct XRayResourcePreflight {
     let firstArchiveChunk: String?
     let firstChunkPayloadPrefix: String?
     let firstArchiveEntry: String?
+    let archiveDirectoryStatus: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -99,6 +100,7 @@ struct XRayResourcePreflight {
         }
         var firstArchiveChunk: String?
         var firstArchiveEntry: String?
+        var archiveDirectoryStatus: String?
         var firstChunkPayloadPrefix: String?
         if count > 0 {
             var chunkID: UInt32 = 0
@@ -127,9 +129,22 @@ struct XRayResourcePreflight {
             var compressedSize: UInt32 = 0
             var crc: UInt32 = 0
             var offset: UInt32 = 0
-            if st_xray_archive_directory_entry(engine, 0, 0, &name, UInt32(name.count),
-                                                &realSize, &compressedSize, &crc, &offset) == 0 {
+            let directoryResult = st_xray_archive_directory_entry(engine, 0, 0, &name,
+                                                                   UInt32(name.count),
+                                                                   &realSize, &compressedSize,
+                                                                   &crc, &offset)
+            switch directoryResult {
+            case 0:
                 firstArchiveEntry = "\(String(cString: name)) (\(realSize) / \(compressedSize) bytes)"
+                archiveDirectoryStatus = "Каталог читается"
+            case -4:
+                archiveDirectoryStatus = "Каталог сжат: требуется декодер X-Ray"
+            case -3:
+                archiveDirectoryStatus = "Некорректная структура каталога"
+            case -2:
+                archiveDirectoryStatus = "Каталог файлов не найден"
+            default:
+                archiveDirectoryStatus = "Каталог недоступен (код \(directoryResult))"
             }
         }
         return XRayResourcePreflight(
@@ -140,6 +155,7 @@ struct XRayResourcePreflight {
             firstArchiveChunk: firstArchiveChunk,
             firstChunkPayloadPrefix: firstChunkPayloadPrefix,
             firstArchiveEntry: firstArchiveEntry,
+            archiveDirectoryStatus: archiveDirectoryStatus,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

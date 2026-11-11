@@ -156,7 +156,28 @@ struct XRayResourcePreflight {
                     }
                 }
             case -4:
-                archiveDirectoryStatus = "Каталог сжат: требуется декодер X-Ray"
+                // Decode compressed/encrypted X-Ray directory into bounded native memory.
+                // This is a resource probe, not an engine startup or archive mount.
+                let maxCatalogBytes = 8 * 1024 * 1024
+                var catalog = [UInt8](repeating: 0, count: maxCatalogBytes)
+                var decodedSize: UInt32 = 0
+                var detectedKey: Int32 = -2
+                let decodeStatus = catalog.withUnsafeMutableBytes { bytes in
+                    st_xray_archive_directory_auto_decrypt(
+                        engine, 0, bytes.baseAddress, UInt32(bytes.count),
+                        &decodedSize, &detectedKey)
+                }
+                if decodeStatus == 0 {
+                    archiveDirectoryCount = catalog.withUnsafeBytes { bytes in
+                        let result = st_xray_validate_directory_records(bytes.baseAddress, decodedSize)
+                        return result >= 0 ? Int(result) : nil
+                    }
+                    let cipher = detectedKey == -1 ? "без шифрования" :
+                                 detectedKey == 0 ? "международный ключ" : "русский ключ"
+                    archiveDirectoryStatus = "Каталог распакован (\(cipher), \(decodedSize) байт)"
+                } else {
+                    archiveDirectoryStatus = "Сжатый каталог не декодирован (код \(decodeStatus))"
+                }
             case -3:
                 archiveDirectoryStatus = "Некорректная структура каталога"
             case -2:

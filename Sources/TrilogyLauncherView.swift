@@ -272,6 +272,9 @@ struct TrilogyLauncherView: View {
                                                 if let status = probe.archiveDirectoryStatus {
                                                     engineDiagnostics[game.rawValue]! += " · " + status
                                                 }
+                                                if let prefix = probe.firstFilePrefix {
+                                                    engineDiagnostics[game.rawValue]! += " · file bytes: " + prefix
+                                                }
                                                 if let entry = probe.firstArchiveEntry {
                                                     engineDiagnostics[game.rawValue]! += " · file: " + entry
                                                 }

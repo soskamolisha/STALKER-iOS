@@ -184,6 +184,22 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
                                                cursor + 14, name, name_length) != 0) return -3;
                 name[name_length] = 0;
                 if (std::memchr(name, 0, name_length) != nullptr) return -3;
+                // Archive names are relative game paths. Never accept absolute
+                // paths or parent-directory components before exposing entries.
+                if (name[0] == '/' || name[0] == '\\') return -3;
+                for (uint32_t j = 0; j < name_length; ++j) {
+                    const char ch = name[j];
+                    if (ch == ':' || static_cast<unsigned char>(ch) < 32) return -3;
+                    if (ch == '/' || ch == '\\') {
+                        if (j == 0 || j + 1 == name_length) return -3;
+                    }
+                    const bool segment_start = j == 0 || name[j - 1] == '/' || name[j - 1] == '\\';
+                    if (segment_start && ch == '.' &&
+                        (j + 1 == name_length || name[j + 1] == '/' || name[j + 1] == '\\' ||
+                         (j + 1 < name_length && name[j + 1] == '.' &&
+                          (j + 2 == name_length || name[j + 2] == '/' || name[j + 2] == '\\'))))
+                        return -3;
+                }
                 unsigned char pointer_bytes[4] {};
                 if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
                                                cursor + 14 + name_length,

@@ -169,6 +169,22 @@ int main() {
         file.write(reinterpret_cast<const char*>(restoredSize), 4);
     }
 
+    // X-Ray marks a compressed directory by setting the high bit of chunk ID.
+    // Never interpret its compressed bytes as raw file records.
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(3);
+        const unsigned char compressionFlag = 0x80;
+        file.write(reinterpret_cast<const char*>(&compressionFlag), 1);
+    }
+    assert(st_xray_archive_directory_entry(handle, 0, 0, entryName, sizeof(entryName),
+                                           &realSize, &compressedSize, &entryCRC, &dataOffset) == -4);
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(3);
+        const unsigned char plainFlag = 0;
+        file.write(reinterpret_cast<const char*>(&plainFlag), 1);
+    }
     assert(st_xray_archive_directory_entry(handle, 0, 1, entryName, sizeof(entryName),
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == -2);
     // Reject malformed chunk sizes before attempting to access a payload.

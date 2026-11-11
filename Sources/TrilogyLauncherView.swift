@@ -16,6 +16,7 @@ struct TrilogyLauncherView: View {
         case pripyat = "pripyat"
         case clearSky = "clearSky"
         var id: String { rawValue }
+        var bundledArtworkName: String { "card_\(rawValue)" }
         var artworkURL: URL? {
             let url: String
             switch self {
@@ -166,16 +167,23 @@ struct TrilogyLauncherView: View {
                         ForEach(GameEdition.allCases) { game in
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
-                                    AsyncImage(url: game.artworkURL) { phase in
-                                        if let image = phase.image {
-                                            image.resizable().scaledToFill()
+                                    Group {
+                                        if let localURL = Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg"),
+                                           let data = try? Data(contentsOf: localURL),
+                                           let image = UIImage(data: data) {
+                                            Image(uiImage: image).resizable().scaledToFill()
                                         } else {
-                                            ZStack {
-                                                LinearGradient(colors: [.black, Color(red: 0.22, green: 0.30, blue: 0.19), .black],
-                                                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                                                Image(systemName: game.symbol)
-                                                    .font(.system(size: 90, weight: .ultraLight))
-                                                    .foregroundStyle(.yellow.opacity(0.3))
+                                            AsyncImage(url: game.artworkURL) { phase in
+                                                if let image = phase.image {
+                                                    image.resizable().scaledToFill()
+                                                } else {
+                                                    ZStack {
+                                                        Color.black
+                                                        Image(systemName: game.symbol)
+                                                            .font(.system(size: 90, weight: .ultraLight))
+                                                            .foregroundStyle(.yellow.opacity(0.3))
+                                                    }
+                                                }
                                             }
                                         }
                                     }

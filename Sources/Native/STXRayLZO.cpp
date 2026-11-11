@@ -10,8 +10,8 @@ extern "C" int32_t st_xray_lzo_decompress(const void* source, uint32_t source_si
         return -3;
     lzo_uint decoded_size = destination_capacity;
     const int result = lzo1x_decompress_safe(
-        static_cast<const lzo_bytep>(source), source_size,
-        static_cast<lzo_bytep>(destination), &decoded_size, nullptr);
+        reinterpret_cast<const unsigned char*>(source), source_size,
+        reinterpret_cast<unsigned char*>(destination), &decoded_size, nullptr);
     if (result != LZO_E_OK) return -4;
     if (decoded_size != expected_size) return -3;
     return 0;

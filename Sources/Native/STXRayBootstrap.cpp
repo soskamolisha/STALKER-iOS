@@ -5,6 +5,7 @@
 #include <new>
 #include <cstring>
 #include <limits>
+#include <vector>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
@@ -286,6 +287,55 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
     return st_xray_archive_read(handle, archive_index,
                                 static_cast<uint64_t>(data_offset) + relative_offset,
                                 destination, size);
+}
+int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_index,
+                                         uint32_t entry_index, void* destination,
+                                         uint32_t destination_capacity) {
+    if (!handle || !destination) return -1;
+    char name[4097] {};
+    uint32_t real_size = 0, compressed_size = 0, crc = 0, data_offset = 0;
+    const int32_t status = st_xray_archive_directory_entry(
+        handle, archive_index, entry_index, name, sizeof(name),
+        &real_size, &compressed_size, &crc, &data_offset);
+    if (status != 0) return status;
+    if (real_size == compressed_size) return -4;
+    if (real_size == 0 || compressed_size == 0 ||
+        real_size > 64u * 1024u * 1024u ||
+        compressed_size > 64u * 1024u * 1024u ||
+        real_size > destination_capacity || data_offset < 8) return -3;
+    // Validate that the compressed file does not point into directory metadata.
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t chunk_offset = 0;
+    int32_t chunk_compressed = 0;
+    bool found_directory = false;
+    for (uint32_t i = 0; i < 64; ++i) {
+        const int32_t chunk_result = st_xray_archive_chunk_info(
+            handle, archive_index, i, &chunk_id, &chunk_offset, &chunk_size, &chunk_compressed);
+        if (chunk_result == -2) break;
+        if (chunk_result != 0) return chunk_result;
+        if (chunk_id == 1) {
+            found_directory = true;
+            const uint64_t file_begin = data_offset;
+            const uint64_t file_end = file_begin + compressed_size;
+            if (file_begin < chunk_offset + chunk_size &&
+                file_end > chunk_offset - 8) return -3;
+            break;
+        }
+    }
+    if (!found_directory) return -2;
+    std::vector<unsigned char> compressed_bytes(compressed_size);
+    uint32_t cursor = 0;
+    while (cursor < compressed_size) {
+        const uint32_t amount = (compressed_size - cursor > 65536u)
+                                    ? 65536u : compressed_size - cursor;
+        const int32_t read_result = st_xray_archive_read(
+            handle, archive_index, static_cast<uint64_t>(data_offset) + cursor,
+            compressed_bytes.data() + cursor, amount);
+        if (read_result != 0) return read_result;
+        cursor += amount;
+    }
+    return st_xray_lzo_decompress(compressed_bytes.data(), compressed_size,
+                                  destination, destination_capacity, real_size);
 }
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;

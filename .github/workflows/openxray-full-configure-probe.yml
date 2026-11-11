@@ -392,21 +392,26 @@ jobs:
           /usr/bin/shasum -a 256 engine-package/xr_3da.app/xr_3da | tee engine-package/sha256.txt
           echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
       - name: Package unsigned engine test IPA
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
-          test -f engine-package/xr_3da.app/xr_3da
+          if [ ! -f engine-package/xr_3da.app/xr_3da ]; then
+            echo "Engine binary missing; unsigned engine IPA cannot be packaged."
+            exit 0
+          fi
           mkdir -p ipa-staging/Payload
           cp -R engine-package/xr_3da.app ipa-staging/Payload/
           (cd ipa-staging && /usr/bin/zip -qry ../openxray-engine-unsigned-test.ipa Payload)
           /usr/bin/unzip -t openxray-engine-unsigned-test.ipa | tail -n 2
           echo "Unsigned engine-only IPA created for packaging diagnostics; not signed, not integrated into launcher, not gameplay-tested."
       - name: Upload unsigned engine test IPA
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: openxray-engine-unsigned-test-ipa
           path: openxray-engine-unsigned-test.ipa
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 14
       - name: Upload unsigned iOS X-Ray engine bundle
         if: ${{ always() }}

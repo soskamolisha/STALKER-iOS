@@ -28,6 +28,9 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
 int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t relative_offset,
                                    void* destination, uint32_t size);
+// Decode X-Ray trivial encryption in place (0=worldwide, 1=Russian).
+// Used for legacy encrypted directory payloads before LZO decoding.
+int32_t st_xray_directory_decrypt(void* data, uint32_t size, int32_t key_variant);
 // Discover decompressed size of a plain LZO directory chunk by bounded attempts.
 // Returns -4 when compressed data is invalid or requires decryption.
 int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,

@@ -38,6 +38,15 @@ int32_t st_xray_archive_count(STXRayHandle handle) {
 uint64_t st_xray_archive_bytes(STXRayHandle handle) {
     return handle ? static_cast<XRayBootstrap*>(handle)->packedArchiveBytes() : 0;
 }
+int32_t st_xray_archive_name(STXRayHandle handle, uint32_t index, char* destination, uint32_t capacity) {
+    if (!handle || !destination || capacity == 0) return -1;
+    const auto& names = static_cast<XRayBootstrap*>(handle)->packedArchiveNames();
+    if (index >= names.size()) return -2;
+    const auto& name = names[index];
+    if (name.size() + 1 > capacity) return -3;
+    std::memcpy(destination, name.c_str(), name.size() + 1);
+    return 0;
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

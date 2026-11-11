@@ -174,6 +174,7 @@ int main() {
     // End-to-end compressed file extraction from a synthetic X-Ray archive.
     {
         const unsigned char original[] = "compressed X-Ray resource test resource test";
+        if (malformed) record[14] = '/'; // LZO succeeds, but catalog path is unsafe.
         unsigned char packed[256] {};
         lzo_uint packed_size = sizeof(packed);
         void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
@@ -284,7 +285,8 @@ int main() {
     }
     // Test both legacy encryption keys against actual compressed directory payloads.
     for (int key = 0; key < 2; ++key) {
-        const unsigned char record[] = {
+      for (int malformed = 0; malformed < 2; ++malformed) {
+        unsigned char record[] = {
             24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
             't','e','s','t','.','l','t','x', 42,0,0,0
         };
@@ -324,10 +326,15 @@ int main() {
         unsigned char decoded[sizeof(record)] {};
         uint32_t actual_size = 0;
         int32_t key_used = -2;
-        assert(st_xray_archive_directory_auto_decrypt(
-            handle, 0, decoded, sizeof(decoded), &actual_size, &key_used) == 0);
-        assert(key_used == key && actual_size == sizeof(record));
-        assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+        const int32_t result = st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(decoded), &actual_size, &key_used);
+        if (malformed) {
+            assert(result == -4 && actual_size == 0 && key_used == -2);
+        } else {
+            assert(result == 0 && key_used == key && actual_size == sizeof(record));
+            assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+        }
+      }
     }
     // Restore an uncompressed directory for subsequent corruption tests.
     {

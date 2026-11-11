@@ -109,6 +109,34 @@ jobs:
           cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzodefs.h Sources/Native/Upstream/lzodefs.h
           cp openxray-upstream/oxr_deps/lzo-src/COPYING Sources/Native/Upstream/LZO-COPYING
           cc -std=c99 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
+      - name: Verify miniLZO round-trip and corruption handling
+        run: |
+          cat > /tmp/stalker-lzo-test.c <<'EOF'
+          #include "minilzo.h"
+          #include <assert.h>
+          #include <stdlib.h>
+          #include <string.h>
+          int main(void) {
+              const unsigned char input[] = "STALKER X-Ray packed archive codec test";
+              unsigned char packed[256] = {0};
+              unsigned char output[256] = {0};
+              lzo_uint packed_size = sizeof(packed);
+              lzo_uint output_size = sizeof(output);
+              void *work = malloc(LZO1X_1_MEM_COMPRESS);
+              assert(work != NULL);
+              assert(lzo_init() == LZO_E_OK);
+              assert(lzo1x_1_compress(input, sizeof(input), packed, &packed_size, work) == LZO_E_OK);
+              assert(lzo1x_decompress_safe(packed, packed_size, output, &output_size, NULL) == LZO_E_OK);
+              assert(output_size == sizeof(input));
+              assert(memcmp(input, output, sizeof(input)) == 0);
+              output_size = sizeof(output);
+              assert(lzo1x_decompress_safe(packed, packed_size - 1, output, &output_size, NULL) != LZO_E_OK);
+              free(work);
+              return 0;
+          }
+          EOF
+          cc -std=c99 -I Sources/Native/Upstream /tmp/stalker-lzo-test.c /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-test
+          /tmp/stalker-lzo-test
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

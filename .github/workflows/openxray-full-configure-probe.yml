@@ -114,3 +114,13 @@ jobs:
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
             ios-build/CMakeFiles/CMakeError.log
           if-no-files-found: warn
+      - name: Enforce real iOS engine compilation status
+        if: always()
+        shell: bash
+        run: |
+          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
+          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
+          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
+            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build). Review diagnostic artifact and summary."
+            exit 1
+          fi

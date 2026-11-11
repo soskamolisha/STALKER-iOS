@@ -39,6 +39,7 @@ struct XRayResourcePreflight {
     let archiveCount: Int
     let archiveBytes: UInt64
     let archiveNames: [String]
+    let firstArchiveSignature: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -79,10 +80,21 @@ struct XRayResourcePreflight {
             }
             if status == 0 { archiveNames.append(String(cString: buffer)) }
         }
+        var firstArchiveSignature: String?
+        if count > 0 {
+            var bytes = [UInt8](repeating: 0, count: 16)
+            let status = bytes.withUnsafeMutableBytes { buffer in
+                st_xray_archive_read(engine, 0, 0, buffer.baseAddress, UInt32(buffer.count))
+            }
+            if status == 0 {
+                firstArchiveSignature = bytes.map { String(format: "%02X", $0) }.joined()
+            }
+        }
         return XRayResourcePreflight(
             archiveCount: Int(st_xray_archive_count(engine)),
             archiveBytes: st_xray_archive_bytes(engine),
             archiveNames: archiveNames,
+            firstArchiveSignature: firstArchiveSignature,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

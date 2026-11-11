@@ -120,6 +120,19 @@ jobs:
           s = s.replace(old, 'install(TARGETS xr_3da\n    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"\n    BUNDLE DESTINATION "."\n)')
           p.write_text(s)
           PY
+      - name: Correct OpenXRay ARM64 architecture detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/cmake/XRay.Compiler.GNULike.cmake")
+          s = p.read_text()
+          old = 'if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")'
+          assert old in s
+          s = s.replace(old, 'if (CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")')
+          p.write_text(s)
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

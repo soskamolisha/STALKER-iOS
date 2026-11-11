@@ -260,6 +260,9 @@ struct TrilogyLauncherView: View {
                                                 if !probe.archiveNames.isEmpty {
                                                     engineDiagnostics[game.rawValue]! += " · " + probe.archiveNames.prefix(4).joined(separator: ", ")
                                                 }
+                                                if let signature = probe.firstArchiveSignature {
+                                                    engineDiagnostics[game.rawValue]! += " · DB[0..15]: " + signature
+                                                }
                                                 if probe.needsPackedArchiveMounting {
                                                     engineDiagnostics[game.rawValue]! += russian
                                                         ? " · требуется чтение уровней из архивов"

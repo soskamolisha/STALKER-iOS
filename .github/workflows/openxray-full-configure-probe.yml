@@ -49,6 +49,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
+            -DLUAJIT_DISABLE_JIT=ON \
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
             -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \

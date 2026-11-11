@@ -148,6 +148,51 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
     return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
                                 destination, size);
 }
+int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
+                                                 uint32_t archive_index,
+                                                 void* destination, uint32_t capacity,
+                                                 uint32_t* actual_size, int32_t* key_used) {
+    if (!handle || !destination || !actual_size || !key_used || capacity == 0 ||
+        capacity > 64u * 1024u * 1024u) return -1;
+    *actual_size = 0;
+    *key_used = -2;
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t payload_offset = 0;
+    int32_t compressed = 0;
+    for (uint32_t i = 0; i < 64; ++i) {
+        const int32_t result = st_xray_archive_chunk_info(
+            handle, archive_index, i, &chunk_id, &payload_offset, &chunk_size, &compressed);
+        if (result != 0) return result;
+        if (chunk_id != 1) continue;
+        if (!compressed) return -4;
+        if (chunk_size == 0 || chunk_size > 64u * 1024u * 1024u) return -3;
+        std::vector<unsigned char> original(chunk_size);
+        uint32_t cursor = 0;
+        while (cursor < chunk_size) {
+            const uint32_t amount = chunk_size - cursor > 65536u ? 65536u : chunk_size - cursor;
+            const int32_t read_result = st_xray_archive_read(
+                handle, archive_index, payload_offset + cursor, original.data() + cursor, amount);
+            if (read_result != 0) return read_result;
+            cursor += amount;
+        }
+        for (int32_t key = -1; key <= 1; ++key) {
+            std::vector<unsigned char> bytes = original;
+            if (key >= 0 && st_xray_directory_decrypt(bytes.data(), chunk_size, key) != 0)
+                return -3;
+            lzo_uint decoded = capacity;
+            const int result = lzo1x_decompress_safe(
+                bytes.data(), chunk_size, static_cast<unsigned char*>(destination),
+                &decoded, nullptr);
+            if (result == LZO_E_OK && decoded != 0 && decoded <= capacity) {
+                *actual_size = static_cast<uint32_t>(decoded);
+                *key_used = key;
+                return 0;
+            }
+        }
+        return -4;
+    }
+    return -2;
+}
 int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,
                                                     uint32_t archive_index,
                                                     void* destination, uint32_t capacity,

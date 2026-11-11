@@ -195,6 +195,10 @@ jobs:
             echo "CMake configuration failed; engine build skipped." > ios-build-attempt.log
             echo skipped > ios-build-exit-code.txt
           fi
+          echo "=== LuaJIT build diagnostics ==="
+          grep -n -E 'lj_cf_jit_util_traceinfo|LUAJIT_DISABLE_JIT|LJ_HASJIT' upstream/Externals/LuaJIT/src/lib_jit.c ios-build/Externals/LuaJIT-proj/lj_libdef.h ios-build/Externals/LuaJIT-proj/buildvm_arch.h 2>/dev/null | head -n 45 || true
+          echo "=== First compiler errors ==="
+          grep -n -m 12 -B 7 -A 3 'error:' ios-build-attempt.log || true
           tail -n 120 ios-build-attempt.log
       - name: Report and annotate errors
         if: always()

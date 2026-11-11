@@ -28,6 +28,9 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
 int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t relative_offset,
                                    void* destination, uint32_t size);
+// Count records in an uncompressed X-Ray directory without extracting files.
+// -4: compressed directory, -3: malformed directory, -2: directory not found.
+int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index);
 // Parse one directory record in an uncompressed chunk 1.
 // Returns -4 if the directory chunk is compressed (decompression not implemented).
 int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,

@@ -6,6 +6,7 @@ on:
       - feature/trilogy-launcher-v3
     paths:
       - 'Sources/**'
+      - 'Resources/**'
       - 'Tests/**'
       - 'project.yml'
       - 'scripts/package_unsigned_ipa.py'

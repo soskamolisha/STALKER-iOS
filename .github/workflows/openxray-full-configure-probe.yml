@@ -2,10 +2,8 @@ name: Diagnose upstream OpenXRay iOS configuration
 on:
   workflow_dispatch:
   push:
-    branches:
-      - feature/trilogy-launcher-v3
-    paths:
-      - .github/workflows/openxray-full-configure-probe.yml
+    branches: [feature/trilogy-launcher-v3]
+    paths: [.github/workflows/openxray-full-configure-probe.yml]
 permissions:
   contents: read
 jobs:
@@ -26,19 +24,18 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git sdl2
-          cmake -S sdl2 -B sdl2-build \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=iphoneos \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DSDL_SHARED=OFF -DSDL_STATIC=ON \
-            -DSDL_TEST=OFF -DSDL_TESTS=OFF \
-            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl2-ios"
+          cmake -S sdl2 -B sdl2-build -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
           cmake --build sdl2-build --parallel 2
           cmake --install sdl2-build
-          test -s "$RUNNER_TEMP/sdl2-ios/lib/cmake/SDL2/SDL2Config.cmake"
-          find "$RUNNER_TEMP/sdl2-ios" -iname '*SDL2*Config.cmake' -print
+      - name: Build libogg for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.5 https://github.com/xiph/ogg.git ogg
+          cmake -S ogg -B ogg-build -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake --build ogg-build --parallel 2
+          cmake --install ogg-build
+          test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |
@@ -51,91 +48,45 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl2-ios" \
-            -DSDL2_DIR="$RUNNER_TEMP/sdl2-ios/lib/cmake/SDL2" \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DSDL2_DIR="$RUNNER_TEMP/ios-deps/lib/cmake/SDL2" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
             -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH >> ios-configure.log 2>&1
           result=$?
           echo "$result" > ios-configure-exit-code.txt
-          echo "Configure exit code: $result" >> ios-configure.log
           cat ios-configure.log
           exit 0
       - name: Attempt native engine compilation when configuration succeeds
         shell: bash
         run: |
           set +e
-          if [ -f ios-configure-exit-code.txt ] && [ "$(cat ios-configure-exit-code.txt)" = 0 ]; then
-            echo "Attempting iOS engine build; failures are captured, not hidden." > ios-build-attempt.log
-            cmake --build ios-build --parallel 2 >> ios-build-attempt.log 2>&1
+          if [ "$(cat ios-configure-exit-code.txt 2>/dev/null)" = 0 ]; then
+            cmake --build ios-build --parallel 2 > ios-build-attempt.log 2>&1
             result=$?
             echo "$result" > ios-build-exit-code.txt
-            echo "Build exit code: $result" >> ios-build-attempt.log
           else
             echo "CMake configuration failed; engine build skipped." > ios-build-attempt.log
-            echo "skipped" > ios-build-exit-code.txt
+            echo skipped > ios-build-exit-code.txt
           fi
           tail -n 120 ios-build-attempt.log
-      - name: Report actual engine compilation result
+      - name: Report and annotate errors
         if: always()
         shell: bash
         run: |
           config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
           build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
           {
-            echo "### OpenXRay iPhoneOS arm64 diagnostic"
-            echo "CMake configuration exit code: $config"
-            echo "Engine compilation exit code: $build"
-            if [ "$config" = 0 ] && [ "$build" = 0 ]; then
-              echo "Engine source compilation succeeded; iPhone gameplay is NOT verified."
-            else
-              echo "Engine compilation is NOT verified. Inspect uploaded logs for blockers."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Summarize first compiler and configure errors
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo ""
-            echo "### First diagnostic errors"
+            echo "### OpenXRay iPhoneOS arm64"
+            echo "Configure: $config; compile: $build"
             echo '~~~text'
-            grep -nEi '(^|[[:space:]])(fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error)' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 35 || true
+            grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 35 || true
             echo '~~~'
           } >> "$GITHUB_STEP_SUMMARY"
-          while IFS= read -r line; do
-            clean="${line//
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: openxray-ios-cmake-diagnostics
-          path: |
-            ios-configure.log
-            ios-configure-exit-code.txt
-            ios-build-exit-code.txt
-            ios-build-attempt.log
-            ios-build/CMakeFiles/CMakeConfigureLog.yaml
-            ios-build/CMakeFiles/CMakeError.log
-          if-no-files-found: warn
-      - name: Enforce real iOS engine compilation status
-        if: always()
-        shell: bash
-        run: |
-          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
-          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
-          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
-            echo "::group::OpenXRay configure diagnostics (last 100 lines)"
-            tail -n 100 ios-configure.log 2>/dev/null || true
-            echo "::endgroup::"
-            echo "::group::OpenXRay compile diagnostics (last 100 lines)"
-            tail -n 100 ios-build-attempt.log 2>/dev/null || true
-            echo "::endgroup::"
-          fi
-          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
-            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build). Review diagnostic artifact and summary."
-            exit 1
-          fi
-\r'/ }"
-            echo "::error title=OpenXRay iOS compiler diagnostic::${clean}"
-          done < <(grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 10 || true)
+          grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 10 | while IFS= read -r line; do
+            echo "::error title=OpenXRay iOS diagnostic::$line"
+          done
+          true
       - name: Upload configuration diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -147,7 +98,6 @@ jobs:
             ios-build-exit-code.txt
             ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
-            ios-build/CMakeFiles/CMakeError.log
           if-no-files-found: warn
       - name: Enforce real iOS engine compilation status
         if: always()
@@ -156,6 +106,6 @@ jobs:
           config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
           build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
           if [ "$config" != 0 ] || [ "$build" != 0 ]; then
-            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build). Review diagnostic artifact and summary."
+            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build)."
             exit 1
           fi

@@ -174,7 +174,6 @@ int main() {
     // End-to-end compressed file extraction from a synthetic X-Ray archive.
     {
         const unsigned char original[] = "compressed X-Ray resource test resource test";
-        if (malformed) record[14] = '/'; // LZO succeeds, but catalog path is unsafe.
         unsigned char packed[256] {};
         lzo_uint packed_size = sizeof(packed);
         void* work = std::malloc(LZO1X_1_MEM_COMPRESS);

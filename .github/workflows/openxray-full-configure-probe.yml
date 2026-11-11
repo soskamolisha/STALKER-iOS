@@ -155,6 +155,19 @@ jobs:
           s = s[:s.index(anchor)] + host
           p.write_text(s)
           PY
+      - name: Align LuaJIT JIT utility generation for interpreter mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          old = 'list(APPEND XCFLAGS "-DLUAJIT_DISABLE_JIT")'
+          assert old in s
+          s = s.replace(old, old + '\n    list(APPEND XCFLAGS "-DLUAJIT_DISABLE_JITUTIL")')
+          p.write_text(s)
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

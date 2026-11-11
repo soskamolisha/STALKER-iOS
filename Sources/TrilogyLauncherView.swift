@@ -19,9 +19,9 @@ struct TrilogyLauncherView: View {
         var artworkURL: URL? {
             let url: String
             switch self {
-            case .shadow: url = "https://images.unsplash.com/photo-1511497584788-876760111969?w=1200&q=85"
-            case .clearSky: url = "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=1200&q=85"
-            case .pripyat: url = "https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=1200&q=85"
+            case .shadow: url = "https://unsplash.com/photos/dF7LP4m_0Vg/download?w=900"
+            case .clearSky: url = "https://unsplash.com/photos/y6Tr4hsOD5w/download?w=900"
+            case .pripyat: url = "https://unsplash.com/photos/TuhOWnyKiKk/download?w=900"
             }
             return URL(string: url)
         }
@@ -277,11 +277,18 @@ struct TrilogyLauncherView: View {
                     LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
                                              Color(red: 0.11, green: 0.13, blue: 0.10)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "building.2.crop.circle")
-                        .font(.system(size: 420, weight: .ultraLight))
-                        .foregroundStyle(.yellow.opacity(0.055))
-                        .offset(x: 180, y: -110)
-                    LinearGradient(colors: [.black.opacity(0.2), .black.opacity(0.75)],
+                    AsyncImage(url: URL(string: "https://unsplash.com/photos/IM4b4ytWetg/download?w=1600")) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            Image(systemName: "building.2.crop.circle")
+                                .font(.system(size: 420, weight: .ultraLight))
+                                .foregroundStyle(.yellow.opacity(0.055))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                    LinearGradient(colors: [.black.opacity(0.65), .black.opacity(0.86)],
                                    startPoint: .top, endPoint: .bottom)
                 }.ignoresSafeArea()
                 ScrollView {

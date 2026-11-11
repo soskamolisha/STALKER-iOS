@@ -94,6 +94,22 @@ int main() {
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == -2);
     assert(st_xray_archive_chunk_info(handle, 0, 0, nullptr,
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == -1);
+    // Reject malformed chunk sizes before attempting to access a payload.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char malformed[] = {1,0,0,0, 255,255,255,127, 1};
+        file.write(reinterpret_cast<const char*>(malformed), sizeof(malformed));
+    }
+    assert(st_xray_archive_chunk_info(handle, 0, 0, &archiveChunkID,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == -3);
+    // Reject an incomplete eight-byte chunk header.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char truncated[] = {1,0,0,0, 2,0,0};
+        file.write(reinterpret_cast<const char*>(truncated), sizeof(truncated));
+    }
+    assert(st_xray_archive_chunk_info(handle, 0, 0, &archiveChunkID,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == -3);
     { std::ofstream file(archive, std::ios::binary | std::ios::trunc); file << "fixture"; }
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);

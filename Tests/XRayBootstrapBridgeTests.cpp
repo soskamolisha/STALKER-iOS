@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <cstring>
 #include <unistd.h>
+#include "../Sources/Native/Upstream/minilzo.h"
 
 int main() {
     assert(st_xray_initialize(nullptr, 0) == -1);
@@ -170,6 +171,56 @@ int main() {
         file.write(reinterpret_cast<const char*>(restoredSize), 4);
     }
 
+    // End-to-end compressed file extraction from a synthetic X-Ray archive.
+    {
+        const unsigned char original[] = "compressed X-Ray resource test resource test";
+        unsigned char packed[256] {};
+        lzo_uint packed_size = sizeof(packed);
+        void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
+        assert(work && lzo_init() == LZO_E_OK);
+        assert(lzo1x_1_compress(original, sizeof(original), packed, &packed_size, work) == LZO_E_OK);
+        std::free(work);
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char header[] = {1,0,0,0, 26,0,0,0, 24,0};
+        file.write(reinterpret_cast<const char*>(header), sizeof(header));
+        const uint32_t real = sizeof(original);
+        const uint32_t compressed = static_cast<uint32_t>(packed_size);
+        const uint32_t checksum = 0;
+        const uint32_t offset = 42;
+        file.write(reinterpret_cast<const char*>(&real), 4);
+        file.write(reinterpret_cast<const char*>(&compressed), 4);
+        file.write(reinterpret_cast<const char*>(&checksum), 4);
+        file.write("test.ltx", 8);
+        file.write(reinterpret_cast<const char*>(&offset), 4);
+        const unsigned char padding[8] {};
+        file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
+        file.write(reinterpret_cast<const char*>(packed), packed_size);
+        file.close();
+        unsigned char decoded[sizeof(original)] {};
+        assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, sizeof(decoded)) == 0);
+        assert(std::memcmp(decoded, original, sizeof(original)) == 0);
+        assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, 3) == -3);
+        {
+            std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);
+            corrupt.seekp(42);
+            const unsigned char bad = 0xff;
+            corrupt.write(reinterpret_cast<const char*>(&bad), 1);
+        }
+        assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, sizeof(decoded)) != 0);
+    }
+    // Restore plain directory fixture for the compressed-directory test.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char directory[] = {
+            1,0,0,0, 26,0,0,0,
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        file.write(reinterpret_cast<const char*>(directory), sizeof(directory));
+        const unsigned char padding[8] {};
+        file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
+        file.write("DATA", 4);
+    }
     // X-Ray marks a compressed directory by setting the high bit of chunk ID.
     // Never interpret its compressed bytes as raw file records.
     {

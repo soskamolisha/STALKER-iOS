@@ -188,18 +188,14 @@ struct TrilogyLauncherView: View {
                                             }
                                         }
                                     }
-                                    .frame(maxWidth: .infinity).frame(height: 185).clipped()
+                                    .frame(maxWidth: .infinity).frame(height: 245).clipped()
                                     LinearGradient(colors: [.clear, .black.opacity(0.9)],
                                                    startPoint: .top, endPoint: .bottom)
                                     // Artwork contains its own visual treatment; keep text readable
                                     // without placing a second oversized title over the illustration.
-                                    Text(russian ? game.russianName : game.englishName)
-                                        .font(.headline.weight(.semibold))
-                                        .foregroundStyle(.white)
-                                        .shadow(color: .black, radius: 5)
-                                        .padding(12)
+                                    EmptyView() // Poster already includes its own game title
                                 }
-                                .frame(height: 185)
+                                .frame(height: 245)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 Text(russian ? game.russianName : game.englishName)
                                     .font(.headline).foregroundStyle(.yellow)
@@ -257,8 +253,8 @@ struct TrilogyLauncherView: View {
                                         }
                                     } label: {
                                         Label(resources.status[game.rawValue] == nil
-                                              ? (russian ? "Импортировать" : "Import")
-                                              : (russian ? "Запустить" : "Launch"),
+                                              ? (russian ? "Добавить файлы игры" : "Add game files")
+                                              : (russian ? "Проверить запуск" : "Check launch"),
                                               systemImage: resources.status[game.rawValue] == nil ? "folder" : "play.fill")
                                             .frame(maxWidth: .infinity)
                                             .lineLimit(1)

@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 --branch v1.3.5 https://github.com/xiph/ogg.git ogg
-          cmake -S ogg -B ogg-build -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake -S ogg -B ogg-build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
           cmake --build ogg-build --parallel 2
           cmake --install ogg-build
           test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
@@ -83,7 +83,7 @@ jobs:
             grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 35 || true
             echo '~~~'
           } >> "$GITHUB_STEP_SUMMARY"
-          grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 10 | while IFS= read -r line; do
+          (grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null || true) | head -n 10 | while IFS= read -r line; do
             echo "::error title=OpenXRay iOS diagnostic::$line"
           done
           true

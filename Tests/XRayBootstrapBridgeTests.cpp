@@ -72,6 +72,29 @@ int main() {
     assert(st_xray_archive_read(handle, 0, 0, archiveBytes, 1) == 0);
     assert(archiveBytes[0] == 'x');
     { std::ofstream file(archive, std::ios::binary | std::ios::trunc); file << "fixture"; }
+    // Genuine X-Ray archive framing: little-endian chunk ID and payload length.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char bytes[] = {1,0,0,128, 3,0,0,0, 9,8,7,
+                                       2,0,0,0, 2,0,0,0, 6,5};
+        file.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+    }
+    std::uint32_t archiveChunkID = 0, archiveChunkSize = 0;
+    std::uint64_t archiveOffset = 0;
+    std::int32_t archiveCompressed = 0;
+    assert(st_xray_archive_chunk_info(handle, 0, 0, &archiveChunkID,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == 0);
+    assert(archiveChunkID == 1 && archiveOffset == 8 &&
+           archiveChunkSize == 3 && archiveCompressed == 1);
+    assert(st_xray_archive_chunk_info(handle, 0, 1, &archiveChunkID,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == 0);
+    assert(archiveChunkID == 2 && archiveOffset == 19 &&
+           archiveChunkSize == 2 && archiveCompressed == 0);
+    assert(st_xray_archive_chunk_info(handle, 0, 2, &archiveChunkID,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == -2);
+    assert(st_xray_archive_chunk_info(handle, 0, 0, nullptr,
+                                      &archiveOffset, &archiveChunkSize, &archiveCompressed) == -1);
+    { std::ofstream file(archive, std::ios::binary | std::ios::trunc); file << "fixture"; }
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
     assert(st_xray_level_chunk_count(handle, 0) == -1);

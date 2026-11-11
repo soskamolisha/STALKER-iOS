@@ -180,6 +180,19 @@ jobs:
           new = old + '\nif (LUAJIT_DISABLE_JIT)\n    string(APPEND HOST_ACFLAGS " -DLUAJIT_DISABLE_JIT -DLUAJIT_DISABLE_JITUTIL")\nendif()'
           p.write_text(s.replace(old, new))
           PY
+      - name: Disable unsupported external URL shell launch on iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xrGame/login_manager.cpp")
+          s = p.read_text()
+          old = '#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          assert old in s
+          new = '#elif defined(XR_PLATFORM_IOS) || defined(__APPLE__) && defined(TARGET_OS_IPHONE)\n    (void)url; // External URL opening requires an iOS UIApplication bridge.\n#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          p.write_text(s.replace(old, new))
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

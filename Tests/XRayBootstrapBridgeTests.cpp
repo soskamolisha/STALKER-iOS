@@ -268,6 +268,53 @@ int main() {
         assert(key_used == -2 && auto_size == 0);
         assert(st_xray_archive_directory_count(handle, 0) == -4);
     }
+    // Test both legacy encryption keys against actual compressed directory payloads.
+    for (int key = 0; key < 2; ++key) {
+        const unsigned char record[] = {
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        unsigned char packed[256] {};
+        lzo_uint packed_size = sizeof(packed);
+        void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
+        assert(work && lzo_init() == LZO_E_OK);
+        assert(lzo1x_1_compress(record, sizeof(record), packed, &packed_size, work) == LZO_E_OK);
+        std::free(work);
+        // Independent upstream-compatible encoder (inverse of the production decoder).
+        uint32_t seed = key == 0 ? 6011979u : 20091958u;
+        const auto next = [&seed](uint32_t range) -> uint32_t {
+            seed = 0x08088405u * seed + 1u;
+            return static_cast<uint32_t>((static_cast<uint64_t>(seed) * range) >> 32u);
+        };
+        unsigned char alphabet[256] {};
+        for (unsigned i = 0; i < 256; ++i) alphabet[i] = static_cast<unsigned char>(i);
+        for (int i = 0; i < (key == 0 ? 1024 : 2048); ++i) {
+            const uint32_t j = next(256);
+            uint32_t k = next(256);
+            while (j == k) k = next(256);
+            const unsigned char tmp = alphabet[j];
+            alphabet[j] = alphabet[k];
+            alphabet[k] = tmp;
+        }
+        seed = key == 0 ? 24031979u : 20031955u;
+        for (lzo_uint i = 0; i < packed_size; ++i)
+            packed[i] = alphabet[packed[i]] ^ static_cast<unsigned char>(next(256));
+        {
+            std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+            const unsigned char header[] = {1,0,0,128};
+            const uint32_t size = static_cast<uint32_t>(packed_size);
+            file.write(reinterpret_cast<const char*>(header), sizeof(header));
+            file.write(reinterpret_cast<const char*>(&size), 4);
+            file.write(reinterpret_cast<const char*>(packed), packed_size);
+        }
+        unsigned char decoded[sizeof(record)] {};
+        uint32_t actual_size = 0;
+        int32_t key_used = -2;
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(decoded), &actual_size, &key_used) == 0);
+        assert(key_used == key && actual_size == sizeof(record));
+        assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+    }
     // Restore an uncompressed directory for subsequent corruption tests.
     {
         std::ofstream file(archive, std::ios::binary | std::ios::trunc);

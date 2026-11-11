@@ -4,6 +4,9 @@
 #include "XRayCFormHeader.hpp"
 #include <new>
 #include <cstring>
+#include <fstream>
+#include <limits>
+#include <sys/stat.h>
 
 using stalker::XRayBootstrap;
 extern "C" {
@@ -46,6 +49,26 @@ int32_t st_xray_archive_name(STXRayHandle handle, uint32_t index, char* destinat
     if (name.size() + 1 > capacity) return -3;
     std::memcpy(destination, name.c_str(), name.size() + 1);
     return 0;
+}
+int32_t st_xray_archive_read(STXRayHandle handle, uint32_t index, uint64_t offset,
+                             void* destination, uint32_t size) {
+    if (!handle || (!destination && size != 0) || size > 65536) return -1;
+    const auto* engine = static_cast<XRayBootstrap*>(handle);
+    if (engine->state() != stalker::EngineState::resourcesReady) return -2;
+    const auto& names = engine->packedArchiveNames();
+    if (index >= names.size()) return -2;
+    const std::string path = engine->resourceRoot() + "/" + names[index];
+    struct stat info {};
+    if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0) return -3;
+    const auto length = static_cast<uint64_t>(info.st_size);
+    if (offset > length || size > length - offset) return -3;
+    if (offset > static_cast<uint64_t>(std::numeric_limits<std::streamoff>::max())) return -3;
+    if (size == 0) return 0;
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream) return -3;
+    stream.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+    if (!stream) return -3;
+    return stream.read(static_cast<char*>(destination), size) ? 0 : -3;
 }
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;

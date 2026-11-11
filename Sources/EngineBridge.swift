@@ -42,6 +42,7 @@ struct XRayResourcePreflight {
     let firstArchiveSignature: String?
     let firstArchiveChunk: String?
     let firstChunkPayloadPrefix: String?
+    let firstArchiveEntry: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -97,6 +98,7 @@ struct XRayResourcePreflight {
             }
         }
         var firstArchiveChunk: String?
+        var firstArchiveEntry: String?
         var firstChunkPayloadPrefix: String?
         if count > 0 {
             var chunkID: UInt32 = 0
@@ -119,6 +121,17 @@ struct XRayResourcePreflight {
                 }
             }
         }
+        if count > 0 {
+            var name = [CChar](repeating: 0, count: 512)
+            var realSize: UInt32 = 0
+            var compressedSize: UInt32 = 0
+            var crc: UInt32 = 0
+            var offset: UInt32 = 0
+            if st_xray_archive_directory_entry(engine, 0, 0, &name, UInt32(name.count),
+                                                &realSize, &compressedSize, &crc, &offset) == 0 {
+                firstArchiveEntry = "\(String(cString: name)) (\(realSize) / \(compressedSize) bytes)"
+            }
+        }
         return XRayResourcePreflight(
             archiveCount: Int(st_xray_archive_count(engine)),
             archiveBytes: st_xray_archive_bytes(engine),
@@ -126,6 +139,7 @@ struct XRayResourcePreflight {
             firstArchiveSignature: firstArchiveSignature,
             firstArchiveChunk: firstArchiveChunk,
             firstChunkPayloadPrefix: firstChunkPayloadPrefix,
+            firstArchiveEntry: firstArchiveEntry,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

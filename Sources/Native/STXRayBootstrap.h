@@ -31,6 +31,9 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
 // Decode X-Ray trivial encryption in place (0=worldwide, 1=Russian).
 // Used for legacy encrypted directory payloads before LZO decoding.
 int32_t st_xray_directory_decrypt(void* data, uint32_t size, int32_t key_variant);
+// Validate decoded X-Ray directory records before exposing them to the launcher.
+// Returns number of records, or -3 for malformed paths, offsets or sizes.
+int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length);
 // Try plain, worldwide-key and Russian-key LZO directory decoding in that order.
 // Returns key_used: -1 plain, 0 worldwide, 1 Russian.
 int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,

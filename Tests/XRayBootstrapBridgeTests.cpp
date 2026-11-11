@@ -120,6 +120,7 @@ int main() {
     assert(st_xray_archive_directory_entry(handle, 0, 0, entryName, sizeof(entryName),
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == 0);
     assert(std::strcmp(entryName, "test.ltx") == 0);
+    assert(st_xray_archive_directory_count(handle, 0) == 1);
     // Reject a malicious parent-directory path without reading any file bytes.
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
@@ -179,6 +180,7 @@ int main() {
     }
     assert(st_xray_archive_directory_entry(handle, 0, 0, entryName, sizeof(entryName),
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == -4);
+    assert(st_xray_archive_directory_count(handle, 0) == -4);
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
         file.seekp(3);

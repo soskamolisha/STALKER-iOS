@@ -311,8 +311,9 @@ extern "C" int st_xray_embedded_run(const char* command_line)
           set -euo pipefail
           if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
           binary="upstream/bin/Release/xr_3da.app/xr_3da"
-          /usr/bin/nm -gU "$binary" | grep -E '[[:space:]](_main|_st_xray_embedded_run)
-          echo "Native entry point verified; embedded launch still needs a dedicated C ABI and lifecycle bridge."
+          /usr/bin/nm -gU "$binary" | grep -F '_main'
+          /usr/bin/nm -gU "$binary" | grep -F '_st_xray_embedded_run' || echo "Embedded symbol not exported by final executable; inspect linker dead stripping."
+          echo "Entry-point audit complete."
       - name: Inspect engine-to-launcher integration interfaces
         if: ${{ always() }}
         shell: bash

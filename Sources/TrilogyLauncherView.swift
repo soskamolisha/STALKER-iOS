@@ -183,12 +183,33 @@ struct TrilogyLauncherView: View {
                                     .background(.yellow.opacity(0.2), in: Capsule())
                             }.foregroundStyle(.yellow)
                             Spacer()
-                            Picker("Language", selection: $language) {
-                                Text("РУС").tag("ru")
-                                Text("ENG").tag("en")
+                            Menu {
+                                Button("Русский") { language = "ru" }
+                                Button("English") { language = "en" }
+                            } label: {
+                                Label(russian ? "Русский" : "English", systemImage: "globe")
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
                             }
-                            .pickerStyle(.segmented)
-                            .frame(width: 150)
+                            Button {
+                                selectedSection = "settings"
+                                showDiagnostics.toggle()
+                            } label: {
+                                Image(systemName: "gearshape")
+                                    .font(.title3).foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .accessibilityLabel(russian ? "Настройки диагностики" : "Diagnostic settings")
+                            Button { showAbout = true } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.title3).foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .accessibilityLabel(russian ? "О проекте" : "About")
                         }
                         if isCopying {
                             ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
@@ -326,8 +347,10 @@ struct TrilogyLauncherView: View {
                         }
                         .padding(16)
                         .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
-                        Toggle(russian ? "Технические сведения" : "Technical details", isOn: $showDiagnostics)
-                            .font(.caption).tint(.yellow)
+                        if showDiagnostics {
+                            Text(russian ? "Режим диагностики включён" : "Diagnostics enabled")
+                                .font(.caption).foregroundStyle(.yellow)
+                        }
                         Divider().overlay(.yellow.opacity(0.4))
                         HStack(spacing: 10) {
                             Image(systemName: "externaldrive.fill").foregroundStyle(.yellow)

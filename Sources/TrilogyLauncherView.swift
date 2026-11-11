@@ -190,13 +190,13 @@ struct TrilogyLauncherView: View {
                                     .frame(maxWidth: .infinity).frame(height: 185).clipped()
                                     LinearGradient(colors: [.clear, .black.opacity(0.9)],
                                                    startPoint: .top, endPoint: .bottom)
-                                    HStack {
-                                        Image(systemName: game.symbol)
-                                        Text(russian ? game.russianName.uppercased() : game.englishName.uppercased())
-                                            .font(.title3.bold()).tracking(1)
-                                    }
-                                    .foregroundStyle(.white)
-                                    .padding(16)
+                                    // Artwork contains its own visual treatment; keep text readable
+                                    // without placing a second oversized title over the illustration.
+                                    Text(russian ? game.russianName : game.englishName)
+                                        .font(.headline.weight(.semibold))
+                                        .foregroundStyle(.white)
+                                        .shadow(color: .black, radius: 5)
+                                        .padding(12)
                                 }
                                 .frame(height: 185)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))

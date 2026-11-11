@@ -131,6 +131,21 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
     close(fd);
     return -2;
 }
+int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
+                                   uint32_t chunk_index, uint32_t relative_offset,
+                                   void* destination, uint32_t size) {
+    if ((!destination && size != 0) || size > 65536) return -1;
+    uint32_t chunk_id = 0, payload_size = 0;
+    uint64_t payload_offset = 0;
+    int32_t compressed = 0;
+    const int32_t status = st_xray_archive_chunk_info(handle, archive_index, chunk_index,
+                                                       &chunk_id, &payload_offset,
+                                                       &payload_size, &compressed);
+    if (status != 0) return status;
+    if (relative_offset > payload_size || size > payload_size - relative_offset) return -3;
+    return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
+                                destination, size);
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

@@ -34,16 +34,20 @@ int main() {
     { std::ofstream file(archive); }
     assert(st_xray_attach_resources(handle, path) == -2);
     { std::ofstream file(archive); file << "fixture"; }
+    const std::string secondArchive = std::string(path) + "/gamedata.db1";
+    { std::ofstream file(secondArchive); file << "fixture2"; }
     assert(st_xray_attach_resources(handle, path) == 0);
     assert(st_xray_state(handle) == 2);
     assert(st_xray_has_packed_data(handle) == 1);
-    assert(st_xray_archive_count(handle) == 1);
-    assert(st_xray_archive_bytes(handle) == 7);
+    assert(st_xray_archive_count(handle) == 2);
+    assert(st_xray_archive_bytes(handle) == 15);
     char archiveName[32] = {};
     assert(st_xray_archive_name(handle, 0, archiveName, sizeof(archiveName)) == 0);
     assert(std::strcmp(archiveName, "gamedata.db0") == 0);
     assert(st_xray_archive_name(handle, 0, archiveName, 4) == -3);
-    assert(st_xray_archive_name(handle, 1, archiveName, sizeof(archiveName)) == -2);
+    assert(st_xray_archive_name(handle, 1, archiveName, sizeof(archiveName)) == 0);
+    assert(std::strcmp(archiveName, "gamedata.db1") == 0);
+    assert(st_xray_archive_name(handle, 2, archiveName, sizeof(archiveName)) == -2);
     assert(st_xray_archive_name(handle, 0, nullptr, 0) == -1);
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
@@ -104,6 +108,7 @@ int main() {
     assert(st_xray_state(handle) == 0);
     st_xray_destroy(handle);
     assert(std::remove(archive.c_str()) == 0);
+    assert(std::remove(secondArchive.c_str()) == 0);
     assert(std::remove(backupLike.c_str()) == 0);
     assert(rmdir(path) == 0);
 }

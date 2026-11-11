@@ -32,3 +32,44 @@ final class UnavailableEngine: GameEngine {
         st_input_set(nativeInput, input.rawValue, pressed ? 1 : 0)
     }
 }
+
+
+/// Native X-Ray data probe. This is a resource preflight, NOT a playable engine.
+struct XRayResourcePreflight {
+    let archiveCount: Int
+    let archiveBytes: UInt64
+    let looseLevelCount: Int
+    let hasLooseData: Bool
+    let hasPackedData: Bool
+
+    static func inspect(gameID: String) -> XRayResourcePreflight? {
+        let edition: Int32
+        switch gameID {
+        case "shadow": edition = 0
+        case "clearSky": edition = 1
+        case "pripyat": edition = 2
+        default: return nil
+        }
+        let root = FileManager.default.urls(for: .applicationSupportDirectory,
+                                             in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: root.path),
+              let engine = st_xray_create() else { return nil }
+        defer {
+            st_xray_shutdown(engine)
+            st_xray_destroy(engine)
+        }
+        guard st_xray_initialize(engine, edition) == 0,
+              root.path.withCString({ st_xray_attach_resources(engine, $0) }) == 0 else {
+            return nil
+        }
+        return XRayResourcePreflight(
+            archiveCount: Int(st_xray_archive_count(engine)),
+            archiveBytes: st_xray_archive_bytes(engine),
+            looseLevelCount: Int(st_xray_level_count(engine)),
+            hasLooseData: st_xray_has_loose_data(engine) != 0,
+            hasPackedData: st_xray_has_packed_data(engine) != 0
+        )
+    }
+}

@@ -66,6 +66,12 @@ int main() {
     assert(std::remove(archive.c_str()) == 0);
     { std::ofstream file(archive); file << "fixture"; }
     assert(std::remove(replacement.c_str()) == 0);
+    // The file may change after inventory: every read must re-check current length.
+    { std::ofstream file(archive, std::ios::binary | std::ios::trunc); file << "x"; }
+    assert(st_xray_archive_read(handle, 0, 0, archiveBytes, 7) == -3);
+    assert(st_xray_archive_read(handle, 0, 0, archiveBytes, 1) == 0);
+    assert(archiveBytes[0] == 'x');
+    { std::ofstream file(archive, std::ios::binary | std::ios::trunc); file << "fixture"; }
     assert(st_xray_has_loose_data(handle) == 0);
     assert(st_xray_level_count(handle) == 0);
     assert(st_xray_level_chunk_count(handle, 0) == -1);

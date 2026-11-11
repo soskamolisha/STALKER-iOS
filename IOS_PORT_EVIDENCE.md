@@ -25,3 +25,13 @@ This is an interoperability investigation, **not** a claim that the executable o
 - Identify a public source repository and its license/revision, if available.
 - Test archive table-of-contents parsing with small, legally supplied samples.
 - Implement engine startup behind an explicit feature gate once an iOS-compatible engine is available.
+
+## Verified iPhoneOS ARM64 X-Ray engine compilation (2026-11-11)
+
+- [Full OpenXRay iOS compilation run 43013395733](https://github.com/soskamolisha/STALKER-iOS/actions/runs/43013395733): successful, including `xrGame` and the linked `xr_3da` executable.
+- [Engine bundle inspection run 43021340872](https://github.com/soskamolisha/STALKER-iOS/actions/runs/43021340872): `file` identified `xr_3da` as a 64-bit ARM64 Mach-O executable; `codesign --verify` reported no signature.
+- [Unsigned engine IPA packaging run 43025040350](https://github.com/soskamolisha/STALKER-iOS/actions/runs/43025040350): successful, artifact [openxray-engine-unsigned-test-ipa](https://github.com/soskamolisha/STALKER-iOS/actions/runs/43025040350/artifacts/13860577733). The bundle identifier is `com.stalkermobile.openxray.engine`; `unzip -t` passed.
+
+**Scope limitation:** The packaged executable is an **engine-only test artifact**, not the SwiftUI trilogy launcher. No code-signing, device launch, game asset loading, renderer operation, or gameplay has been verified. The launcher still uses `UnavailableEngine` and does not link the OpenXRay runtime. Do not describe the test IPA as a playable S.T.A.L.K.E.R. port.
+
+**Integration requirements:** Build the engine as an embeddable iOS library/framework or adapt the launcher into the engine's application entry point; a second `xr_3da.app` executable cannot simply be copied into a SwiftUI app and launched as a subprocess on iOS. Establish UIKit/SDL lifecycle, renderer compatibility, filesystem mapping for imported original game data, touch input, audio, and Apple signing/provisioning. Verify the engine edition against each game independently: xray-16 does not automatically establish Shadow of Chernobyl compatibility.

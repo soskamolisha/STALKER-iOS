@@ -192,16 +192,13 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          import struct
+          import subprocess
           source = Path("Resources/AppIcon.png")
           assert source.is_file(), "Missing Resources/AppIcon.png"
-          data = source.read_bytes()
-          assert data[:8] == b"\\x89PNG\\r\\n\\x1a\\n", "Icon must be PNG"
-          width, height = struct.unpack(">II", data[16:24])
-          assert (width, height) == (1024, 1024), f"Expected 1024x1024 icon, got {width}x{height}"
           target = Path("Sources/Assets.xcassets/AppIcon.appiconset")
           target.mkdir(parents=True, exist_ok=True)
-          (target / "AppIcon.png").write_bytes(source.read_bytes())
+          subprocess.run(["sips", "-s", "format", "png", str(source), "--out", str(target / "AppIcon.png")], check=True)
+          subprocess.run(["sips", "-z", "1024", "1024", str(target / "AppIcon.png"), "--out", str(target / "AppIcon.png")], check=True)
           (target / "Contents.json").write_text(json.dumps({"images": [{"filename": "AppIcon.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}], "info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
           print("Prepared AppIcon asset catalog")
           PY

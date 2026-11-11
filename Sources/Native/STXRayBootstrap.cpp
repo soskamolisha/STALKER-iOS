@@ -146,6 +146,63 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
     return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
                                 destination, size);
 }
+int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,
+                                        uint32_t entry_index, char* name, uint32_t name_capacity,
+                                        uint32_t* size_real, uint32_t* size_compressed,
+                                        uint32_t* crc, uint32_t* data_offset) {
+    if (!name || name_capacity == 0 || !size_real || !size_compressed || !crc ||
+        !data_offset || entry_index >= 65536) return -1;
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t payload_offset = 0;
+    int32_t compressed = 0;
+    // X-Ray archive directory is chunk ID 1, not necessarily the first chunk.
+    for (uint32_t chunk_index = 0; chunk_index < 64; ++chunk_index) {
+        const int32_t result = st_xray_archive_chunk_info(handle, archive_index, chunk_index,
+                                                           &chunk_id, &payload_offset,
+                                                           &chunk_size, &compressed);
+        if (result != 0) return result;
+        if (chunk_id != 1) continue;
+        if (compressed) return -4;
+        uint32_t cursor = 0;
+        for (uint32_t i = 0; i <= entry_index; ++i) {
+            if (cursor == chunk_size) return -2;
+            if (chunk_size - cursor < 2) return -3;
+            unsigned char length_bytes[2] {};
+            if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
+                                           cursor, length_bytes, 2) != 0) return -3;
+            const uint32_t length = static_cast<uint32_t>(length_bytes[0]) |
+                                    (static_cast<uint32_t>(length_bytes[1]) << 8);
+            // 16 fixed bytes: real size, compressed size, CRC32 and data offset.
+            if (length < 16 || length > 4096 || length + 2 > chunk_size - cursor) return -3;
+            if (i == entry_index) {
+                const uint32_t name_length = length - 16;
+                if (name_length == 0 || name_length + 1 > name_capacity) return -3;
+                unsigned char fixed[12] {};
+                if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
+                                               cursor + 2, fixed, 12) != 0) return -3;
+                if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
+                                               cursor + 14, name, name_length) != 0) return -3;
+                name[name_length] = 0;
+                if (std::memchr(name, 0, name_length) != nullptr) return -3;
+                unsigned char pointer_bytes[4] {};
+                if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
+                                               cursor + 14 + name_length,
+                                               pointer_bytes, 4) != 0) return -3;
+                auto le32 = [](const unsigned char* p) -> uint32_t {
+                    return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+                           (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
+                };
+                *size_real = le32(fixed);
+                *size_compressed = le32(fixed + 4);
+                *crc = le32(fixed + 8);
+                *data_offset = le32(pointer_bytes);
+                return 0;
+            }
+            cursor += 2 + length;
+        }
+    }
+    return -2;
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

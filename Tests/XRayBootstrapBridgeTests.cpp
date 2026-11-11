@@ -221,6 +221,50 @@ int main() {
         file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
         file.write("DATA", 4);
     }
+    // End-to-end decoding of an LZO-compressed X-Ray directory chunk.
+    {
+        const unsigned char directory_record[] = {
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        unsigned char packed[256] {};
+        lzo_uint packed_size = sizeof(packed);
+        void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
+        assert(work && lzo_init() == LZO_E_OK);
+        assert(lzo1x_1_compress(directory_record, sizeof(directory_record),
+                               packed, &packed_size, work) == LZO_E_OK);
+        std::free(work);
+        {
+            std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+            const unsigned char header[] = {1,0,0,128};
+            const uint32_t size = static_cast<uint32_t>(packed_size);
+            file.write(reinterpret_cast<const char*>(header), sizeof(header));
+            file.write(reinterpret_cast<const char*>(&size), 4);
+            file.write(reinterpret_cast<const char*>(packed), packed_size);
+        }
+        unsigned char decoded[sizeof(directory_record)] {};
+        assert(st_xray_archive_directory_decompress(handle, 0, decoded,
+               sizeof(decoded), sizeof(directory_record)) == 0);
+        assert(std::memcmp(decoded, directory_record, sizeof(directory_record)) == 0);
+        assert(st_xray_archive_directory_decompress(handle, 0, decoded,
+               sizeof(decoded), sizeof(directory_record) - 1) == -3);
+        assert(st_xray_archive_directory_decompress(handle, 0, decoded,
+               4, sizeof(directory_record)) == -1);
+        assert(st_xray_archive_directory_count(handle, 0) == -4);
+    }
+    // Restore an uncompressed directory for subsequent corruption tests.
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char directory[] = {
+            1,0,0,0, 26,0,0,0,
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        file.write(reinterpret_cast<const char*>(directory), sizeof(directory));
+        const unsigned char padding[8] {};
+        file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
+        file.write("DATA", 4);
+    }
     // X-Ray marks a compressed directory by setting the high bit of chunk ID.
     // Never interpret its compressed bytes as raw file records.
     {

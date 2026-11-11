@@ -125,6 +125,21 @@ int main() {
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
     assert(st_xray_archive_file_read(handle, 0, 0, 2, extracted, 3) == -3);
+    // A compressed file must never be returned as if its bytes were decoded.
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(14); // compressed_size field of the first directory record
+        const unsigned char compressedSize[4] = {3, 0, 0, 0};
+        file.write(reinterpret_cast<const char*>(compressedSize), 4);
+    }
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 3) == -4);
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(14);
+        const unsigned char restoredSize[4] = {4, 0, 0, 0};
+        file.write(reinterpret_cast<const char*>(restoredSize), 4);
+    }
+
     assert(st_xray_archive_directory_entry(handle, 0, 1, entryName, sizeof(entryName),
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == -2);
     // Reject malformed chunk sizes before attempting to access a payload.

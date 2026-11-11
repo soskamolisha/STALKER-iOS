@@ -2,6 +2,7 @@
 #include "XRayLevelCatalog.hpp"
 #include <dirent.h>
 #include <cctype>
+#include <algorithm>
 #include <limits>
 #include <sys/stat.h>
 
@@ -42,7 +43,7 @@ bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
     closedir(dir);
     return found;
 }
-struct ArchiveInventory { std::uint32_t count = 0; std::uint64_t bytes = 0; };
+struct ArchiveInventory { std::uint32_t count = 0; std::uint64_t bytes = 0; std::vector<std::string> names; };
 ArchiveInventory inspectPackedArchives(const std::string& root) {
     DIR* dir = opendir(root.c_str());
     if (!dir) return {};
@@ -58,8 +59,10 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
         if (size > std::numeric_limits<std::uint64_t>::max() - result.bytes) break;
         ++result.count;
         result.bytes += size;
+        result.names.push_back(name);
     }
     closedir(dir);
+    std::sort(result.names.begin(), result.names.end());
     return result;
 }
 }
@@ -89,6 +92,7 @@ bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     hasPackedGameData_ = packed;
     packedArchiveCount_ = archives.count;
     packedArchiveBytes_ = archives.bytes;
+    packedArchiveNames_ = archives.names;
     looseLevels_ = loose ? discoverLooseLevels(resourceRoot) : std::vector<std::string>{};
     state_ = EngineState::resourcesReady;
     return true;
@@ -100,6 +104,7 @@ void XRayBootstrap::shutdown() {
     hasPackedGameData_ = false;
     packedArchiveCount_ = 0;
     packedArchiveBytes_ = 0;
+    packedArchiveNames_.clear();
     looseLevels_.clear();
     state_ = EngineState::cold;
 }

@@ -285,6 +285,25 @@ jobs:
             ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: warn
+      - name: Add experimental C ABI for embedded X-Ray runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xr_3da/entry_point.cpp")
+          s = p.read_text()
+          anchor = '#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter'
+          assert anchor in s, "Upstream entry point layout changed"
+          bridge = '''// Experimental embedding entry point; NOT safe to call until UIKit/SDL lifecycle is adapted.
+extern "C" int st_xray_embedded_run(const char* command_line)
+{
+    return entry_point(command_line ? command_line : "");
+}
+
+'''
+          p.write_text(s.replace(anchor, bridge + anchor, 1))
+          PY
       - name: Verify native X-Ray entry point symbol
         if: ${{ always() }}
         shell: bash
@@ -292,7 +311,114 @@ jobs:
           set -euo pipefail
           if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
           binary="upstream/bin/Release/xr_3da.app/xr_3da"
-          /usr/bin/nm -gU "$binary" | grep -E '[[:space:]]_main$'
+          /usr/bin/nm -gU "$binary" | grep -E '[[:space:]](_main|_st_xray_embedded_run)
+          echo "Native entry point verified; embedded launch still needs a dedicated C ABI and lifecycle bridge."
+      - name: Inspect engine-to-launcher integration interfaces
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine not built; integration audit skipped."
+            exit 0
+          fi
+          mkdir -p integration-audit
+          {
+            echo "OpenXRay iOS engine integration audit"
+            echo "Engine binary:"
+            /usr/bin/file upstream/bin/Release/xr_3da.app/xr_3da
+            echo
+            echo "Executable entry points:"
+            /usr/bin/nm -gU upstream/bin/Release/xr_3da.app/xr_3da 2>/dev/null | grep -E '(_main$|SDL_main|UIApplicationMain|xrEngine)' | head -n 30 || true
+            echo
+            echo "Build targets and link commands:"
+            find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'head -c 20000 "$1"; echo' sh {} \; || true
+            echo
+            echo "Existing launcher integration:"
+            echo "SwiftUI currently instantiates UnavailableEngine; no native X-Ray runtime linkage."
+            echo "The executable cannot be launched as an iOS child process."
+            echo "Next engineering task: expose an embeddable runtime entry point and bind it to UIKit/SDL lifecycle."
+          } > integration-audit/report.txt
+          cat integration-audit/report.txt | head -n 35
+      - name: Upload engine integration audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-launcher-integration-audit
+          path: integration-audit/report.txt
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Package compiled iOS X-Ray engine bundle
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine compilation unsuccessful; no engine bundle will be published."
+            exit 0
+          fi
+          bundle="upstream/bin/Release/xr_3da.app"
+          test -f "$bundle/xr_3da"
+          mkdir -p engine-package
+          cp -R "$bundle" engine-package/
+          plist="engine-package/xr_3da.app/Info.plist"
+          test -f "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.stalkermobile.openxray.engine' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.stalkermobile.openxray.engine' "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName STALKER X-Ray Test' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string STALKER X-Ray Test' "$plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
+          /usr/bin/file engine-package/xr_3da.app/xr_3da
+          /usr/bin/lipo -info engine-package/xr_3da.app/xr_3da
+          echo "=== App bundle metadata ==="
+          if [ -f engine-package/xr_3da.app/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' engine-package/xr_3da.app/Info.plist
+          else
+            echo "::warning::Missing Info.plist; compiled bundle is not yet installable."
+          fi
+          echo "=== Code signature ==="
+          /usr/bin/codesign --verify --verbose=2 engine-package/xr_3da.app || true
+          echo "=== Runtime linkage ==="
+          /usr/bin/otool -L engine-package/xr_3da.app/xr_3da | tee engine-package/dylib-dependencies.txt
+          echo "=== Engine artifact manifest ==="
+          /usr/bin/shasum -a 256 engine-package/xr_3da.app/xr_3da | tee engine-package/sha256.txt
+          echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
+      - name: Package unsigned engine test IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f engine-package/xr_3da.app/xr_3da
+          mkdir -p ipa-staging/Payload
+          cp -R engine-package/xr_3da.app ipa-staging/Payload/
+          (cd ipa-staging && /usr/bin/zip -qry ../openxray-engine-unsigned-test.ipa Payload)
+          /usr/bin/unzip -t openxray-engine-unsigned-test.ipa | tail -n 2
+          echo "Unsigned engine-only IPA created for packaging diagnostics; not signed, not integrated into launcher, not gameplay-tested."
+      - name: Upload unsigned engine test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-engine-unsigned-test-ipa
+          path: openxray-engine-unsigned-test.ipa
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload unsigned iOS X-Ray engine bundle
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-unsigned-app
+          path: engine-package/xr_3da.app/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Enforce real iOS engine compilation status
+        if: always()
+        shell: bash
+        run: |
+          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
+          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
+          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
+            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build)."
+            exit 1
+          fi
+
           echo "Native entry point verified; embedded launch still needs a dedicated C ABI and lifecycle bridge."
       - name: Inspect engine-to-launcher integration interfaces
         if: ${{ always() }}

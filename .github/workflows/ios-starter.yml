@@ -137,6 +137,33 @@ jobs:
           EOF
           cc -std=c99 -I Sources/Native/Upstream /tmp/stalker-lzo-test.c /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-test
           /tmp/stalker-lzo-test
+      - name: Test native LZO1X Swift bridge
+        run: |
+          cat > /tmp/stalker-lzo-bridge-test.cpp <<'EOF'
+          #include "STXRayBootstrap.h"
+          #include "minilzo.h"
+          #include <cassert>
+          #include <cstring>
+          #include <cstdlib>
+          int main() {
+              const unsigned char input[] = "X-Ray LZO1X archive data";
+              unsigned char packed[256] = {};
+              unsigned char decoded[256] = {};
+              lzo_uint packedSize = sizeof(packed);
+              void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
+              assert(work);
+              assert(lzo_init() == LZO_E_OK);
+              assert(lzo1x_1_compress(input, sizeof(input), packed, &packedSize, work) == LZO_E_OK);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, sizeof(decoded), sizeof(input)) == 0);
+              assert(std::memcmp(input, decoded, sizeof(input)) == 0);
+              assert(st_xray_lzo_decompress(packed, packedSize - 1, decoded, sizeof(decoded), sizeof(input)) == -4);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, sizeof(decoded), sizeof(input) + 1) == -3);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, 4, sizeof(input)) == -3);
+              std::free(work);
+          }
+          EOF
+          c++ -std=c++17 -I Sources/Native -I Sources/Native/Upstream Sources/Native/STXRayLZO.cpp /tmp/stalker-lzo-bridge-test.cpp /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-bridge-test
+          /tmp/stalker-lzo-bridge-test
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

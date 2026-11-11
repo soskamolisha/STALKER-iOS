@@ -47,6 +47,12 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);
+// Decode a compressed file entry from an uncompressed archive directory.
+// Caller supplies the full uncompressed output buffer. Maximum 64 MiB.
+// Does not yet support encrypted or compressed directory indexes.
+int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_index,
+                                         uint32_t entry_index, void* destination,
+                                         uint32_t destination_capacity);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

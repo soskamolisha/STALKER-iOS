@@ -111,6 +111,9 @@ int main() {
             't','e','s','t','.','l','t','x', 42,0,0,0
         };
         file.write(reinterpret_cast<const char*>(directory), sizeof(directory));
+        const unsigned char padding[8] = {};
+        file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
+        file.write("DATA", 4);
     }
     char entryName[32] {};
     uint32_t realSize = 0, compressedSize = 0, entryCRC = 0, dataOffset = 0;
@@ -118,6 +121,10 @@ int main() {
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == 0);
     assert(std::strcmp(entryName, "test.ltx") == 0);
     assert(realSize == 4 && compressedSize == 4 && entryCRC == 0x12345678 && dataOffset == 42);
+    char extracted[4] = {};
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
+    assert(std::memcmp(extracted, "DATA", 4) == 0);
+    assert(st_xray_archive_file_read(handle, 0, 0, 2, extracted, 3) == -3);
     assert(st_xray_archive_directory_entry(handle, 0, 1, entryName, sizeof(entryName),
                                            &realSize, &compressedSize, &entryCRC, &dataOffset) == -2);
     // Reject malformed chunk sizes before attempting to access a payload.

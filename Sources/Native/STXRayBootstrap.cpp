@@ -218,6 +218,26 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
     // The current reader supports only archives with a valid in-file data region.
     if (relative_offset > real_size || size > real_size - relative_offset) return -3;
     if (size != 0 && data_offset < 8) return -3;
+    // Reject records pointing into the archive directory chunk itself.
+    // The chunk header is eight bytes immediately before its payload.
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t chunk_offset = 0;
+    int32_t chunk_compressed = 0;
+    for (uint32_t i = 0; i < 64; ++i) {
+        const int32_t result = st_xray_archive_chunk_info(handle, archive_index, i,
+                                                           &chunk_id, &chunk_offset,
+                                                           &chunk_size, &chunk_compressed);
+        if (result == -2) break;
+        if (result != 0) return result;
+        if (chunk_id == 1) {
+            const uint64_t file_begin = static_cast<uint64_t>(data_offset) + relative_offset;
+            const uint64_t file_end = file_begin + size;
+            const uint64_t directory_begin = chunk_offset - 8;
+            const uint64_t directory_end = chunk_offset + chunk_size;
+            if (size != 0 && file_begin < directory_end && file_end > directory_begin) return -3;
+            break;
+        }
+    }
     return st_xray_archive_read(handle, archive_index,
                                 static_cast<uint64_t>(data_offset) + relative_offset,
                                 destination, size);

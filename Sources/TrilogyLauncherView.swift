@@ -286,7 +286,7 @@ struct TrilogyLauncherView: View {
                     LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
                                              Color(red: 0.11, green: 0.13, blue: 0.10)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
-                    AsyncImage(url: Bundle.main.url(forResource: "pripyat_header", withExtension: "jpg") ?? URL(string: "https://unsplash.com/photos/IM4b4ytWetg/download?w=1600")) { phase in
+                    AsyncImage(url: (Bundle.main.url(forResource: "pripyat_header", withExtension: "jpg", subdirectory: "Resources") ?? Bundle.main.url(forResource: "pripyat_header", withExtension: "jpg")) ?? URL(string: "https://unsplash.com/photos/IM4b4ytWetg/download?w=1600")) { phase in
                         if let image = phase.image {
                             image.resizable().scaledToFill()
                         } else {

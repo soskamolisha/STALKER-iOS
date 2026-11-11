@@ -38,6 +38,7 @@ final class UnavailableEngine: GameEngine {
 struct XRayResourcePreflight {
     let archiveCount: Int
     let archiveBytes: UInt64
+    let archiveNames: [String]
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -69,9 +70,19 @@ struct XRayResourcePreflight {
               root.path.withCString({ st_xray_attach_resources(engine, $0) }) == 0 else {
             return nil
         }
+        let count = max(0, Int(st_xray_archive_count(engine)))
+        var archiveNames: [String] = []
+        for index in 0..<min(count, 256) {
+            var buffer = [CChar](repeating: 0, count: 128)
+            let status = buffer.withUnsafeMutableBufferPointer { pointer in
+                st_xray_archive_name(engine, UInt32(index), pointer.baseAddress, UInt32(pointer.count))
+            }
+            if status == 0 { archiveNames.append(String(cString: buffer)) }
+        }
         return XRayResourcePreflight(
             archiveCount: Int(st_xray_archive_count(engine)),
             archiveBytes: st_xray_archive_bytes(engine),
+            archiveNames: archiveNames,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

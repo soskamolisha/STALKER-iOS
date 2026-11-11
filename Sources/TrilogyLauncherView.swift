@@ -281,13 +281,41 @@ struct TrilogyLauncherView: View {
                         if let image = phase.image {
                             image.resizable().scaledToFill()
                         } else {
-                            Image(systemName: "building.2.crop.circle")
-                                .font(.system(size: 420, weight: .ultraLight))
-                                .foregroundStyle(.yellow.opacity(0.055))
+                            Color(red: 0.17, green: 0.13, blue: 0.11)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
+                    GeometryReader { geometry in
+                        Canvas { context, size in
+                            let radius = min(size.width * 0.13, size.height * 0.27)
+                            let center = CGPoint(x: size.width * 0.57, y: size.height * 0.29)
+                            let iron = Color.black.opacity(0.82)
+                            let circle = CGRect(x: center.x - radius, y: center.y - radius,
+                                                width: radius * 2, height: radius * 2)
+                            context.stroke(Path(ellipseIn: circle), with: .color(iron), lineWidth: 4)
+                            for index in 0..<16 {
+                                let angle = Double(index) * .pi / 8
+                                let end = CGPoint(x: center.x + radius * cos(angle),
+                                                  y: center.y + radius * sin(angle))
+                                var spoke = Path()
+                                spoke.move(to: center)
+                                spoke.addLine(to: end)
+                                context.stroke(spoke, with: .color(iron), lineWidth: 2)
+                                let cabin = CGRect(x: end.x - 6, y: end.y - 3, width: 12, height: 10)
+                                context.fill(Path(roundedRect: cabin, cornerRadius: 2), with: .color(iron))
+                            }
+                            let baseY = center.y + radius * 1.65
+                            for x in [center.x - radius * 0.38, center.x + radius * 0.38] {
+                                var leg = Path()
+                                leg.move(to: center)
+                                leg.addLine(to: CGPoint(x: x, y: baseY))
+                                context.stroke(leg, with: .color(iron), lineWidth: 5)
+                            }
+                        }
+                        .accessibilityHidden(true)
+                    }
+                    .allowsHitTesting(false)
                     LinearGradient(colors: [.black.opacity(0.65), .black.opacity(0.86)],
                                    startPoint: .top, endPoint: .bottom)
                 }.ignoresSafeArea()

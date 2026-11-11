@@ -253,6 +253,17 @@ struct TrilogyLauncherView: View {
                                             selectedGame = game
                                             showImporter = true
                                         } else {
+                                            if let probe = XRayResourcePreflight.inspect(gameID: game.rawValue) {
+                                                engineDiagnostics[game.rawValue] = russian
+                                                    ? "X-Ray: архивов \(probe.archiveCount), уровней \(probe.looseLevelCount), данных \(probe.archiveBytes) байт"
+                                                    : "X-Ray: \(probe.archiveCount) archives, \(probe.looseLevelCount) levels, \(probe.archiveBytes) bytes"
+                                                showDiagnostics = true
+                                            } else {
+                                                engineDiagnostics[game.rawValue] = russian
+                                                    ? "X-Ray: не удалось проверить файлы игры"
+                                                    : "X-Ray: game data preflight failed"
+                                                showDiagnostics = true
+                                            }
                                             showEngineNotice = true
                                         }
                                     } label: {

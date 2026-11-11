@@ -44,6 +44,7 @@ struct XRayResourcePreflight {
     let firstChunkPayloadPrefix: String?
     let firstArchiveEntry: String?
     let archiveDirectoryStatus: String?
+    let firstFilePrefix: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -100,6 +101,7 @@ struct XRayResourcePreflight {
         }
         var firstArchiveChunk: String?
         var firstArchiveEntry: String?
+        var firstFilePrefix: String?
         var archiveDirectoryStatus: String?
         var firstChunkPayloadPrefix: String?
         if count > 0 {
@@ -137,6 +139,16 @@ struct XRayResourcePreflight {
             case 0:
                 firstArchiveEntry = "\(String(cString: name)) (\(realSize) / \(compressedSize) bytes)"
                 archiveDirectoryStatus = "Каталог читается"
+                if realSize == compressedSize && realSize > 0 {
+                    var fileBytes = [UInt8](repeating: 0, count: min(Int(realSize), 16))
+                    let readResult = fileBytes.withUnsafeMutableBytes { buffer in
+                        st_xray_archive_file_read(engine, 0, 0, 0, buffer.baseAddress,
+                                                  UInt32(buffer.count))
+                    }
+                    if readResult == 0 {
+                        firstFilePrefix = fileBytes.map { String(format: "%02X", $0) }.joined()
+                    }
+                }
             case -4:
                 archiveDirectoryStatus = "Каталог сжат: требуется декодер X-Ray"
             case -3:
@@ -156,6 +168,7 @@ struct XRayResourcePreflight {
             firstChunkPayloadPrefix: firstChunkPayloadPrefix,
             firstArchiveEntry: firstArchiveEntry,
             archiveDirectoryStatus: archiveDirectoryStatus,
+            firstFilePrefix: firstFilePrefix,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

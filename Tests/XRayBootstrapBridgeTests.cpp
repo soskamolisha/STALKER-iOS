@@ -268,6 +268,20 @@ int main() {
         assert(key_used == -2 && auto_size == 0);
         assert(st_xray_archive_directory_count(handle, 0) == -4);
     }
+    // Decoded catalog records must be validated before use.
+    {
+        unsigned char record[] = {
+            24,0, 4,0,0,0, 4,0,0,0, 0,0,0,0,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        assert(st_xray_validate_directory_records(record, sizeof(record)) == 1);
+        assert(st_xray_validate_directory_records(record, sizeof(record) - 1) == -3);
+        record[14] = '/';
+        assert(st_xray_validate_directory_records(record, sizeof(record)) == -3);
+        record[14] = 't';
+        record[15] = 0;
+        assert(st_xray_validate_directory_records(record, sizeof(record)) == -3);
+    }
     // Test both legacy encryption keys against actual compressed directory payloads.
     for (int key = 0; key < 2; ++key) {
         const unsigned char record[] = {

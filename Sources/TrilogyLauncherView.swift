@@ -168,7 +168,7 @@ struct TrilogyLauncherView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
                                     Group {
-                                        if let localURL = Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg"),
+                                        if let localURL = (Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg", subdirectory: "Resources")\n                                            ?? Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg")),
                                            let data = try? Data(contentsOf: localURL),
                                            let image = UIImage(data: data) {
                                             Image(uiImage: image).resizable().scaledToFill()

@@ -84,6 +84,53 @@ int32_t st_xray_archive_read(STXRayHandle handle, uint32_t index, uint64_t offse
     close(fd);
     return 0;
 }
+int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
+                                   uint32_t chunk_index, uint32_t* chunk_id,
+                                   uint64_t* payload_offset, uint32_t* payload_size,
+                                   int32_t* compressed) {
+    if (!chunk_id || !payload_offset || !payload_size || !compressed) return -1;
+    if (!handle || chunk_index >= 4096) return -1;
+    const auto* engine = static_cast<XRayBootstrap*>(handle);
+    if (engine->state() != stalker::EngineState::resourcesReady ||
+        archive_index >= engine->packedArchiveNames().size()) return -2;
+    const std::string path = engine->resourceRoot() + "/" + engine->packedArchiveNames()[archive_index];
+    const int fd = open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0) return -3;
+    struct stat info {};
+    if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0) {
+        close(fd); return -3;
+    }
+    const uint64_t length = static_cast<uint64_t>(info.st_size);
+    uint64_t offset = 0;
+    for (uint32_t i = 0; i <= chunk_index; ++i) {
+        if (offset == length) { close(fd); return -2; }
+        if (offset > length || length - offset < 8 ||
+            offset > static_cast<uint64_t>(std::numeric_limits<off_t>::max())) {
+            close(fd); return -3;
+        }
+        unsigned char header[8] {};
+        const ssize_t count = pread(fd, header, sizeof(header), static_cast<off_t>(offset));
+        if (count != 8) { close(fd); return -3; }
+        auto le32 = [](const unsigned char* p) -> uint32_t {
+            return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+                   (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);
+        };
+        const uint32_t raw_id = le32(header);
+        const uint32_t size = le32(header + 4);
+        if (static_cast<uint64_t>(size) > length - offset - 8) { close(fd); return -3; }
+        if (i == chunk_index) {
+            *chunk_id = raw_id & 0x7fffffffU;
+            *compressed = (raw_id & 0x80000000U) ? 1 : 0;
+            *payload_offset = offset + 8;
+            *payload_size = size;
+            close(fd);
+            return 0;
+        }
+        offset += 8 + static_cast<uint64_t>(size);
+    }
+    close(fd);
+    return -2;
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

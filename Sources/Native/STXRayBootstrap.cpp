@@ -208,7 +208,8 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
             const int result = lzo1x_decompress_safe(
                 bytes.data(), chunk_size, static_cast<unsigned char*>(destination),
                 &decoded, nullptr);
-            if (result == LZO_E_OK && decoded != 0 && decoded <= capacity) {
+            if (result == LZO_E_OK && decoded != 0 && decoded <= capacity &&
+                st_xray_validate_directory_records(destination, static_cast<uint32_t>(decoded)) >= 0) {
                 *actual_size = static_cast<uint32_t>(decoded);
                 *key_used = key;
                 return 0;
@@ -250,7 +251,8 @@ int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,
             bytes.data(), chunk_size, static_cast<unsigned char*>(destination),
             &decoded, nullptr);
         if (status != LZO_E_OK) return -4;
-        if (decoded == 0 || decoded > capacity) return -3;
+        if (decoded == 0 || decoded > capacity ||
+            st_xray_validate_directory_records(destination, static_cast<uint32_t>(decoded)) < 0) return -3;
         *actual_size = static_cast<uint32_t>(decoded);
         return 0;
     }

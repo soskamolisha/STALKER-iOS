@@ -4,8 +4,10 @@
 #include "XRayCFormHeader.hpp"
 #include <new>
 #include <cstring>
-#include <fstream>
 #include <limits>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cerrno>
 #include <sys/stat.h>
 
 using stalker::XRayBootstrap;
@@ -58,17 +60,29 @@ int32_t st_xray_archive_read(STXRayHandle handle, uint32_t index, uint64_t offse
     const auto& names = engine->packedArchiveNames();
     if (index >= names.size()) return -2;
     const std::string path = engine->resourceRoot() + "/" + names[index];
+    const int fd = open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0) return -3;
     struct stat info {};
-    if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0) return -3;
+    if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size < 0) {
+        close(fd);
+        return -3;
+    }
     const auto length = static_cast<uint64_t>(info.st_size);
-    if (offset > length || size > length - offset) return -3;
-    if (offset > static_cast<uint64_t>(std::numeric_limits<std::streamoff>::max())) return -3;
-    if (size == 0) return 0;
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream) return -3;
-    stream.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
-    if (!stream) return -3;
-    return stream.read(static_cast<char*>(destination), size) ? 0 : -3;
+    if (offset > length || size > length - offset ||
+        offset > static_cast<uint64_t>(std::numeric_limits<off_t>::max())) {
+        close(fd);
+        return -3;
+    }
+    uint32_t done = 0;
+    while (done < size) {
+        const ssize_t count = pread(fd, static_cast<char*>(destination) + done,
+                                    size - done, static_cast<off_t>(offset + done));
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) { close(fd); return -3; }
+        done += static_cast<uint32_t>(count);
+    }
+    close(fd);
+    return 0;
 }
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;

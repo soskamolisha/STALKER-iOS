@@ -106,6 +106,7 @@ struct TrilogyLauncherView: View {
     @State private var selectedSection = "home"
     @State private var showAbout = false
     @State private var showDiagnostics = false
+    @State private var showEngineNotice = false
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -238,9 +239,9 @@ struct TrilogyLauncherView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 Text(russian ? game.russianName : game.englishName)
                                     .font(.headline).foregroundStyle(.yellow)
-                                Text(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"))
+                                Label(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.status[game.rawValue] == nil ? "arrow.down.circle" : "checkmark.circle.fill")
                                     .font(.caption).foregroundStyle(resources.status[game.rawValue] == nil ? .gray : .green)
-                                if let status = resources.status[game.rawValue] {
+                                if showDiagnostics, let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }
                                 if showDiagnostics, let archiveCount = resources.archiveCounts[game.rawValue] {
@@ -283,9 +284,21 @@ struct TrilogyLauncherView: View {
                                     .tint(.green)
                                     .disabled(isCopying)
                                     }
-                                    Button(russian ? "Импортировать файлы" : "Import files") {
-                                        selectedGame = game
-                                        showImporter = true
+                                    Button {
+                                        if resources.status[game.rawValue] == nil {
+                                            selectedGame = game
+                                            showImporter = true
+                                        } else {
+                                            showEngineNotice = true
+                                        }
+                                    } label: {
+                                        Label(resources.status[game.rawValue] == nil
+                                              ? (russian ? "Импортировать" : "Import")
+                                              : (russian ? "Запустить" : "Launch"),
+                                              systemImage: resources.status[game.rawValue] == nil ? "folder" : "play.fill")
+                                            .frame(maxWidth: .infinity)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
                                     }
                                     .buttonStyle(.borderedProminent).tint(.yellow)
                                     .disabled(resources.importInProgress || isCopying)
@@ -331,6 +344,11 @@ struct TrilogyLauncherView: View {
                     }
                     .padding()
                 }
+            }
+            .alert(russian ? "Запуск пока недоступен" : "Launch not available", isPresented: $showEngineNotice) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(russian ? "Ресурсы импортированы, но порт игрового движка X-Ray для iOS ещё не готов." : "Resources are imported, but the X-Ray game engine port for iOS is not ready.")
             }
             .alert(russian ? "О проекте" : "About", isPresented: $showAbout) {
                 Button("OK", role: .cancel) {}

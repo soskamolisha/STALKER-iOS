@@ -168,6 +168,19 @@ jobs:
           s = s.replace(old, old + '\n    list(APPEND XCFLAGS "-DLUAJIT_DISABLE_JITUTIL")')
           p.write_text(s)
           PY
+      - name: Propagate LuaJIT interpreter flags to host buildvm
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          old = 'set(HOST_ACFLAGS "${CMAKE_C_FLAGS} ${CCOPTIONS} ${TARGET_ARCH}")'
+          assert old in s
+          new = old + '\nif (LUAJIT_DISABLE_JIT)\n    string(APPEND HOST_ACFLAGS " -DLUAJIT_DISABLE_JIT -DLUAJIT_DISABLE_JITUTIL")\nendif()'
+          p.write_text(s.replace(old, new))
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

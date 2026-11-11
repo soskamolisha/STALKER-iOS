@@ -15,6 +15,7 @@ public:
     bool hasPackedGameData() const { return hasPackedGameData_; }
     std::uint32_t packedArchiveCount() const { return packedArchiveCount_; }
     std::uint64_t packedArchiveBytes() const { return packedArchiveBytes_; }
+    const std::vector<std::string>& packedArchiveNames() const { return packedArchiveNames_; }
     void shutdown();
     EngineState state() const { return state_; }
     GameEdition edition() const { return edition_; }
@@ -28,6 +29,7 @@ private:
     bool hasPackedGameData_ = false;
     std::uint32_t packedArchiveCount_ = 0;
     std::uint64_t packedArchiveBytes_ = 0;
+    std::vector<std::string> packedArchiveNames_;
     std::vector<std::string> looseLevels_;
 };
 }

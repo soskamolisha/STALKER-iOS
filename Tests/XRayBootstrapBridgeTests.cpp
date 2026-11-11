@@ -125,6 +125,21 @@ int main() {
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
     assert(st_xray_archive_file_read(handle, 0, 0, 2, extracted, 3) == -3);
+    // A corrupt directory record must not redirect file reads into metadata.
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(30); // pointer field in the first record
+        const unsigned char badOffset[4] = {12, 0, 0, 0};
+        file.write(reinterpret_cast<const char*>(badOffset), 4);
+    }
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == -3);
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(30);
+        const unsigned char goodOffset[4] = {42, 0, 0, 0};
+        file.write(reinterpret_cast<const char*>(goodOffset), 4);
+    }
+
     // A compressed file must never be returned as if its bytes were decoded.
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);

@@ -27,10 +27,6 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
-      - name: Test X-Ray Swift bridge C ABI
-        run: |
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Tests/XRayBootstrapBridgeTests.cpp -o /tmp/stalker-xray-bridge-tests
-          /tmp/stalker-xray-bridge-tests
       - name: Test native X-Ray level catalog
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelCatalog.cpp Tests/XRayLevelCatalogTests.cpp -o /tmp/stalker-xray-level-tests
@@ -109,6 +105,10 @@ jobs:
           cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzodefs.h Sources/Native/Upstream/lzodefs.h
           cp openxray-upstream/oxr_deps/lzo-src/COPYING Sources/Native/Upstream/LZO-COPYING
           cc -std=c99 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
+      - name: Test X-Ray Swift bridge C ABI
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Sources/Native/STXRayLZO.cpp Tests/XRayBootstrapBridgeTests.cpp /tmp/stalker-minilzo.o -I Sources/Native/Upstream -o /tmp/stalker-xray-bridge-tests
+          /tmp/stalker-xray-bridge-tests
       - name: Verify miniLZO round-trip and corruption handling
         run: |
           cat > /tmp/stalker-lzo-test.c <<'EOF'

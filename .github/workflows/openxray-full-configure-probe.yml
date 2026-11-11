@@ -298,6 +298,11 @@ jobs:
           test -f "$bundle/xr_3da"
           mkdir -p engine-package
           cp -R "$bundle" engine-package/
+          plist="engine-package/xr_3da.app/Info.plist"
+          test -f "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.stalkermobile.openxray.engine' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.stalkermobile.openxray.engine' "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName STALKER X-Ray Test' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string STALKER X-Ray Test' "$plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
           /usr/bin/file engine-package/xr_3da.app/xr_3da
           /usr/bin/lipo -info engine-package/xr_3da.app/xr_3da
           echo "=== App bundle metadata ==="
@@ -315,6 +320,23 @@ jobs:
           echo "=== Engine artifact manifest ==="
           /usr/bin/shasum -a 256 engine-package/xr_3da.app/xr_3da | tee engine-package/sha256.txt
           echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
+      - name: Package unsigned engine test IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f engine-package/xr_3da.app/xr_3da
+          mkdir -p ipa-staging/Payload
+          cp -R engine-package/xr_3da.app ipa-staging/Payload/
+          (cd ipa-staging && /usr/bin/zip -qry ../openxray-engine-unsigned-test.ipa Payload)
+          /usr/bin/unzip -t openxray-engine-unsigned-test.ipa | tail -n 2
+          echo "Unsigned engine-only IPA created for packaging diagnostics; not signed, not integrated into launcher, not gameplay-tested."
+      - name: Upload unsigned engine test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-engine-unsigned-test-ipa
+          path: openxray-engine-unsigned-test.ipa
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload unsigned iOS X-Ray engine bundle
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

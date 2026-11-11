@@ -6,6 +6,7 @@
 #include <cstring>
 #include <limits>
 #include <vector>
+#include "Upstream/minilzo.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
@@ -146,6 +147,44 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
     if (relative_offset > payload_size || size > payload_size - relative_offset) return -3;
     return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
                                 destination, size);
+}
+int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,
+                                                    uint32_t archive_index,
+                                                    void* destination, uint32_t capacity,
+                                                    uint32_t* actual_size) {
+    if (!handle || !destination || !actual_size || capacity == 0 ||
+        capacity > 64u * 1024u * 1024u) return -1;
+    *actual_size = 0;
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t payload_offset = 0;
+    int32_t compressed = 0;
+    for (uint32_t i = 0; i < 64; ++i) {
+        const int32_t result = st_xray_archive_chunk_info(
+            handle, archive_index, i, &chunk_id, &payload_offset, &chunk_size, &compressed);
+        if (result != 0) return result;
+        if (chunk_id != 1) continue;
+        if (!compressed) return -4;
+        if (chunk_size == 0 || chunk_size > 64u * 1024u * 1024u) return -3;
+        std::vector<unsigned char> bytes(chunk_size);
+        uint32_t cursor = 0;
+        while (cursor < chunk_size) {
+            const uint32_t amount = chunk_size - cursor > 65536u ? 65536u : chunk_size - cursor;
+            const int32_t read_result = st_xray_archive_read(
+                handle, archive_index, payload_offset + cursor, bytes.data() + cursor, amount);
+            if (read_result != 0) return read_result;
+            cursor += amount;
+        }
+        // miniLZO's safe decoder reports the actual decompressed byte count.
+        lzo_uint decoded = capacity;
+        const int status = lzo1x_decompress_safe(
+            bytes.data(), chunk_size, static_cast<unsigned char*>(destination),
+            &decoded, nullptr);
+        if (status != LZO_E_OK) return -4;
+        if (decoded == 0 || decoded > capacity) return -3;
+        *actual_size = static_cast<uint32_t>(decoded);
+        return 0;
+    }
+    return -2;
 }
 int32_t st_xray_archive_directory_decompress(STXRayHandle handle, uint32_t archive_index,
                                                void* destination, uint32_t capacity,

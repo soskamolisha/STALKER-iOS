@@ -40,6 +40,7 @@ struct XRayResourcePreflight {
     let archiveBytes: UInt64
     let archiveNames: [String]
     let firstArchiveSignature: String?
+    let firstArchiveChunk: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
     let hasPackedData: Bool
@@ -94,11 +95,23 @@ struct XRayResourcePreflight {
                 }
             }
         }
+        var firstArchiveChunk: String?
+        if count > 0 {
+            var chunkID: UInt32 = 0
+            var payloadOffset: UInt64 = 0
+            var payloadSize: UInt32 = 0
+            var compressed: Int32 = 0
+            if st_xray_archive_chunk_info(engine, 0, 0, &chunkID, &payloadOffset,
+                                          &payloadSize, &compressed) == 0 {
+                firstArchiveChunk = "id=\(chunkID) offset=\(payloadOffset) size=\(payloadSize) compressed=\(compressed)"
+            }
+        }
         return XRayResourcePreflight(
             archiveCount: Int(st_xray_archive_count(engine)),
             archiveBytes: st_xray_archive_bytes(engine),
             archiveNames: archiveNames,
             firstArchiveSignature: firstArchiveSignature,
+            firstArchiveChunk: firstArchiveChunk,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,
             hasPackedData: st_xray_has_packed_data(engine) != 0

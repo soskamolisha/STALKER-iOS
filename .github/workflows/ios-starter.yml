@@ -91,6 +91,11 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             src/xrCore/crc32.cpp
+            oxr_deps/lzo-src/minilzo/minilzo.c
+            oxr_deps/lzo-src/minilzo/minilzo.h
+            oxr_deps/lzo-src/include/lzo/lzoconf.h
+            oxr_deps/lzo-src/include/lzo/lzodefs.h
+            oxr_deps/lzo-src/COPYING
             License.txt
           sparse-checkout-cone-mode: false
       - name: Stage upstream CRC32 implementation for XcodeGen
@@ -98,6 +103,12 @@ jobs:
           test "$(git -C openxray-upstream rev-parse HEAD)" = "1b84cfbc5efa3e9af942164e5a3c2dde43b77f51"
           test -s openxray-upstream/License.txt
           cp openxray-upstream/src/xrCore/crc32.cpp Sources/Native/Upstream/crc32.cpp
+          cp openxray-upstream/oxr_deps/lzo-src/minilzo/minilzo.c Sources/Native/Upstream/minilzo.c
+          cp openxray-upstream/oxr_deps/lzo-src/minilzo/minilzo.h Sources/Native/Upstream/minilzo.h
+          cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzoconf.h Sources/Native/Upstream/lzoconf.h
+          cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzodefs.h Sources/Native/Upstream/lzodefs.h
+          cp openxray-upstream/oxr_deps/lzo-src/COPYING Sources/Native/Upstream/LZO-COPYING
+          cc -std=c99 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

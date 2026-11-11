@@ -289,6 +289,7 @@ int main() {
             24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
             't','e','s','t','.','l','t','x', 42,0,0,0
         };
+        if (malformed) record[14] = '/';
         unsigned char packed[256] {};
         lzo_uint packed_size = sizeof(packed);
         void* work = std::malloc(LZO1X_1_MEM_COMPRESS);

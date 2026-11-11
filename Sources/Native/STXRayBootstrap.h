@@ -34,6 +34,11 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
                                         uint32_t entry_index, char* name, uint32_t name_capacity,
                                         uint32_t* size_real, uint32_t* size_compressed,
                                         uint32_t* crc, uint32_t* data_offset);
+// Read bytes of an uncompressed directory entry's file from its absolute archive offset.
+// Returns -4 if file content is compressed and needs the X-Ray codec.
+int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
+                                  uint32_t entry_index, uint32_t relative_offset,
+                                  void* destination, uint32_t size);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

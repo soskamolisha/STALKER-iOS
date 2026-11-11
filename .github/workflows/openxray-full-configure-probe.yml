@@ -91,6 +91,22 @@ jobs:
           make install
           test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
           test -f "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
+      - name: Patch upstream LuaJIT iOS target detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          forced = 'set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")'
+          assert forced in s
+          s = s.replace(forced, '# Preserve the iPhoneOS SDK selected by the parent toolchain')
+          old = 'set(ENV{MACOSX_DEPLOYMENT_TARGET} ${CMAKE_OSX_DEPLOYMENT_TARGET})'
+          assert old in s
+          s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\\n        ' + old + '\\n    endif()')
+          p.write_text(s)
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

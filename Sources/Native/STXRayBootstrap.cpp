@@ -148,6 +148,31 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
     return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
                                 destination, size);
 }
+int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length) {
+    if (!bytes || length == 0 || length > 64u * 1024u * 1024u) return -3;
+    const auto* data = static_cast<const unsigned char*>(bytes);
+    uint32_t position = 0;
+    int32_t count = 0;
+    while (position < length) {
+        if (length - position < 2) return -3;
+        const uint32_t record_size = static_cast<uint32_t>(data[position]) |
+                                     (static_cast<uint32_t>(data[position + 1]) << 8);
+        if (record_size < 17 || record_size > 4096 ||
+            record_size > length - position - 2) return -3;
+        const uint32_t name_size = record_size - 16;
+        const auto* name = data + position + 14;
+        if (name_size == 0 || name[0] == '/' || name[0] == '\\') return -3;
+        for (uint32_t i = 0; i < name_size; ++i) {
+            if (name[i] == 0 || name[i] == '\\') return -3;
+            if (name[i] == '.' && i + 1 < name_size && name[i + 1] == '.' &&
+                (i == 0 || name[i - 1] == '/') &&
+                (i + 2 == name_size || name[i + 2] == '/')) return -3;
+        }
+        position += record_size + 2;
+        ++count;
+    }
+    return count;
+}
 int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
                                                  uint32_t archive_index,
                                                  void* destination, uint32_t capacity,

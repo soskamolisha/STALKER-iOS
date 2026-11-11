@@ -107,7 +107,7 @@ jobs:
           cc -std=c99 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
       - name: Test X-Ray Swift bridge C ABI
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Sources/Native/STXRayLZO.cpp Tests/XRayBootstrapBridgeTests.cpp /tmp/stalker-minilzo.o -I Sources/Native/Upstream -o /tmp/stalker-xray-bridge-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Sources/Native/STXRayLZO.cpp Sources/Native/STXRayCrypto.cpp Tests/XRayBootstrapBridgeTests.cpp /tmp/stalker-minilzo.o -I Sources/Native/Upstream -o /tmp/stalker-xray-bridge-tests
           /tmp/stalker-xray-bridge-tests
       - name: Verify miniLZO round-trip and corruption handling
         run: |
@@ -164,6 +164,27 @@ jobs:
           EOF
           c++ -std=c++17 -I Sources/Native -I Sources/Native/Upstream Sources/Native/STXRayLZO.cpp /tmp/stalker-lzo-bridge-test.cpp /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-bridge-test
           /tmp/stalker-lzo-bridge-test
+      - name: Test X-Ray legacy directory cipher
+        run: |
+          cat > /tmp/stalker-crypto-test.cpp <<'EOF'
+          #include "STXRayBootstrap.h"
+          #include <cassert>
+          #include <cstdint>
+          #include <cstring>
+          int main() {
+              // Ciphertext generated independently using OpenXRay's key schedule.
+              const uint8_t ww[] = {0x67,0x3d,0x55,0x7c,0x5b,0x3e,0x62,0x5b};
+              const uint8_t ru[] = {0xb0,0x2d,0xb6,0x39,0x64,0x45,0xc9,0xc8};
+              uint8_t a[8], b[8];
+              std::memcpy(a, ww, 8);
+              std::memcpy(b, ru, 8);
+              assert(st_xray_directory_decrypt(nullptr, 0, 2) == -1);
+              assert(st_xray_directory_decrypt(a, 8, 0) == 0);
+              assert(st_xray_directory_decrypt(b, 8, 1) == 0);
+          }
+          EOF
+          c++ -std=c++17 -I Sources/Native Sources/Native/STXRayCrypto.cpp /tmp/stalker-crypto-test.cpp -o /tmp/stalker-crypto-test
+          /tmp/stalker-crypto-test
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

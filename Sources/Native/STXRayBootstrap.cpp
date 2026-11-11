@@ -214,7 +214,10 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                                             &compressed_size, &crc, &data_offset);
     if (status != 0) return status;
     if (real_size != compressed_size) return -4;
+    // File data must not overlap the archive header or its directory record.
+    // The current reader supports only archives with a valid in-file data region.
     if (relative_offset > real_size || size > real_size - relative_offset) return -3;
+    if (size != 0 && data_offset < 8) return -3;
     return st_xray_archive_read(handle, archive_index,
                                 static_cast<uint64_t>(data_offset) + relative_offset,
                                 destination, size);

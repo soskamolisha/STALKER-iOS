@@ -285,6 +285,31 @@ jobs:
             ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: warn
+      - name: Package compiled iOS X-Ray engine bundle
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine compilation unsuccessful; no engine bundle will be published."
+            exit 0
+          fi
+          bundle="upstream/bin/Release/xr_3da.app"
+          test -f "$bundle/xr_3da"
+          mkdir -p engine-package
+          cp -R "$bundle" engine-package/
+          /usr/bin/file engine-package/xr_3da.app/xr_3da
+          /usr/bin/lipo -info engine-package/xr_3da.app/xr_3da
+          /usr/bin/otool -L engine-package/xr_3da.app/xr_3da
+          echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
+      - name: Upload unsigned iOS X-Ray engine bundle
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-unsigned-app
+          path: engine-package/xr_3da.app/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Enforce real iOS engine compilation status
         if: always()
         shell: bash

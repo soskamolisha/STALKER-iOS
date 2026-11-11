@@ -122,6 +122,14 @@ jobs:
           config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
           build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
           if [ "$config" != 0 ] || [ "$build" != 0 ]; then
+            echo "::group::OpenXRay configure diagnostics (last 100 lines)"
+            tail -n 100 ios-configure.log 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::group::OpenXRay compile diagnostics (last 100 lines)"
+            tail -n 100 ios-build-attempt.log 2>/dev/null || true
+            echo "::endgroup::"
+          fi
+          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
             echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build). Review diagnostic artifact and summary."
             exit 1
           fi

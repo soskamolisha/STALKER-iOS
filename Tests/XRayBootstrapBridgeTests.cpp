@@ -90,6 +90,13 @@ int main() {
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == 0);
     assert(archiveChunkID == 2 && archiveOffset == 19 &&
            archiveChunkSize == 2 && archiveCompressed == 0);
+    unsigned char chunkPayload[3] = {};
+    assert(st_xray_archive_chunk_read(handle, 0, 0, 0, chunkPayload, 3) == 0);
+    assert(chunkPayload[0] == 9 && chunkPayload[1] == 8 && chunkPayload[2] == 7);
+    assert(st_xray_archive_chunk_read(handle, 0, 1, 1, chunkPayload, 1) == 0);
+    assert(chunkPayload[0] == 5);
+    assert(st_xray_archive_chunk_read(handle, 0, 0, 2, chunkPayload, 2) == -3);
+    assert(st_xray_archive_chunk_read(handle, 0, 0, 0, chunkPayload, 65537) == -1);
     assert(st_xray_archive_chunk_info(handle, 0, 2, &archiveChunkID,
                                       &archiveOffset, &archiveChunkSize, &archiveCompressed) == -2);
     assert(st_xray_archive_chunk_info(handle, 0, 0, nullptr,

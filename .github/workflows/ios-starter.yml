@@ -214,6 +214,21 @@ jobs:
       - name: Build unsigned physical-device app
         run: |
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+      - name: Verify home screen icon is compiled into device app
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          app = Path("build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app")
+          assets = app / "Assets.car"
+          assert assets.is_file() and assets.stat().st_size > 0, "Missing compiled Assets.car"
+          with (app / "Info.plist").open("rb") as handle:
+              info = plistlib.load(handle)
+          icons = info.get("CFBundleIcons", {}).get("CFBundlePrimaryIcon", {})
+          name = icons.get("CFBundleIconName")
+          assert name == "AppIcon", f"Expected AppIcon in Info.plist, got {name!r}"
+          print(f"Verified iPhone icon: {name}, Assets.car: {assets.stat().st_size} bytes")
+          PY
       - name: Package unsigned prototype IPA
         run: |
           APP="build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"

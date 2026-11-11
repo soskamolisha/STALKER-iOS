@@ -285,6 +285,41 @@ jobs:
             ios-build-attempt.log
             ios-build/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: warn
+      - name: Inspect engine-to-launcher integration interfaces
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine not built; integration audit skipped."
+            exit 0
+          fi
+          mkdir -p integration-audit
+          {
+            echo "OpenXRay iOS engine integration audit"
+            echo "Engine binary:"
+            /usr/bin/file upstream/bin/Release/xr_3da.app/xr_3da
+            echo
+            echo "Executable entry points:"
+            /usr/bin/nm -gU upstream/bin/Release/xr_3da.app/xr_3da 2>/dev/null | grep -E '(_main$|SDL_main|UIApplicationMain|xrEngine)' | head -n 30 || true
+            echo
+            echo "Build targets and link commands:"
+            find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'head -c 20000 "$1"; echo' sh {} \; || true
+            echo
+            echo "Existing launcher integration:"
+            echo "SwiftUI currently instantiates UnavailableEngine; no native X-Ray runtime linkage."
+            echo "The executable cannot be launched as an iOS child process."
+            echo "Next engineering task: expose an embeddable runtime entry point and bind it to UIKit/SDL lifecycle."
+          } > integration-audit/report.txt
+          cat integration-audit/report.txt | head -n 35
+      - name: Upload engine integration audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-launcher-integration-audit
+          path: integration-audit/report.txt
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Package compiled iOS X-Ray engine bundle
         if: ${{ always() }}
         shell: bash

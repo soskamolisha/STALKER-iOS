@@ -146,6 +146,35 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
     return st_xray_archive_read(handle, archive_index, payload_offset + relative_offset,
                                 destination, size);
 }
+int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index) {
+    if (!handle) return -1;
+    uint32_t chunk_id = 0, chunk_size = 0;
+    uint64_t payload_offset = 0;
+    int32_t compressed = 0;
+    for (uint32_t chunk_index = 0; chunk_index < 64; ++chunk_index) {
+        const int32_t result = st_xray_archive_chunk_info(handle, archive_index, chunk_index,
+                                                           &chunk_id, &payload_offset,
+                                                           &chunk_size, &compressed);
+        if (result != 0) return result;
+        if (chunk_id != 1) continue;
+        if (compressed) return -4;
+        uint32_t cursor = 0;
+        int32_t count = 0;
+        while (cursor < chunk_size) {
+            if (chunk_size - cursor < 2 || count >= 65536) return -3;
+            unsigned char length_bytes[2] {};
+            if (st_xray_archive_chunk_read(handle, archive_index, chunk_index,
+                                           cursor, length_bytes, 2) != 0) return -3;
+            const uint32_t length = static_cast<uint32_t>(length_bytes[0]) |
+                                    (static_cast<uint32_t>(length_bytes[1]) << 8);
+            if (length < 17 || length > 4096 || length + 2 > chunk_size - cursor) return -3;
+            cursor += length + 2;
+            ++count;
+        }
+        return count;
+    }
+    return -2;
+}
 int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,
                                         uint32_t entry_index, char* name, uint32_t name_capacity,
                                         uint32_t* size_real, uint32_t* size_compressed,

@@ -15,6 +15,9 @@ int32_t st_xray_archive_count(STXRayHandle handle);
 uint64_t st_xray_archive_bytes(STXRayHandle handle);
 // Copies an archive filename with NUL terminator; -2 index out of range, -3 buffer too small.
 int32_t st_xray_archive_name(STXRayHandle handle, uint32_t index, char* destination, uint32_t capacity);
+// Reads at most 64 KiB from a recognized archive. Returns 0 on success.
+int32_t st_xray_archive_read(STXRayHandle handle, uint32_t index, uint64_t offset,
+                             void* destination, uint32_t size);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

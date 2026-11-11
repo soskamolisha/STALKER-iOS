@@ -282,8 +282,10 @@ int32_t st_xray_archive_directory_decompress(STXRayHandle handle, uint32_t archi
             if (read_result != 0) return read_result;
             cursor += amount;
         }
-        return st_xray_lzo_decompress(bytes.data(), chunk_size,
-                                      destination, capacity, expected_size);
+        const int32_t decode_result = st_xray_lzo_decompress(
+            bytes.data(), chunk_size, destination, capacity, expected_size);
+        if (decode_result != 0) return decode_result;
+        return st_xray_validate_directory_records(destination, expected_size) >= 0 ? 0 : -3;
     }
     return -2;
 }

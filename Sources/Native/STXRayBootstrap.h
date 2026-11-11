@@ -28,6 +28,11 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
 int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t relative_offset,
                                    void* destination, uint32_t size);
+// Decode a compressed directory chunk (ID 1) with an explicit expected size.
+// This supports plain LZO streams only; encrypted X-Ray catalogs need a key.
+int32_t st_xray_archive_directory_decompress(STXRayHandle handle, uint32_t archive_index,
+                                               void* destination, uint32_t capacity,
+                                               uint32_t expected_size);
 // Count records in an uncompressed X-Ray directory without extracting files.
 // -4: compressed directory, -3: malformed directory, -2: directory not found.
 int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index);

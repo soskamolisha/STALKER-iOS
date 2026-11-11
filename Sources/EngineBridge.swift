@@ -44,6 +44,7 @@ struct XRayResourcePreflight {
     let firstChunkPayloadPrefix: String?
     let firstArchiveEntry: String?
     let archiveDirectoryStatus: String?
+    let archiveDirectoryCount: Int?
     let firstFilePrefix: String?
     let looseLevelCount: Int
     let hasLooseData: Bool
@@ -103,6 +104,7 @@ struct XRayResourcePreflight {
         var firstArchiveEntry: String?
         var firstFilePrefix: String?
         var archiveDirectoryStatus: String?
+        var archiveDirectoryCount: Int?
         var firstChunkPayloadPrefix: String?
         if count > 0 {
             var chunkID: UInt32 = 0
@@ -131,6 +133,10 @@ struct XRayResourcePreflight {
             var compressedSize: UInt32 = 0
             var crc: UInt32 = 0
             var offset: UInt32 = 0
+            let directoryCountResult = st_xray_archive_directory_count(engine, 0)
+            if directoryCountResult >= 0 {
+                archiveDirectoryCount = Int(directoryCountResult)
+            }
             let directoryResult = st_xray_archive_directory_entry(engine, 0, 0, &name,
                                                                    UInt32(name.count),
                                                                    &realSize, &compressedSize,
@@ -168,6 +174,7 @@ struct XRayResourcePreflight {
             firstChunkPayloadPrefix: firstChunkPayloadPrefix,
             firstArchiveEntry: firstArchiveEntry,
             archiveDirectoryStatus: archiveDirectoryStatus,
+            archiveDirectoryCount: archiveDirectoryCount,
             firstFilePrefix: firstFilePrefix,
             looseLevelCount: Int(st_xray_level_count(engine)),
             hasLooseData: st_xray_has_loose_data(engine) != 0,

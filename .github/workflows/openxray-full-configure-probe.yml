@@ -214,9 +214,9 @@ jobs:
           from pathlib import Path
           p = Path("upstream/src/xr_3da/entry_point.cpp")
           s = p.read_text()
-          anchor = "#if defined(XR_PLATFORM_WINDOWS)\\nint StackoverflowFilter"
+          anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
           assert anchor in s, "Upstream entry point layout changed"
-          bridge = "\\n".join([
+          bridge = "\n".join([
               '// Experimental C ABI; UIKit/SDL lifecycle is not yet adapted.',
               'extern "C" int st_xray_embedded_run(const char* command_line)',
               '{',

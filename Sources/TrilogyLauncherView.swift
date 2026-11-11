@@ -107,6 +107,7 @@ struct TrilogyLauncherView: View {
     @State private var showAbout = false
     @State private var showDiagnostics = false
     @State private var showEngineNotice = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -154,81 +155,14 @@ struct TrilogyLauncherView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(.yellow.opacity(0.22))
         }
-        .frame(width: 170)
+        .frame(width: horizontalSizeClass == .compact ? 116 : 170)
         .padding(.top, 8)
     }
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                ZStack {
-                    LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
-                                             Color(red: 0.11, green: 0.13, blue: 0.10)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: "building.2.crop.circle")
-                        .font(.system(size: 420, weight: .ultraLight))
-                        .foregroundStyle(.yellow.opacity(0.055))
-                        .offset(x: 180, y: -110)
-                    LinearGradient(colors: [.black.opacity(0.2), .black.opacity(0.75)],
-                                   startPoint: .top, endPoint: .bottom)
-                }.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        HStack {
-                            HStack(spacing: 9) {
-                                Image(systemName: "scope").font(.title.bold())
-                                Text("STALKER").font(.largeTitle.weight(.black)).tracking(3)
-                                Text("MOBILE").font(.caption.bold()).tracking(2)
-                                    .padding(.horizontal, 9).padding(.vertical, 5)
-                                    .background(.yellow.opacity(0.2), in: Capsule())
-                            }.foregroundStyle(.yellow)
-                            Spacer()
-                            Menu {
-                                Button("Русский") { language = "ru" }
-                                Button("English") { language = "en" }
-                            } label: {
-                                Label(russian ? "Русский" : "English", systemImage: "globe")
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
-                            }
-                            Button {
-                                selectedSection = "settings"
-                                showDiagnostics.toggle()
-                            } label: {
-                                Image(systemName: "gearshape")
-                                    .font(.title3).foregroundStyle(.white)
-                                    .padding(10)
-                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
-                            }
-                            .accessibilityLabel(russian ? "Настройки диагностики" : "Diagnostic settings")
-                            Button { showAbout = true } label: {
-                                Image(systemName: "info.circle")
-                                    .font(.title3).foregroundStyle(.white)
-                                    .padding(10)
-                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
-                            }
-                            .accessibilityLabel(russian ? "О проекте" : "About")
-                        }
-                        if isCopying {
-                            ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
-                                .tint(.yellow)
-                        }
-                        HStack {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(russian ? "ДОБРО ПОЖАЛОВАТЬ В ЗОНУ" : "WELCOME TO THE ZONE")
-                                    .font(.caption.bold()).tracking(3).foregroundStyle(.yellow)
-                                Text(russian ? "Выберите свою историю" : "Choose your story")
-                                    .font(.title2.bold()).foregroundStyle(.white)
-                            }
-                            Spacer()
-                            Image(systemName: "waveform.path.ecg.rectangle")
-                                .font(.title).foregroundStyle(.yellow.opacity(0.7))
-                        }
-                        HStack(alignment: .top, spacing: 12) {
-                            sidebar
-                            HStack(alignment: .top, spacing: 12) {
+    private var launcherContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            sidebar
+            HStack(alignment: .top, spacing: 12) {
                         ForEach(GameEdition.allCases) { game in
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
@@ -331,6 +265,83 @@ struct TrilogyLauncherView: View {
                             .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.18), lineWidth: 1))
                         }
+
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                ZStack {
+                    LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
+                                             Color(red: 0.11, green: 0.13, blue: 0.10)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: "building.2.crop.circle")
+                        .font(.system(size: 420, weight: .ultraLight))
+                        .foregroundStyle(.yellow.opacity(0.055))
+                        .offset(x: 180, y: -110)
+                    LinearGradient(colors: [.black.opacity(0.2), .black.opacity(0.75)],
+                                   startPoint: .top, endPoint: .bottom)
+                }.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack {
+                            HStack(spacing: 9) {
+                                Image(systemName: "scope").font(.title.bold())
+                                Text("STALKER").font(.largeTitle.weight(.black)).tracking(3)
+                                Text("MOBILE").font(.caption.bold()).tracking(2)
+                                    .padding(.horizontal, 9).padding(.vertical, 5)
+                                    .background(.yellow.opacity(0.2), in: Capsule())
+                            }.foregroundStyle(.yellow)
+                            Spacer()
+                            Menu {
+                                Button("Русский") { language = "ru" }
+                                Button("English") { language = "en" }
+                            } label: {
+                                Label(russian ? "Русский" : "English", systemImage: "globe")
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            Button {
+                                selectedSection = "settings"
+                                showDiagnostics.toggle()
+                            } label: {
+                                Image(systemName: "gearshape")
+                                    .font(.title3).foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .accessibilityLabel(russian ? "Настройки диагностики" : "Diagnostic settings")
+                            Button { showAbout = true } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.title3).foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .accessibilityLabel(russian ? "О проекте" : "About")
+                        }
+                        if isCopying {
+                            ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
+                                .tint(.yellow)
+                        }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(russian ? "ДОБРО ПОЖАЛОВАТЬ В ЗОНУ" : "WELCOME TO THE ZONE")
+                                    .font(.caption.bold()).tracking(3).foregroundStyle(.yellow)
+                                Text(russian ? "Выберите свою историю" : "Choose your story")
+                                    .font(.title2.bold()).foregroundStyle(.white)
+                            }
+                            Spacer()
+                            Image(systemName: "waveform.path.ecg.rectangle")
+                                .font(.title).foregroundStyle(.yellow.opacity(0.7))
+                        }
+                        ViewThatFits(in: .horizontal) {
+                            launcherContent
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                launcherContent.frame(minWidth: 900)
                             }
                         }
                         HStack(spacing: 14) {

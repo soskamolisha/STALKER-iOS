@@ -106,8 +106,8 @@ int main() {
     {
         std::ofstream file(archive, std::ios::binary | std::ios::trunc);
         const unsigned char directory[] = {
-            1,0,0,0, 25,0,0,0,
-            23,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            1,0,0,0, 26,0,0,0,
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
             't','e','s','t','.','l','t','x', 42,0,0,0
         };
         file.write(reinterpret_cast<const char*>(directory), sizeof(directory));

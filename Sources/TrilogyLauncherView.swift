@@ -105,6 +105,7 @@ struct TrilogyLauncherView: View {
 
     @State private var selectedSection = "home"
     @State private var showAbout = false
+    @State private var showDiagnostics = false
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -152,7 +153,7 @@ struct TrilogyLauncherView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(.yellow.opacity(0.22))
         }
-        .frame(width: 190)
+        .frame(width: 170)
         .padding(.top, 8)
     }
 
@@ -203,10 +204,9 @@ struct TrilogyLauncherView: View {
                             Image(systemName: "waveform.path.ecg.rectangle")
                                 .font(.title).foregroundStyle(.yellow.opacity(0.7))
                         }
-                        HStack(alignment: .top, spacing: 18) {
+                        HStack(alignment: .top, spacing: 12) {
                             sidebar
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(alignment: .top, spacing: 14) {
+                            HStack(alignment: .top, spacing: 12) {
                         ForEach(GameEdition.allCases) { game in
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
@@ -223,7 +223,7 @@ struct TrilogyLauncherView: View {
                                             }
                                         }
                                     }
-                                    .frame(maxWidth: .infinity).frame(height: 160).clipped()
+                                    .frame(maxWidth: .infinity).frame(height: 185).clipped()
                                     LinearGradient(colors: [.clear, .black.opacity(0.9)],
                                                    startPoint: .top, endPoint: .bottom)
                                     HStack {
@@ -234,46 +234,39 @@ struct TrilogyLauncherView: View {
                                     .foregroundStyle(.white)
                                     .padding(16)
                                 }
-                                .frame(height: 160)
+                                .frame(height: 185)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 Text(russian ? game.russianName : game.englishName)
                                     .font(.headline).foregroundStyle(.yellow)
-                                Text(russian ? "Игровые ресурсы добавляются отдельно" : "Import your own game resources")
-                                    .foregroundStyle(.gray)
-                                Label(
-                                    russian ? "Движок iOS пока не подключён" : "iOS game engine not yet integrated",
-                                    systemImage: "exclamationmark.triangle"
-                                )
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                                .accessibilityLabel(russian ? "Запуск игры пока недоступен" : "Game launch is not yet available")
+                                Text(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"))
+                                    .font(.caption).foregroundStyle(resources.status[game.rawValue] == nil ? .gray : .green)
                                 if let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }
-                                if let archiveCount = resources.archiveCounts[game.rawValue] {
+                                if showDiagnostics, let archiveCount = resources.archiveCounts[game.rawValue] {
                                     Text(russian ? "Архивов X-Ray: \(archiveCount)" : "X-Ray archives: \(archiveCount)")
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
-                                if let summary = resources.archiveSummaries[game.rawValue] {
+                                if showDiagnostics, let summary = resources.archiveSummaries[game.rawValue] {
                                     Text(summary).font(.caption2).foregroundStyle(.secondary)
                                 }
-                                if let header = resources.archiveHeaders[game.rawValue] {
+                                if showDiagnostics, let header = resources.archiveHeaders[game.rawValue] {
                                     Text(header).font(.caption2.monospaced()).foregroundStyle(.gray)
                                         .lineLimit(1)
                                 }
-                                if let bytes = resources.storageBytes[game.rawValue] {
+                                if showDiagnostics, let bytes = resources.storageBytes[game.rawValue] {
                                     Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
-                                if let diagnostic = resources.diagnostics[game.rawValue] {
+                                if showDiagnostics, let diagnostic = resources.diagnostics[game.rawValue] {
                                     Text(diagnostic).font(.caption2.monospaced()).foregroundStyle(.gray)
                                 }
-                                if let engineResult = engineDiagnostics[game.rawValue] {
+                                if showDiagnostics, let engineResult = engineDiagnostics[game.rawValue] {
                                     Label(engineResult, systemImage: "cpu")
                                         .font(.caption)
                                         .foregroundStyle(.yellow)
                                 }
-                                NavigationLink {
+                                if showDiagnostics { NavigationLink {
                                     XRayLevelListView(gameID: game.rawValue,
                                                       gameName: russian ? game.russianName : game.englishName)
                                 } label: {
@@ -281,30 +274,29 @@ struct TrilogyLauncherView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(.yellow)
+                                }
                                 HStack {
-                                    Button(russian ? "Проверить ядро" : "Check engine") {
+                                    if showDiagnostics { Button(russian ? "Проверить ядро" : "Check engine") {
                                         checkEngineResources(for: game)
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(.green)
                                     .disabled(isCopying)
+                                    }
                                     Button(russian ? "Импортировать файлы" : "Import files") {
                                         selectedGame = game
                                         showImporter = true
                                     }
                                     .buttonStyle(.borderedProminent).tint(.yellow)
                                     .disabled(resources.importInProgress || isCopying)
-                                    Button(russian ? "Запустить" : "Launch") {}
-                                        .buttonStyle(.bordered)
-                                        .disabled(true)
+
                                 }
                             }
-                            .frame(width: 275, alignment: .leading)
-                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
                             .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.18), lineWidth: 1))
                         }
-                                }
                             }
                         }
                         HStack(spacing: 14) {
@@ -321,6 +313,8 @@ struct TrilogyLauncherView: View {
                         }
                         .padding(16)
                         .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+                        Toggle(russian ? "Технические сведения" : "Technical details", isOn: $showDiagnostics)
+                            .font(.caption).tint(.yellow)
                         Divider().overlay(.yellow.opacity(0.4))
                         HStack(spacing: 10) {
                             Image(systemName: "externaldrive.fill").foregroundStyle(.yellow)

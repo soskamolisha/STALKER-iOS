@@ -300,7 +300,20 @@ jobs:
           cp -R "$bundle" engine-package/
           /usr/bin/file engine-package/xr_3da.app/xr_3da
           /usr/bin/lipo -info engine-package/xr_3da.app/xr_3da
-          /usr/bin/otool -L engine-package/xr_3da.app/xr_3da
+          echo "=== App bundle metadata ==="
+          if [ -f engine-package/xr_3da.app/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' engine-package/xr_3da.app/Info.plist
+          else
+            echo "::warning::Missing Info.plist; compiled bundle is not yet installable."
+          fi
+          echo "=== Code signature ==="
+          /usr/bin/codesign --verify --verbose=2 engine-package/xr_3da.app || true
+          echo "=== Runtime linkage ==="
+          /usr/bin/otool -L engine-package/xr_3da.app/xr_3da | tee engine-package/dylib-dependencies.txt
+          echo "=== Engine artifact manifest ==="
+          /usr/bin/shasum -a 256 engine-package/xr_3da.app/xr_3da | tee engine-package/sha256.txt
           echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
       - name: Upload unsigned iOS X-Ray engine bundle
         if: ${{ always() }}

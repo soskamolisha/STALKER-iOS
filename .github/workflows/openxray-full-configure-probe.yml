@@ -24,7 +24,6 @@ jobs:
           /tmp/xray-level-files-tests
   configure:
     runs-on: macos-latest
-    timeout-minutes: 45
     steps:
       - name: Record iOS toolchain and SDK prerequisites
         shell: bash

@@ -266,6 +266,9 @@ struct TrilogyLauncherView: View {
                                                 if let chunk = probe.firstArchiveChunk {
                                                     engineDiagnostics[game.rawValue]! += " · chunk: " + chunk
                                                 }
+                                                if let prefix = probe.firstChunkPayloadPrefix {
+                                                    engineDiagnostics[game.rawValue]! += " · payload: " + prefix
+                                                }
                                                 if probe.needsPackedArchiveMounting {
                                                     engineDiagnostics[game.rawValue]! += russian
                                                         ? " · требуется чтение уровней из архивов"

@@ -187,6 +187,25 @@ jobs:
           /tmp/stalker-crypto-test
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Prepare STALKER Mobile home screen icon
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+          source = Path("Resources/AppIcon.png")
+          assert source.is_file(), "Missing Resources/AppIcon.png"
+          with Image.open(source) as image:
+              assert image.size == (1024, 1024), f"Expected 1024x1024 icon, got {image.size}"
+              assert image.mode in ("RGB", "RGBA"), f"Unsupported icon mode: {image.mode}"
+              if image.mode == "RGBA":
+                  assert image.getchannel("A").getextrema() == (255, 255), "App icon must be opaque"
+          target = Path("Sources/Assets.xcassets/AppIcon.appiconset")
+          target.mkdir(parents=True, exist_ok=True)
+          (target / "AppIcon.png").write_bytes(source.read_bytes())
+          (target / "Contents.json").write_text(json.dumps({"images": [{"filename": "AppIcon.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}], "info": {"author": "xcode", "version": 1}}, indent=2) + "\\n")
+          print("Prepared AppIcon asset catalog")
+          PY
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Run Swift X-Ray parser self-tests

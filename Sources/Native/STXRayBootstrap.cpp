@@ -203,6 +203,22 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
     }
     return -2;
 }
+int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
+                                  uint32_t entry_index, uint32_t relative_offset,
+                                  void* destination, uint32_t size) {
+    if ((!destination && size != 0) || size > 65536) return -1;
+    char name[4097] {};
+    uint32_t real_size = 0, compressed_size = 0, crc = 0, data_offset = 0;
+    const int32_t status = st_xray_archive_directory_entry(handle, archive_index, entry_index,
+                                                            name, sizeof(name), &real_size,
+                                                            &compressed_size, &crc, &data_offset);
+    if (status != 0) return status;
+    if (real_size != compressed_size) return -4;
+    if (relative_offset > real_size || size > real_size - relative_offset) return -3;
+    return st_xray_archive_read(handle, archive_index,
+                                static_cast<uint64_t>(data_offset) + relative_offset,
+                                destination, size);
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

@@ -24,6 +24,10 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t* chunk_id,
                                    uint64_t* payload_offset, uint32_t* payload_size,
                                    int32_t* compressed);
+// Read a bounded range within a chunk payload. Compressed chunks remain raw bytes.
+int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
+                                   uint32_t chunk_index, uint32_t relative_offset,
+                                   void* destination, uint32_t size);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

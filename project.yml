@@ -15,6 +15,9 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources
+        type: folder
+        optional: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.stalkermobilestarter

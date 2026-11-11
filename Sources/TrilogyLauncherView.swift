@@ -257,6 +257,15 @@ struct TrilogyLauncherView: View {
                                                 engineDiagnostics[game.rawValue] = russian
                                                     ? "X-Ray: архивов \(probe.archiveCount), уровней \(probe.looseLevelCount), данных \(probe.archiveBytes) байт"
                                                     : "X-Ray: \(probe.archiveCount) archives, \(probe.looseLevelCount) levels, \(probe.archiveBytes) bytes"
+                                                if probe.needsPackedArchiveMounting {
+                                                    engineDiagnostics[game.rawValue]! += russian
+                                                        ? " · требуется чтение уровней из архивов"
+                                                        : " · packed level mounting required"
+                                                } else if probe.hasRenderableLooseLevels {
+                                                    engineDiagnostics[game.rawValue]! += russian
+                                                        ? " · найдены распакованные локации"
+                                                        : " · loose levels detected"
+                                                }
                                                 showDiagnostics = true
                                             } else {
                                                 engineDiagnostics[game.rawValue] = russian

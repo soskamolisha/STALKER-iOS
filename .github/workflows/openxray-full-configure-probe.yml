@@ -133,6 +133,27 @@ jobs:
           s = s.replace(old, 'if (CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")')
           p.write_text(s)
           PY
+      - name: Build LuaJIT generator tools for macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          anchor = 'set(MINILUA_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/HostBuildTools/minilua")'
+          assert anchor in s
+          host = s[s.index(anchor):]
+          old = '    COMMAND ${CMAKE_COMMAND}\n        -B'
+          assert host.count(old) == 2
+          host = host.replace(old, '    COMMAND ${CMAKE_COMMAND} -E env --unset=SDKROOT --unset=MACOSX_DEPLOYMENT_TARGET ${CMAKE_COMMAND}\n        -B')
+          host = host.replace('-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}', '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0')
+          old_build = '    COMMAND ${CMAKE_COMMAND} --build ${'
+          assert host.count(old_build) == 2
+          host = host.replace(old_build, '    COMMAND ${CMAKE_COMMAND} -E env --unset=SDKROOT --unset=MACOSX_DEPLOYMENT_TARGET ${CMAKE_COMMAND} --build ${')
+          s = s[:s.index(anchor)] + host
+          p.write_text(s)
+          PY
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

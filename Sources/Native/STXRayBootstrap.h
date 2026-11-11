@@ -18,6 +18,12 @@ int32_t st_xray_archive_name(STXRayHandle handle, uint32_t index, char* destinat
 // Reads at most 64 KiB from a recognized archive. Returns 0 on success.
 int32_t st_xray_archive_read(STXRayHandle handle, uint32_t index, uint64_t offset,
                              void* destination, uint32_t size);
+// Locate an X-Ray top-level chunk (8-byte LE id/size header), without decompressing it.
+// Returns -2 when chunk_index is outside the archive; -3 for malformed data.
+int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
+                                   uint32_t chunk_index, uint32_t* chunk_id,
+                                   uint64_t* payload_offset, uint32_t* payload_size,
+                                   int32_t* compressed);
 int32_t st_xray_level_count(STXRayHandle handle);
 // Copies a UTF-8 level name including its NUL terminator; returns -1 for invalid input,
 // -2 for out-of-range index, -3 when destination capacity is insufficient.

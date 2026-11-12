@@ -26,6 +26,9 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
   build:
+    # Keep macOS IPA builds opt-in while the account's free Actions compute
+    # allowance is exhausted. Portable Linux tests still run on pushes.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     timeout-minutes: 45
     steps:

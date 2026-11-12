@@ -403,8 +403,8 @@ jobs:
           done < embedded-entry/xcode-link-filelists.txt > embedded-entry/xcode-link-inputs.txt
           # CMake's Xcode generator writes the final linker invocation to
           # build logs; retain it alongside LinkFileList for dependency analysis.
-          if [ -f ios-build.log ]; then
-            grep -E '(^|[[:space:]])(Ld|Libtool|clang\+\+|/usr/bin/clang\+\+)([[:space:]]|$)' ios-build.log > embedded-entry/linker-log-excerpts.txt || true
+          if [ -f ios-build-attempt.log ]; then
+            grep -E '(^|[[:space:]])(Ld|Libtool|clang\+\+|/usr/bin/clang\+\+)([[:space:]]|$)' ios-build-attempt.log > embedded-entry/linker-log-excerpts.txt || true
           fi
           echo "Xcode LinkFileList files: $(wc -l < embedded-entry/xcode-link-filelists.txt)"
           echo "Xcode linker inputs (bytes): $(wc -c < embedded-entry/xcode-link-inputs.txt)"

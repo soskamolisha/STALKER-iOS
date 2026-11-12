@@ -429,8 +429,9 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import shlex
-          root = Path("ios-build/src/xr_3da/CMakeFiles/xr_3da.dir")
-          link = root / "link.txt"
+          # CMake executes link.txt from the target build directory, not CMakeFiles/*.dir.
+          root = Path("ios-build/src/xr_3da")
+          link = root / "CMakeFiles/xr_3da.dir/link.txt"
           if not link.is_file():
               raise SystemExit(f"Missing executable link command: {link}")
           command = link.read_text().strip()

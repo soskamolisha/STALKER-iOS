@@ -26,6 +26,10 @@ bool isXRayArchiveName(const std::string& name) {
 // Inspect loose resources without following directory symlinks.
 bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
     if (depth > 32) return false;
+    // Prevent opening a symlink if a nested directory changes during traversal.
+    struct stat directoryInfo {};
+    if (lstat(directory.c_str(), &directoryInfo) != 0 ||
+        !S_ISDIR(directoryInfo.st_mode)) return false;
     DIR* dir = opendir(directory.c_str());
     if (!dir) return false;
     bool found = false;

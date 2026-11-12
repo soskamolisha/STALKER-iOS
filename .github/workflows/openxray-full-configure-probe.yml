@@ -455,6 +455,24 @@ jobs:
           print(f"xr_3da executable link: {len(expanded)} tokens, {len(archives)} static archives, {len(libraries)} library flags")
           if not archives:
               raise SystemExit("No static engine archives in xr_3da executable link command")
+          # Resolve the actual archive closure relative to the executable's
+          # CMake working directory. Fail if any archive is missing; this
+          # prevents generating a misleading embedding manifest.
+          resolved = []
+          missing = []
+          for item in archives:
+              archive = Path(item)
+              if not archive.is_absolute():
+                  archive = root / archive
+              archive = archive.resolve()
+              if archive.is_file():
+                  resolved.append(str(archive))
+              else:
+                  missing.append(str(archive))
+          (out / "xr_3da-resolved-static-archives.txt").write_text(chr(10).join(resolved) + chr(10))
+          print(f"Resolved engine archives: {len(resolved)}/{len(archives)}")
+          if missing:
+              raise SystemExit("Missing engine archives: " + ", ".join(missing))
           PY
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."

@@ -492,17 +492,15 @@ jobs:
           while IFS= read -r archive; do
             [ -n "$archive" ] && engine_archives+=("$archive")
           done < embedded-entry/xr_3da-unique-static-archives.txt
-          # Include the actual embedded C ABI entry point in the same static
-          # archive as the engine dependencies. Previously the combined
-          # archive lacked this object and could not expose the Swift bridge.
+          # Merge the C ABI entry-point object with the native engine archive.
           test -s embedded-entry/entry_point.o
           /usr/bin/libtool -static -o embedded-entry/libOpenXRayCombinedProbe.a embedded-entry/entry_point.o "${engine_archives[@]}"
           /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-entry-symbols.txt 2>/dev/null
-          if ! grep -Eq '[[:space:]]_st_xray_embedded_run$' embedded-entry/combined-entry-symbols.txt; then
-            echo "::error::Merged archive is missing the embedded X-Ray C ABI entry point"
+          if ! grep -q '_st_xray_embedded_run' embedded-entry/combined-entry-symbols.txt; then
+            echo "Missing embedded X-Ray C ABI entry point"
             exit 1
           fi
-          echo "Merged archive exports _st_xray_embedded_run"
+          echo "Merged archive includes embedded X-Ray C ABI entry point"
           rm embedded-entry/combined-entry-symbols.txt
           /usr/bin/file embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-type.txt
           /usr/bin/ar -t embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-members.txt

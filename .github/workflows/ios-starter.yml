@@ -27,6 +27,7 @@ jobs:
           /tmp/stalker-xray-bootstrap-tests
   build:
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Test native input

@@ -408,6 +408,15 @@ jobs:
           # third-party libraries and linker flags, without guessing paths.
           grep -l -E 'xr_3da|xrEngine' embedded-entry/all-link-command-paths.txt > embedded-entry/engine-link-candidates.txt || true
           echo "Engine-related link command paths: $(wc -l < embedded-entry/engine-link-candidates.txt)"
+          while IFS= read -r linkfile; do
+            printf '\n=== %s ===\n' "$linkfile"
+            cat "$linkfile"
+          done < embedded-entry/engine-link-candidates.txt > embedded-entry/engine-link-command-expanded.txt
+          if [ ! -s embedded-entry/engine-link-command-expanded.txt ]; then
+            echo "::error::No full engine link command found."
+            exit 1
+          fi
+          echo "Full engine link command captured ($(wc -c < embedded-entry/engine-link-command-expanded.txt) bytes)."
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

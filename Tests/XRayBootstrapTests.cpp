@@ -28,6 +28,8 @@ int main() {
     assert(!engine.attachResources(rootLink));
     // A trailing slash must not bypass the symlink-root check.
     assert(!engine.attachResources(rootLink + "/"));
+    // Ordinary directory paths with a trailing slash are also rejected.
+    assert(!engine.attachResources(root + "/"));
     assert(std::remove(rootLink.c_str()) == 0);
     // A symlink to external data must not be treated as a loose game installation.
     assert(symlink("/tmp", (root + "/gamedata").c_str()) == 0);

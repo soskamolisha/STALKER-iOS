@@ -395,6 +395,12 @@ jobs:
           # The entry-point archive is only a probe; a future embedded target must
           # link the full dependency closure rather than this object alone.
           find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-commands.txt
+          # Xcode generators commonly use LinkFileList instead of CMake link.txt.
+          find ios-build -type f \( -name '*.LinkFileList' -o -name '*-LinkFileList' \) -print > embedded-entry/xcode-link-filelists.txt
+          while IFS= read -r list; do
+            printf '\n=== %s ===\n' "$list"
+            cat "$list"
+          done < embedded-entry/xcode-link-filelists.txt > embedded-entry/xcode-link-inputs.txt
           find ios-build -type f -name '*.a' -print | sort > embedded-entry/static-library-candidates.txt
           echo "Static library candidates: $(wc -l < embedded-entry/static-library-candidates.txt)"
           if [ ! -s embedded-entry/engine-link-commands.txt ]; then

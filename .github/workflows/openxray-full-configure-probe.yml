@@ -567,7 +567,7 @@ jobs:
               with log.open("ab") as output:
                   output.write(b"\\nLink probe timed out after 90 seconds\\n")
           pathlib.Path("embedded-entry/engine-partial-link-exit-code.txt").write_text(
-              str(status) + "\\n"
+              str(status) + chr(10)
           )
           print("Partial engine link exit code:", status)
           PY

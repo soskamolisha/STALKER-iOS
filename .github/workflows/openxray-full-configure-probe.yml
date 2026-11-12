@@ -417,6 +417,19 @@ jobs:
             exit 1
           fi
           echo "Full engine link command captured ($(wc -c < embedded-entry/engine-link-command-expanded.txt) bytes)."
+          # Save the actual linker tokens for building an embedded library target.
+          # Avoid executing this command: it currently produces a standalone app.
+          python3 - <<'PY'
+          from pathlib import Path
+          import shlex
+          source = Path("embedded-entry/engine-link-command-expanded.txt").read_text()
+          lines = [line.strip() for line in source.splitlines() if line.strip() and not line.startswith("===")]
+          tokens = [token for line in lines for token in shlex.split(line)]
+          archives = [token for token in tokens if token.endswith(".a")]
+          Path("embedded-entry/engine-link-static-archives.txt").write_text("\\n".join(archives) + "\\n")
+          Path("embedded-entry/engine-link-token-count.txt").write_text(str(len(tokens)) + "\\n")
+          print(f"Engine link command: {len(tokens)} tokens, {len(archives)} static archive arguments")
+          PY
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

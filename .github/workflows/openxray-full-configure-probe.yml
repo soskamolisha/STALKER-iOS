@@ -363,6 +363,42 @@ jobs:
             exit 1
           fi
           echo "Entry-point audit complete."
+      - name: Package embedded X-Ray entry-point object for linkage research
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
+          mkdir -p embedded-entry
+          find ios-build -type f \( -name 'entry_point.cpp.o' -o -name 'entry_point.cpp.obj' \) -print > embedded-entry/candidates.txt
+          if [ ! -s embedded-entry/candidates.txt ]; then
+            echo "::error::Compiled X-Ray entry_point object not found"
+            exit 1
+          fi
+          while IFS= read -r candidate; do
+            if /usr/bin/nm -gU "$candidate" 2>/dev/null | grep -q '_st_xray_embedded_run'; then
+              cp "$candidate" embedded-entry/entry_point.o
+              break
+            fi
+          done < embedded-entry/candidates.txt
+          if [ ! -f embedded-entry/entry_point.o ]; then
+            echo "::error::No compiled entry-point object defines the embedded C ABI"
+            exit 1
+          fi
+          /usr/bin/file embedded-entry/entry_point.o | tee embedded-entry/architecture.txt
+          /usr/bin/nm -gU embedded-entry/entry_point.o > embedded-entry/exported-symbols.txt
+          /usr/bin/nm -u embedded-entry/entry_point.o > embedded-entry/undefined-symbols.txt
+          /usr/bin/libtool -static -o embedded-entry/libXRayEntryPointProbe.a embedded-entry/entry_point.o
+          /usr/bin/ar -t embedded-entry/libXRayEntryPointProbe.a
+          echo "This archive contains only an entry-point object, NOT a linkable full engine."
+      - name: Upload embedded entry-point linkage diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-embedded-entry-linkage-probe
+          path: embedded-entry/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Inspect engine-to-launcher integration interfaces
         if: ${{ always() }}
         shell: bash

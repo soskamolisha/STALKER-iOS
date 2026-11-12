@@ -417,6 +417,13 @@ jobs:
             exit 1
           fi
           echo "Full engine link command captured ($(wc -c < embedded-entry/engine-link-command-expanded.txt) bytes)."
+          # Expose the actual command and resolve @response-file references
+          # instead of treating a zero-archive count as a missing dependency.
+          echo "=== Engine linker invocation ==="
+          cat embedded-entry/engine-link-command-expanded.txt
+          echo "=== CMake target link metadata ==="
+          find ios-build -type f \( -name flags.make -o -name linkLibs.rsp -o -name objects1.rsp \) -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-target-metadata.txt
+          head -c 12000 embedded-entry/engine-link-target-metadata.txt || true
           # Record every link input form: archives, dylibs, frameworks, -l
           # flags and response files. X-Ray's executable may link shared
           # libraries, so zero .a arguments must not imply zero dependencies.

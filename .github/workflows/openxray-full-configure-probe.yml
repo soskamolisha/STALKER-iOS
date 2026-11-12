@@ -395,6 +395,16 @@ jobs:
           # The entry-point archive is only a probe; a future embedded target must
           # link the full dependency closure rather than this object alone.
           find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-commands.txt
+          # This job uses CMake's default Unix Makefiles generator, not Xcode.
+          # Capture every generated link.txt so target-specific engine link
+          # commands can be located even if the directory name differs.
+          find ios-build -type f -name link.txt -print | sort > embedded-entry/all-link-command-paths.txt
+          while IFS= read -r linkfile; do
+            printf '\n=== %s ===\n' "$linkfile"
+            cat "$linkfile"
+          done < embedded-entry/all-link-command-paths.txt > embedded-entry/all-link-commands.txt
+          echo "CMake link command files: $(wc -l < embedded-entry/all-link-command-paths.txt)"
+          grep '^CMAKE_GENERATOR:' ios-build/CMakeCache.txt > embedded-entry/cmake-generator.txt || true
           # Xcode generators commonly use LinkFileList instead of CMake link.txt.
           find ios-build -type f \( -name '*.LinkFileList' -o -name '*-LinkFileList' \) -print > embedded-entry/xcode-link-filelists.txt
           while IFS= read -r list; do

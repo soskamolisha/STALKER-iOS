@@ -29,6 +29,12 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
+      - name: Record runner start for cancellation diagnostics
+        run: |
+          echo "Runner started at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Run ID: $GITHUB_RUN_ID attempt: $GITHUB_RUN_ATTEMPT"
+          echo "Runner: $RUNNER_NAME OS: $RUNNER_OS"
+
       - uses: actions/checkout@v4
       - name: Test native input
         run: |

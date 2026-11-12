@@ -386,8 +386,14 @@ jobs:
             exit 1
           fi
           /usr/bin/file embedded-entry/entry_point.o | tee embedded-entry/architecture.txt
+          if grep -q "LLVM bitcode" embedded-entry/architecture.txt; then
+            echo "::notice::Entry-point object is LLVM bitcode (LTO); linking requires compatible Apple Clang LTO settings."
+          fi
           /usr/bin/nm -gU embedded-entry/entry_point.o > embedded-entry/exported-symbols.txt
           /usr/bin/nm -u embedded-entry/entry_point.o > embedded-entry/undefined-symbols.txt
+          printf "Undefined symbols in entry-point object: " | tee embedded-entry/linkage-summary.txt
+          wc -l < embedded-entry/undefined-symbols.txt | tee -a embedded-entry/linkage-summary.txt
+          echo "An entry-point archive alone cannot be linked as a complete X-Ray engine." | tee -a embedded-entry/linkage-summary.txt
           /usr/bin/libtool -static -o embedded-entry/libXRayEntryPointProbe.a embedded-entry/entry_point.o
           /usr/bin/ar -t embedded-entry/libXRayEntryPointProbe.a
           echo "This archive contains only an entry-point object, NOT a linkable full engine."

@@ -573,11 +573,19 @@ jobs:
           PY
           partial_link_status="$(cat embedded-entry/engine-partial-link-exit-code.txt)"
           if [ "$partial_link_status" -eq 0 ]; then
+            test -s embedded-entry/engine-partial-link.o
             /usr/bin/file embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-type.txt
+            /usr/bin/nm -gU embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-symbols.txt
+            if ! grep -q '_st_xray_embedded_run' embedded-entry/engine-partial-link-symbols.txt; then
+              echo "::error::Partial link succeeded but embedded X-Ray entry point is missing"
+              exit 1
+            fi
+            rm embedded-entry/engine-partial-link-symbols.txt
             rm embedded-entry/engine-partial-link.o
           else
-            echo "Partial engine link failed; inspect engine-partial-link.log"
+            echo "::error::Partial engine link failed with exit code $partial_link_status"
             tail -n 35 embedded-entry/engine-partial-link.log
+            exit 1
           fi
           rm embedded-entry/libOpenXRayCombinedProbe.a
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then

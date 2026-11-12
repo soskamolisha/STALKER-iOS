@@ -535,16 +535,39 @@ jobs:
           # Probe an actual iOS arm64 linker invocation against the merged
           # archive. This intentionally does not claim a runnable UIKit app.
           # The symbol is pulled from the archive by an undefined reference.
-          set +e
-          xcrun --sdk iphoneos clang++ -arch arm64 -target arm64-apple-ios17.0 \
-            -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
-            -Wl,-r -Wl,-u,_st_xray_embedded_run \
-            embedded-entry/libOpenXRayCombinedProbe.a \
-            -o embedded-entry/engine-partial-link.o \
-            > embedded-entry/engine-partial-link.log 2>&1
-          partial_link_status=$?
-          set -e
-          echo "$partial_link_status" > embedded-entry/engine-partial-link-exit-code.txt
+          # Bound this experimental link probe so it cannot consume the
+          # entire macOS runner budget and cancel the useful engine build.
+          python3 - <<'PY'
+          import pathlib
+          import subprocess
+          sdk = subprocess.check_output(
+              ["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True
+          ).strip()
+          cmd = [
+              "xcrun", "--sdk", "iphoneos", "clang++",
+              "-arch", "arm64", "-target", "arm64-apple-ios17.0",
+              "-isysroot", sdk, "-Wl,-r", "-Wl,-u,_st_xray_embedded_run",
+              "embedded-entry/libOpenXRayCombinedProbe.a",
+              "-o", "embedded-entry/engine-partial-link.o",
+          ]
+          log = pathlib.Path("embedded-entry/engine-partial-link.log")
+          try:
+              with log.open("wb") as output:
+                  result = subprocess.run(
+                      cmd, stdout=output, stderr=subprocess.STDOUT, timeout=90,
+                      check=False,
+                  )
+              status = result.returncode
+          except subprocess.TimeoutExpired:
+              status = 124
+              with log.open("ab") as output:
+                  output.write(b"\\nLink probe timed out after 90 seconds\\n")
+          pathlib.Path("embedded-entry/engine-partial-link-exit-code.txt").write_text(
+              str(status) + "\\n"
+          )
+          print("Partial engine link exit code:", status)
+          PY
+          partial_link_status="$(cat embedded-entry/engine-partial-link-exit-code.txt)"
           if [ "$partial_link_status" -eq 0 ]; then
             /usr/bin/file embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-type.txt
             rm embedded-entry/engine-partial-link.o

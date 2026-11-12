@@ -74,6 +74,9 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
 
 bool XRayBootstrap::initialize(GameEdition edition) {
     if (state_ != EngineState::cold) return false;
+    // Also validate direct C++ callers, not only the C bridge.
+    if (edition != GameEdition::shadow && edition != GameEdition::clearSky &&
+        edition != GameEdition::pripyat) return false;
     edition_ = edition;
     state_ = EngineState::initialized;
     return true;

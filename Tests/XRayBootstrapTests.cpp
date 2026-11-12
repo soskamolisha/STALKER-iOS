@@ -56,6 +56,15 @@ int main() {
     assert(engine.initialize(GameEdition::shadow));
     assert(!engine.attachResources(root));
     engine.shutdown();
+    // Archive symlinks must not import data outside the selected game folder.
+    const std::string outsideArchive = root + "-external-archive";
+    { std::ofstream external(outsideArchive, std::ios::binary); external << "external"; }
+    assert(symlink(outsideArchive.c_str(), (root + "/gamedata.db0").c_str()) == 0);
+    assert(engine.initialize(GameEdition::shadow));
+    assert(!engine.attachResources(root));
+    engine.shutdown();
+    assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
+    assert(std::remove(outsideArchive.c_str()) == 0);
     std::ofstream archive(root + "/gamedata.db0", std::ios::binary);
     archive << "fixture";
     archive.close();

@@ -17,6 +17,8 @@ int main() {
     XRayBootstrap engine;
     assert(engine.state() == EngineState::cold);
     assert(!engine.attachResources(root));
+    assert(!engine.initialize(static_cast<GameEdition>(255)));
+    assert(engine.state() == EngineState::cold);
     assert(engine.initialize(GameEdition::pripyat));
     assert(engine.edition() == GameEdition::pripyat);
     assert(!engine.initialize(GameEdition::shadow));

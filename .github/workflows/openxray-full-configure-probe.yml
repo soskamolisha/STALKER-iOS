@@ -391,6 +391,15 @@ jobs:
           fi
           /usr/bin/nm -gU embedded-entry/entry_point.o > embedded-entry/exported-symbols.txt
           /usr/bin/nm -u embedded-entry/entry_point.o > embedded-entry/undefined-symbols.txt
+          # Preserve the actual engine link command and its static library inputs.
+          # The entry-point archive is only a probe; a future embedded target must
+          # link the full dependency closure rather than this object alone.
+          find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-commands.txt
+          find ios-build -type f -name '*.a' -print | sort > embedded-entry/static-library-candidates.txt
+          echo "Static library candidates: $(wc -l < embedded-entry/static-library-candidates.txt)"
+          if [ ! -s embedded-entry/engine-link-commands.txt ]; then
+            echo "::warning::No xr_3da link.txt found; Xcode generator may store link instructions elsewhere."
+          fi
           printf "Undefined symbols in entry-point object: " | tee embedded-entry/linkage-summary.txt
           wc -l < embedded-entry/undefined-symbols.txt | tee -a embedded-entry/linkage-summary.txt
           echo "An entry-point archive alone cannot be linked as a complete X-Ray engine." | tee -a embedded-entry/linkage-summary.txt

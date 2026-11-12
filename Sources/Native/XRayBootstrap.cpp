@@ -82,6 +82,8 @@ bool XRayBootstrap::initialize(GameEdition edition) {
 bool XRayBootstrap::attachResources(const std::string& resourceRoot) {
     if (state_ != EngineState::initialized || resourceRoot.empty()) return false;
     if (!isDirectory(resourceRoot)) return false;
+    // A trailing slash can make lstat follow a symlink to a directory.
+    if (resourceRoot.size() > 1 && resourceRoot.back() == '/') return false;
     // Avoid scanning external paths through a symlinked game-data root.
     struct stat looseRootInfo {};
     const std::string looseRoot = resourceRoot + "/gamedata";

@@ -424,23 +424,37 @@ jobs:
           echo "=== CMake target link metadata ==="
           find ios-build -type f \( -name flags.make -o -name linkLibs.rsp -o -name objects1.rsp \) -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-target-metadata.txt
           head -c 12000 embedded-entry/engine-link-target-metadata.txt || true
-          # Record every link input form: archives, dylibs, frameworks, -l
-          # flags and response files. X-Ray's executable may link shared
-          # libraries, so zero .a arguments must not imply zero dependencies.
+          # Parse only xr_3da's executable link command; xrEngine's
+          # archive creation is a separate command, not executable linkage.
           python3 - <<'PY'
           from pathlib import Path
           import shlex
-          source = Path("embedded-entry/engine-link-command-expanded.txt").read_text()
-          lines = [line.strip() for line in source.splitlines() if line.strip() and not line.startswith("===")]
-          tokens = [token for line in lines for token in shlex.split(line)]
-          archives = [t for t in tokens if t.endswith(".a")]
-          libraries = [t for t in tokens if t.endswith((".a", ".dylib", ".tbd")) or t.startswith(("-l", "-framework", "-weak_framework", "@"))]
-          Path("embedded-entry/engine-link-static-archives.txt").write_text(chr(10).join(archives) + chr(10))
-          Path("embedded-entry/engine-link-library-inputs.txt").write_text(chr(10).join(libraries) + chr(10))
-          Path("embedded-entry/engine-link-token-count.txt").write_text(str(len(tokens)) + chr(10))
-          print(f"Engine link command: {len(tokens)} tokens, {len(archives)} archive arguments, {len(libraries)} library/response arguments")
-          if not libraries:
-              print("WARNING: No direct library inputs; inspect linked targets and CMake response files.")
+          root = Path("ios-build/src/xr_3da/CMakeFiles/xr_3da.dir")
+          link = root / "link.txt"
+          if not link.is_file():
+              raise SystemExit(f"Missing executable link command: {link}")
+          command = link.read_text().strip()
+          tokens = shlex.split(command)
+          expanded = []
+          for token in tokens:
+              if token.startswith("@"):
+                  rsp = root / token[1:]
+                  if not rsp.is_file():
+                      raise SystemExit(f"Missing linker response file: {rsp}")
+                  expanded.extend(shlex.split(rsp.read_text()))
+              else:
+                  expanded.append(token)
+          archives = [t for t in expanded if t.endswith(".a")]
+          libraries = [t for t in expanded if t.endswith((".a", ".dylib", ".tbd")) or t.startswith(("-l", "-framework", "-weak_framework", "@"))]
+          out = Path("embedded-entry")
+          (out / "xr_3da-link-command.txt").write_text(command + chr(10))
+          (out / "xr_3da-link-arguments.txt").write_text(chr(10).join(expanded) + chr(10))
+          (out / "engine-link-static-archives.txt").write_text(chr(10).join(archives) + chr(10))
+          (out / "engine-link-library-inputs.txt").write_text(chr(10).join(libraries) + chr(10))
+          (out / "engine-link-token-count.txt").write_text(str(len(expanded)) + chr(10))
+          print(f"xr_3da executable link: {len(expanded)} tokens, {len(archives)} static archives, {len(libraries)} library flags")
+          if not archives:
+              raise SystemExit("No static engine archives in xr_3da executable link command")
           PY
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."

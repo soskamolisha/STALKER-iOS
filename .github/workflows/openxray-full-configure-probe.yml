@@ -498,7 +498,12 @@ jobs:
           test -s embedded-entry/entry_point.o
           /usr/bin/libtool -static -o embedded-entry/libOpenXRayCombinedProbe.a embedded-entry/entry_point.o "${engine_archives[@]}"
           /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-entry-symbols.txt 2>/dev/null
-          if ! grep -Eq '[[:space:]]_st_xray_embedded_run
+          if ! grep -Eq '[[:space:]]_st_xray_embedded_run$' embedded-entry/combined-entry-symbols.txt; then
+            echo "::error::Merged archive is missing the embedded X-Ray C ABI entry point"
+            exit 1
+          fi
+          echo "Merged archive exports _st_xray_embedded_run"
+          rm embedded-entry/combined-entry-symbols.txt
           /usr/bin/file embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-type.txt
           /usr/bin/ar -t embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-members.txt
           echo "Combined archive members: $(wc -l < embedded-entry/combined-archive-members.txt)"

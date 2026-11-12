@@ -22,12 +22,21 @@ int main() {
     assert(!engine.initialize(GameEdition::shadow));
     assert(!engine.attachResources(root));
     assert(!engine.attachResources("/definitely/not/a/game/folder"));
+    // Imported root symlinks must be rejected even when the target has game data.
+    const std::string rootLink = root + "-link";
+    assert(symlink(root.c_str(), rootLink.c_str()) == 0);
+    assert(!engine.attachResources(rootLink));
+    assert(std::remove(rootLink.c_str()) == 0);
     // A symlink to external data must not be treated as a loose game installation.
     assert(symlink("/tmp", (root + "/gamedata").c_str()) == 0);
     assert(!engine.attachResources(root));
     assert(std::remove((root + "/gamedata").c_str()) == 0);
     assert(mkdir((root + "/gamedata").c_str(), 0700) == 0);
     assert(!engine.attachResources(root));
+    // A nested symlink must not count external files as imported loose data.
+    assert(symlink("/tmp", (root + "/gamedata/external").c_str()) == 0);
+    assert(!engine.attachResources(root));
+    assert(std::remove((root + "/gamedata/external").c_str()) == 0);
     { std::ofstream file(root + "/gamedata/fixture.ltx"); file << "fixture"; }
     assert(engine.attachResources(root));
     assert(engine.hasLooseGameData());

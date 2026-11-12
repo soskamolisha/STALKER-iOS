@@ -26,6 +26,8 @@ int main() {
     const std::string rootLink = root + "-link";
     assert(symlink(root.c_str(), rootLink.c_str()) == 0);
     assert(!engine.attachResources(rootLink));
+    // A trailing slash must not bypass the symlink-root check.
+    assert(!engine.attachResources(rootLink + "/"));
     assert(std::remove(rootLink.c_str()) == 0);
     // A symlink to external data must not be treated as a loose game installation.
     assert(symlink("/tmp", (root + "/gamedata").c_str()) == 0);

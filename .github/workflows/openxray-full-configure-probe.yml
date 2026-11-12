@@ -501,6 +501,26 @@ jobs:
             echo "::error::Combined OpenXRay archive does not contain arm64"
             exit 1
           fi
+          # Validate that this is an engine archive, not merely a collection
+          # of unrelated dependencies. The entry-point wrapper remains separate.
+          /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-exports.txt 2> embedded-entry/combined-archive-nm-errors.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          symbols = Path("embedded-entry/combined-archive-exports.txt").read_text(errors="replace")
+          families = {
+              "xrCore": ("xrCore", "xrDebug"),
+              "xrEngine": ("CEngine", "CDevice"),
+              "xrGame": ("CLevel", "CActor"),
+          }
+          results = {name: any(token in symbols for token in names) for name, names in families.items()}
+          Path("embedded-entry/combined-archive-engine-symbol-audit.txt").write_text(
+              chr(10).join(f"{name}: {'present' if present else 'not detected'}" for name, present in results.items()) + chr(10)
+          )
+          print("Combined archive engine symbol audit:", results)
+          if not any(results.values()):
+              raise SystemExit("No recognizable OpenXRay engine exports in merged archive")
+          PY
+          rm embedded-entry/combined-archive-exports.txt
           # Keep diagnostic artifacts lightweight; the merged archive is
           # generated and inspected here, but not uploaded as a huge CI artifact.
           /usr/bin/stat -f '%z' embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-size-bytes.txt

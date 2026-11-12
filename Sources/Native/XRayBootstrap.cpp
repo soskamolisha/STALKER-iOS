@@ -9,8 +9,9 @@
 namespace stalker {
 namespace {
 bool isDirectory(const std::string& path) {
+    // Do not follow a symlink at the imported game root.
     struct stat info {};
-    return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+    return lstat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
 bool isXRayArchiveName(const std::string& name) {
     const std::string prefix = "gamedata.db";

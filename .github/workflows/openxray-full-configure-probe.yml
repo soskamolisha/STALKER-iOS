@@ -580,6 +580,11 @@ jobs:
               echo "::error::Partial link succeeded but embedded X-Ray entry point is missing"
               exit 1
             fi
+            # A relocatable link can still contain undefined references.
+            # Preserve the evidence before deleting the large probe object.
+            /usr/bin/nm -u embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-undefined-symbols.txt
+            grep -c ' U ' embedded-entry/engine-partial-link-undefined-symbols.txt > embedded-entry/engine-partial-link-unresolved-count.txt || true
+            echo "Unresolved references after partial link: $(cat embedded-entry/engine-partial-link-unresolved-count.txt)"
             rm embedded-entry/engine-partial-link-symbols.txt
             rm embedded-entry/engine-partial-link.o
           else

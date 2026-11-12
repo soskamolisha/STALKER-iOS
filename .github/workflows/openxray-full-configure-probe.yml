@@ -6,6 +6,10 @@ on:
     paths: [.github/workflows/openxray-full-configure-probe.yml]
 permissions:
   contents: read
+# Keep a long native engine build from being cancelled by a newer push.
+concurrency:
+  group: openxray-ios-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   portable-xray-regression:
     runs-on: ubuntu-latest

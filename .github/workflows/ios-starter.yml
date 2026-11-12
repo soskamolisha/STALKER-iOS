@@ -15,6 +15,16 @@ concurrency:
   group: ios-starter-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  portable-resource-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test X-Ray resource import on Linux
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
+          /tmp/stalker-xray-bootstrap-tests
   build:
     runs-on: macos-latest
     steps:

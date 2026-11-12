@@ -474,6 +474,16 @@ jobs:
           print(f"Resolved engine archives: {len(resolved)}/{len(archives)}")
           if missing:
               raise SystemExit("Missing engine archives: " + ", ".join(missing))
+          # A linkable engine archive must preserve the whole native object
+          # closure. Start with a reproducible archive inventory; do not
+          # mistake a single entry-point object for a complete engine.
+          unique = list(dict.fromkeys(resolved))
+          (out / "xr_3da-unique-static-archives.txt").write_text(chr(10).join(unique) + chr(10))
+          sizes = [(Path(p).name, Path(p).stat().st_size) for p in unique]
+          (out / "xr_3da-archive-sizes.tsv").write_text(
+              chr(10).join(f"{name}\\t{size}" for name, size in sizes) + chr(10)
+          )
+          print(f"Unique engine archives: {len(unique)}; total archive bytes: {sum(size for _, size in sizes)}")
           PY
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."

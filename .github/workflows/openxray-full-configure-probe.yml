@@ -532,6 +532,26 @@ jobs:
           # Keep diagnostic artifacts lightweight; the merged archive is
           # generated and inspected here, but not uploaded as a huge CI artifact.
           /usr/bin/stat -f '%z' embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-size-bytes.txt
+          # Probe an actual iOS arm64 linker invocation against the merged
+          # archive. This intentionally does not claim a runnable UIKit app.
+          # The symbol is pulled from the archive by an undefined reference.
+          set +e
+          xcrun --sdk iphoneos clang++ -arch arm64 -target arm64-apple-ios17.0 \
+            -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -Wl,-r -Wl,-u,_st_xray_embedded_run \
+            embedded-entry/libOpenXRayCombinedProbe.a \
+            -o embedded-entry/engine-partial-link.o \
+            > embedded-entry/engine-partial-link.log 2>&1
+          partial_link_status=$?
+          set -e
+          echo "$partial_link_status" > embedded-entry/engine-partial-link-exit-code.txt
+          if [ "$partial_link_status" -eq 0 ]; then
+            /usr/bin/file embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-type.txt
+            rm embedded-entry/engine-partial-link.o
+          else
+            echo "Partial engine link failed; inspect engine-partial-link.log"
+            tail -n 35 embedded-entry/engine-partial-link.log
+          fi
           rm embedded-entry/libOpenXRayCombinedProbe.a
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."

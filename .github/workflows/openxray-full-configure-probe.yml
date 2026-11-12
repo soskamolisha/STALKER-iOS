@@ -488,7 +488,10 @@ jobs:
           # Real native archive merge probe. This validates that the
           # OpenXRay dependency closure can be packaged for static linkage;
           # it does not claim the UIKit lifecycle or SwiftUI integration works.
-          mapfile -t engine_archives < embedded-entry/xr_3da-unique-static-archives.txt
+          engine_archives=()
+          while IFS= read -r archive; do
+            [ -n "$archive" ] && engine_archives+=("$archive")
+          done < embedded-entry/xr_3da-unique-static-archives.txt
           /usr/bin/libtool -static -o embedded-entry/libOpenXRayCombinedProbe.a "${engine_archives[@]}"
           /usr/bin/file embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-type.txt
           /usr/bin/ar -t embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-members.txt

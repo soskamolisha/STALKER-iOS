@@ -496,6 +496,15 @@ jobs:
           /usr/bin/file embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-type.txt
           /usr/bin/ar -t embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-members.txt
           echo "Combined archive members: $(wc -l < embedded-entry/combined-archive-members.txt)"
+          /usr/bin/lipo -info embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-architecture.txt
+          if ! grep -q 'arm64' embedded-entry/combined-archive-architecture.txt; then
+            echo "::error::Combined OpenXRay archive does not contain arm64"
+            exit 1
+          fi
+          # Keep diagnostic artifacts lightweight; the merged archive is
+          # generated and inspected here, but not uploaded as a huge CI artifact.
+          /usr/bin/stat -f '%z' embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-size-bytes.txt
+          rm embedded-entry/libOpenXRayCombinedProbe.a
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

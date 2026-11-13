@@ -5,8 +5,10 @@
 #include <cstddef>
 #include <sys/stat.h>
 
-// Resolve optional OpenXRay exports at runtime. An absent engine must not
-// create undefined Mach-O symbols in the standalone launcher.
+// On Apple, resolve optional engine exports dynamically to avoid undefined
+// symbols in the standalone iOS app. On Linux, preserve weak references so
+// native tests can link their mock exports without -rdynamic.
+#if defined(__APPLE__)
 #include <dlfcn.h>
 using EmbeddedRun = int (*)(const char*);
 using EmbeddedRunWithResources = int (*)(const char*, const char*);
@@ -17,6 +19,14 @@ static EmbeddedRunWithResources embedded_run_with_resources() {
     return reinterpret_cast<EmbeddedRunWithResources>(
         dlsym(RTLD_DEFAULT, "st_xray_embedded_run_with_resources"));
 }
+#else
+extern "C" int st_xray_embedded_run(const char*) __attribute__((weak));
+extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak));
+static auto embedded_run() -> int (*)(const char*) { return st_xray_embedded_run; }
+static auto embedded_run_with_resources() -> int (*)(const char*, const char*) {
+    return st_xray_embedded_run_with_resources;
+}
+#endif
 
 extern "C" int32_t st_openxray_runtime_linked(void) {
     return embedded_run() != nullptr ? 1 : 0;

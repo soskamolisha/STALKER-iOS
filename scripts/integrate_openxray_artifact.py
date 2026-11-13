@@ -32,7 +32,7 @@ def main():
                 name = Path(member.filename)
                 if member.is_dir():
                     continue
-                if name.is_absolute() or ".." in name.parts or "\\\\" in member.filename:
+                if name.is_absolute() or ".." in name.parts or chr(92) in member.filename:
                     parser.error("unsafe path inside artifact ZIP")
                 if name.suffix == ".a":
                     candidates.append(member)

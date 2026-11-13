@@ -19,6 +19,7 @@ extern "C" int st_xray_embedded_run(const char* args) {
 
 int main() {
     assert(st_openxray_runtime_linked() == 1);
+    assert(st_openxray_runtime_resources_linked() == 0);
     assert(st_openxray_runtime_run(nullptr) == -2);
     // Legacy mock entry is linked, but resource-aware entry is absent.
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);

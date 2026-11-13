@@ -18,6 +18,7 @@ extern "C" int st_xray_embedded_run_with_resources(const char* args, const char*
 }
 
 int main() {
+    assert(st_openxray_runtime_resources_linked() == 1);
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
     assert(st_openxray_runtime_run_with_resources("", "") == -2);

@@ -247,7 +247,7 @@ int main() {
                sizeof(decoded), sizeof(directory_record)) == 0);
         assert(std::memcmp(decoded, directory_record, sizeof(directory_record)) == 0);
         assert(st_xray_archive_directory_decompress(handle, 0, decoded,
-               sizeof(decoded), sizeof(directory_record) - 1) == -3);
+               sizeof(decoded), sizeof(directory_record) - 1) == -4);
         assert(st_xray_archive_directory_decompress(handle, 0, decoded,
                4, sizeof(directory_record)) == -1);
         uint32_t auto_size = 0;

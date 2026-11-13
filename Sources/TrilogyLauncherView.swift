@@ -110,6 +110,7 @@ struct TrilogyLauncherView: View {
     @State private var showEngineNotice = false
     @State private var nativeRunGame: GameEdition?
     @State private var nativeRunInProgress = false
+    @State private var nativeRunStartedAt: Date?
     @State private var nativeRunningGame: GameEdition?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -517,6 +518,7 @@ struct TrilogyLauncherView: View {
                     nativeRunningGame = game
                     nativeRunGame = nil
                     nativeRunInProgress = true
+                    nativeRunStartedAt = Date()
                     Task {
                         let engine = XRayBootstrapEngine(gameID: game.rawValue)
                         do {
@@ -525,7 +527,12 @@ struct TrilogyLauncherView: View {
                         } catch {
                             engineDiagnostics[game.rawValue] = error.localizedDescription
                         }
+                        if let started = nativeRunStartedAt {
+                            let elapsed = Date().timeIntervalSince(started)
+                            engineDiagnostics[game.rawValue, default: "X-Ray"] += String(format: " · %.1f s", elapsed)
+                        }
                         showDiagnostics = true
+                        nativeRunStartedAt = nil
                         nativeRunInProgress = false
                         nativeRunningGame = nil
                     }

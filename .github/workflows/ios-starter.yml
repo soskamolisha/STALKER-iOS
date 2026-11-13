@@ -12,6 +12,7 @@ on:
       - 'scripts/package_unsigned_ipa.py'
       - 'scripts/build_with_openxray.sh'
       - 'scripts/verify_openxray_archive.py'
+      - 'scripts/integrate_openxray_artifact.py'
       - '.github/workflows/ios-starter.yml'
 concurrency:
   group: ios-starter-${{ github.ref }}
@@ -26,6 +27,19 @@ jobs:
         run: |
           bash -n scripts/build_with_openxray.sh
           python3 -m py_compile scripts/verify_openxray_archive.py
+          python3 -m py_compile scripts/integrate_openxray_artifact.py
+          # Artifact ZIP path traversal must be rejected before extraction.
+          python3 - <<'PY'
+          import tempfile, zipfile, subprocess, sys
+          from pathlib import Path
+          with tempfile.TemporaryDirectory() as temp:
+              path = Path(temp) / "malicious.zip"
+              with zipfile.ZipFile(path, "w") as z:
+                  z.writestr("../escape.a", b"not an engine")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "unsafe path" in result.stderr, result.stderr
+          PY
           # A missing engine archive must fail immediately rather than
           # producing a launcher falsely described as OpenXRay-enabled.
           if bash scripts/build_with_openxray.sh /tmp/does-not-exist-openxray.a > /tmp/openxray-negative.log 2>&1; then

@@ -41,7 +41,10 @@ final class UnavailableEngine: GameEngine {
 /// Swift game-engine boundary to the X-Ray C bootstrap, but intentionally does
 /// not report a playable engine until the upstream runtime is linked.
 final class XRayBootstrapEngine: GameEngine {
+    // This reports native symbol linkage, not playable iOS compatibility.
+    // Gameplay stays disabled until UIKit/Metal lifecycle integration is verified.
     let isAvailable = false
+    var isNativeEntryLinked: Bool { st_openxray_runtime_linked() == 1 }
     private let gameID: String
     private var handle: STXRayHandle?
     private let nativeInput = st_input_create()

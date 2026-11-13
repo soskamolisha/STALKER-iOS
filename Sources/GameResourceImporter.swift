@@ -45,6 +45,7 @@ enum GameResourceImporter {
                 throw ImportFailure.missingResources
             }
             try validateEdition(in: incomingFolder, selected: gameID)
+            try adaptFilesystemConfig(in: incomingFolder)
             if fm.fileExists(atPath: target.path) { try fm.moveItem(at: target, to: backup) }
             do {
                 try fm.moveItem(at: incomingFolder, to: target)
@@ -66,6 +67,36 @@ enum GameResourceImporter {
             try? fm.removeItem(at: incomingFolder)
             throw error
         }
+    }
+
+    /// Relocate writable X-Ray app data without changing the original resource aliases.
+    /// ISO Latin-1 is used as a reversible byte mapping: older .ltx files may be
+    /// CP1251, but the ASCII $app_data_root$ line can still be edited losslessly.
+    private static func adaptFilesystemConfig(in staging: URL) throws {
+        let config = staging.appendingPathComponent("fsgame.ltx")
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: config.path) else { return }
+        let original = try Data(contentsOf: config)
+        guard let text = String(data: original, encoding: .isoLatin1) else {
+            throw ImportFailure.invalidFilesystemConfig
+        }
+        let lines = text.components(separatedBy: "\n")
+        let indices = lines.indices.filter {
+            lines[$0].trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased().hasPrefix("$app_data_root$")
+        }
+        guard indices.count == 1 else { throw ImportFailure.invalidFilesystemConfig }
+        var edited = lines
+        let line = lines[indices[0]]
+        let ending = line.hasSuffix("\r") ? "\r" : ""
+        edited[indices[0]] = "$app_data_root$ = true| false| $fs_root$| appdata\\" + ending
+        guard let bytes = edited.joined(separator: "\n").data(using: .isoLatin1) else {
+            throw ImportFailure.invalidFilesystemConfig
+        }
+        // Do not overwrite the source folder; modify only the staged import.
+        try bytes.write(to: config, options: .atomic)
+        try fm.createDirectory(at: staging.appendingPathComponent("appdata", isDirectory: true),
+                               withIntermediateDirectories: true)
     }
 
     private static func unwrapPortDataDirectory(in staging: URL) throws {
@@ -140,9 +171,10 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed
+        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
         var errorDescription: String? {
             switch self {
+            case .invalidFilesystemConfig: return "Invalid fsgame.ltx filesystem configuration"
             case .restoreFailed: return "Import failed and the previous game backup could not be restored; the backup was kept for recovery"
             case .managedFolderSelected: return "Choose a game folder outside the app-managed storage directory"
             case .invalidEdition: return "Unsupported game edition"

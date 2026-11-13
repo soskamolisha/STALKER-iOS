@@ -329,11 +329,19 @@ jobs:
           python3 - <<'PY'
           import zipfile
           path = "STALKERiOSStarter-unsigned.ipa"
+          import plistlib
           with zipfile.ZipFile(path) as archive:
               bad = archive.testzip()
               assert bad is None, f"Damaged IPA entry: {bad}"
               assert any(name.startswith("Payload/STALKERiOSStarter.app/") for name in archive.namelist()), "Missing app payload"
-          print("IPA integrity verified")
+              info = plistlib.loads(archive.read("Payload/STALKERiOSStarter.app/Info.plist"))
+              for key in ("CFBundleIdentifier", "CFBundleExecutable", "CFBundleShortVersionString", "CFBundleVersion"):
+                  value = info.get(key)
+                  assert isinstance(value, str) and value.strip(), f"Missing or invalid {key}: {value!r}"
+                  print(f"{key}={value}")
+              assert info["CFBundleExecutable"] == "STALKERiOSStarter", "Unexpected executable"
+              assert "Payload/STALKERiOSStarter.app/STALKERiOSStarter" in archive.namelist(), "Missing app executable"
+          print("IPA integrity and install metadata verified (code signing still required)")
           PY
       - uses: actions/upload-artifact@v4
         with:

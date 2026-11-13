@@ -26,6 +26,13 @@ jobs:
         run: |
           bash -n scripts/build_with_openxray.sh
           python3 -m py_compile scripts/verify_openxray_archive.py
+          # A missing engine archive must fail immediately rather than
+          # producing a launcher falsely described as OpenXRay-enabled.
+          if bash scripts/build_with_openxray.sh /tmp/does-not-exist-openxray.a > /tmp/openxray-negative.log 2>&1; then
+            echo "::error::Missing archive unexpectedly accepted"
+            exit 1
+          fi
+          grep -q 'Missing or empty archive' /tmp/openxray-negative.log
       - name: Test X-Ray resource import on Linux
         run: |
           set -euo pipefail

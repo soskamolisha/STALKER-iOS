@@ -111,8 +111,14 @@ int32_t st_xray_archive_chunk_info(STXRayHandle handle, uint32_t archive_index,
             close(fd); return -3;
         }
         unsigned char header[8] {};
-        const ssize_t count = pread(fd, header, sizeof(header), static_cast<off_t>(offset));
-        if (count != 8) { close(fd); return -3; }
+        size_t received = 0;
+        while (received < sizeof(header)) {
+            const ssize_t count = pread(fd, header + received, sizeof(header) - received,
+                                        static_cast<off_t>(offset + received));
+            if (count < 0 && errno == EINTR) continue;
+            if (count <= 0) { close(fd); return -3; }
+            received += static_cast<size_t>(count);
+        }
         auto le32 = [](const unsigned char* p) -> uint32_t {
             return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
                    (static_cast<uint32_t>(p[2]) << 16) | (static_cast<uint32_t>(p[3]) << 24);

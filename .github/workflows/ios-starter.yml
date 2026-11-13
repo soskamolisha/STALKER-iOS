@@ -39,6 +39,11 @@ jobs:
               result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
               assert result.returncode != 0, result.stdout
               assert "unsafe path" in result.stderr, result.stderr
+              with zipfile.ZipFile(path, "w") as z:
+                  z.writestr("folder\\\\escape.a", b"not an engine")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "unsafe path" in result.stderr, result.stderr
           PY
           # A missing engine archive must fail immediately rather than
           # producing a launcher falsely described as OpenXRay-enabled.

@@ -20,6 +20,9 @@ extern "C" int st_xray_embedded_run(const char* args) {
 int main() {
     assert(st_openxray_runtime_linked() == 1);
     assert(st_openxray_runtime_run(nullptr) == -2);
+    // Legacy mock entry is linked, but resource-aware entry is absent.
+    assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
+    assert(st_openxray_runtime_run_with_resources("", "/tmp/game") == -5);
     assert(st_openxray_runtime_run("-stalker-ios-test") == 42);
     assert(nested_status == -3);
     // Verify the guard is released after the first engine call returns.

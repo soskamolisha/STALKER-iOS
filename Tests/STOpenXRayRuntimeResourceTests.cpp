@@ -6,7 +6,7 @@
 // Mock only: verifies resource-root forwarding and the shared runtime guard.
 // This does not build or run the real OpenXRay engine.
 static int nested_result = 0;
-static const char* expected_root = "/tmp/imported-shadow";
+static const char* expected_root = "/tmp";
 extern "C" int st_xray_embedded_run_with_resources(const char* args, const char* root) {
     assert(root && std::strcmp(root, expected_root) == 0);
     if (std::strcmp(args, "-nested") == 0) {
@@ -22,6 +22,7 @@ int main() {
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
     assert(st_openxray_runtime_run_with_resources("", "") == -2);
+    assert(st_openxray_runtime_run_with_resources("", "/this-directory-must-not-exist-stalker") == -6);
     assert(st_openxray_runtime_run_with_resources("-nested", expected_root) == 19);
     assert(nested_result == -3);
     assert(st_openxray_runtime_run_with_resources("-throw", expected_root) == -4);

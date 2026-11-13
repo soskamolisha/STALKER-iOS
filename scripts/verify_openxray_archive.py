@@ -14,6 +14,21 @@ def run(*args):
     return subprocess.run(args, text=True, capture_output=True, check=True).stdout
 
 
+def has_defined_export(nm_output, symbol):
+    """Accept only defined external symbols, not unresolved or archive headings."""
+    for line in nm_output.splitlines():
+        parts = line.split()
+        if len(parts) < 2 or parts[-1] != symbol:
+            continue
+        kind = parts[-2]
+        # nm symbol types: U is undefined, and lowercase w/v are weak
+        # undefined references on toolchains that emit them.
+        if len(kind) == 1 and kind in "TtDdBbSsRrAaCcGgIiWwVv":
+            if kind not in "Uuvw":
+                return True
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("archive", type=Path)
@@ -29,27 +44,15 @@ def main():
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Archive validation failed: {error}", file=sys.stderr)
         return 1
-    # Only a defined exported symbol counts; a U (undefined) reference is not an implementation.
-    defined = any(
-        len(parts := line.split()) >= 2
-        and parts[-1] == "_st_xray_embedded_run"
-        and parts[-2].upper() != "U"
-        for line in symbols.splitlines()
-    )
-    if not defined:
+    if not has_defined_export(symbols, "_st_xray_embedded_run"):
         print("Missing st_xray_embedded_run export", file=sys.stderr)
         return 1
-    if args.require_resources:
-        resource_defined = any(
-            len(parts := line.split()) >= 2
-            and parts[-1] == "_st_xray_embedded_run_with_resources"
-            and parts[-2].upper() != "U"
-            for line in symbols.splitlines()
-        )
-        if not resource_defined:
-            print("Missing st_xray_embedded_run_with_resources export; "
-                  "archive cannot receive imported game root", file=sys.stderr)
-            return 1
+    if args.require_resources and not has_defined_export(
+        symbols, "_st_xray_embedded_run_with_resources"
+    ):
+        print("Missing st_xray_embedded_run_with_resources export; "
+              "archive cannot receive imported game root", file=sys.stderr)
+        return 1
     # The entry symbol is weak in the launcher bridge; a static archive
     # therefore requires force-loading or the linker may omit the engine.
     print("Validated arm64 OpenXRay archive and embedded entry symbol.")

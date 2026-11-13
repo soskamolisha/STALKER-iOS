@@ -86,6 +86,7 @@ jobs:
           python3 Tests/test_openxray_archive_symbols.py
           python3 Tests/test_openxray_archive_cli.py
           python3 Tests/test_openxray_artifact_import.py
+          python3 Tests/test_adapt_fsgame_ios.py
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   build:

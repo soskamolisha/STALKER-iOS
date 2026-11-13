@@ -1,6 +1,7 @@
 #include "STOpenXRayRuntime.h"
 #include <atomic>
 #include <cstring>
+#include <string>
 #include <cstddef>
 #include <sys/stat.h>
 
@@ -59,6 +60,13 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     if (root_length > 1 && resource_root[root_length - 1] == '/') return -6;
     struct stat root_info;
     if (lstat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;
+    // The embedded engine needs a real filesystem config, not merely
+    // gamedata archives. Validate again at the native boundary to cover
+    // non-Swift callers and races after UI preflight.
+    const std::string config_path = std::string(resource_root) + "/fsgame.ltx";
+    struct stat config_info {};
+    if (lstat(config_path.c_str(), &config_info) != 0 ||
+        !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
 #if defined(__GNUC__) || defined(__clang__)
     // Never silently call the old entry: it cannot receive the imported root.
     if (!st_xray_embedded_run_with_resources) return -5;

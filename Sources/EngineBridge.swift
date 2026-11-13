@@ -102,10 +102,20 @@ final class XRayBootstrapEngine: GameEngine {
         // Archive probing performs synchronous disk reads; keep it off the
         // SwiftUI main actor just like the blocking native entry point.
         let editionID = gameID
+        let root = FileManager.default.urls(for: .applicationSupportDirectory,
+                                            in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(editionID, isDirectory: true)
         let hasData = await Task.detached(priority: .userInitiated) {
             XRayResourcePreflight.inspect(gameID: editionID)?.hasRecognizedGameData == true
         }.value
         guard hasData else { throw EngineStartError.resourcesUnavailable }
+        // Keep the resource root explicit for the future embedded-runtime
+        // configuration bridge. Do not change the process working directory:
+        // it is global to the entire iOS application.
+        guard FileManager.default.fileExists(atPath: root.path) else {
+            throw EngineStartError.resourcesUnavailable
+        }
         // The embedded C entry is synchronous and may block indefinitely.
         // Do not capture the Swift engine or any UIKit state on this worker.
         // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay

@@ -110,6 +110,7 @@ struct TrilogyLauncherView: View {
     @State private var showEngineNotice = false
     @State private var nativeRunGame: GameEdition?
     @State private var nativeRunInProgress = false
+    @State private var nativeRunningGame: GameEdition?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var sidebar: some View {
@@ -242,7 +243,7 @@ struct TrilogyLauncherView: View {
                                 .buttonStyle(.bordered)
                                 .tint(.yellow)
                                 }
-                                if nativeRunInProgress && nativeRunGame == game {
+                                if nativeRunInProgress && nativeRunningGame == game {
                                     ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
                                         .tint(.orange)
                                 }
@@ -513,6 +514,8 @@ struct TrilogyLauncherView: View {
             ) {
                 Button(russian ? "Запустить тест" : "Run test") {
                     guard let game = nativeRunGame, !nativeRunInProgress else { return }
+                    nativeRunningGame = game
+                    nativeRunGame = nil
                     nativeRunInProgress = true
                     Task {
                         let engine = XRayBootstrapEngine(gameID: game.rawValue)
@@ -524,7 +527,7 @@ struct TrilogyLauncherView: View {
                         }
                         showDiagnostics = true
                         nativeRunInProgress = false
-                        nativeRunGame = nil
+                        nativeRunningGame = nil
                     }
                 }
                 Button(russian ? "Отмена" : "Cancel", role: .cancel) { nativeRunGame = nil }

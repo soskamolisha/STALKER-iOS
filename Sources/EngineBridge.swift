@@ -23,6 +23,7 @@ enum EngineStartError: LocalizedError {
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
         case .nativeEntryFailed(let code):
             switch code {
+            case -6: return "Папка игровых ресурсов не существует или недоступна (-6)"
             case -5: return "Движок не поддерживает запуск с папкой игровых ресурсов (-5)"
             case -4: return "Движок вызвал исключение C++ во время запуска (-4)"
             case -3: return "Нативный движок уже выполняется (-3)"
@@ -137,7 +138,7 @@ final class XRayBootstrapEngine: GameEngine {
                 }
             }
         }.value
-        if (-5 ... -1).contains(result) {
+        if (-6 ... -1).contains(result) {
             throw EngineStartError.nativeEntryFailed(result)
         }
         return result

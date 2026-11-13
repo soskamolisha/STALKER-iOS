@@ -65,8 +65,10 @@ final class XRayBootstrapEngine: GameEngine {
             throw EngineStartError.resourcesUnavailable
         }
         handle = core
+        // The current bootstrap never starts a playable runtime. Always
+        // release the native handle when this preflight attempt exits.
+        defer { stop() }
         guard st_xray_initialize(core, edition) == 0 else {
-            stop()
             throw EngineStartError.resourcesUnavailable
         }
         let root = FileManager.default.urls(for: .applicationSupportDirectory,
@@ -74,7 +76,6 @@ final class XRayBootstrapEngine: GameEngine {
             .appendingPathComponent("ImportedGames", isDirectory: true)
             .appendingPathComponent(gameID, isDirectory: true)
         guard root.path.withCString({ st_xray_attach_resources(core, $0) }) == 0 else {
-            stop()
             throw EngineStartError.resourcesUnavailable
         }
         // Resource bootstrap is successful; the actual render/game loop is

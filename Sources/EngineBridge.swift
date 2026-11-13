@@ -78,6 +78,12 @@ final class XRayBootstrapEngine: GameEngine {
         guard root.path.withCString({ st_xray_attach_resources(core, $0) }) == 0 else {
             throw EngineStartError.resourcesUnavailable
         }
+        // A successful attach only means the resource root was recognized.
+        // Require at least one actual game-data source before proceeding.
+        guard st_xray_has_loose_data(core) == 1 ||
+              st_xray_has_packed_data(core) == 1 else {
+            throw EngineStartError.resourcesUnavailable
+        }
         // Resource bootstrap is successful; the actual render/game loop is
         // not part of this target yet. Never claim a successful game launch.
         throw EngineStartError.notPorted

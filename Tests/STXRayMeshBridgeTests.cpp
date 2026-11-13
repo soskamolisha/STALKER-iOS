@@ -1,5 +1,6 @@
 #include "../Sources/Native/STXRayMesh.h"
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>

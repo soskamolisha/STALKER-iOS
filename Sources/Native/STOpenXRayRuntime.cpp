@@ -70,3 +70,11 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     return -5;
 #endif
 }
+
+extern "C" int32_t st_openxray_runtime_resources_linked(void) {
+#if defined(__GNUC__) || defined(__clang__)
+    return st_xray_embedded_run_with_resources != nullptr ? 1 : 0;
+#else
+    return 0;
+#endif
+}

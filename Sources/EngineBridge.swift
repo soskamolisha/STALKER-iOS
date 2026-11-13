@@ -128,9 +128,10 @@ final class XRayBootstrapEngine: GameEngine {
         // The upstream X-Ray filesystem requires a game-specific fsgame.ltx.
         // Recognized gamedata archives alone are insufficient for mounting.
         let config = root.appendingPathComponent("fsgame.ltx", isDirectory: false)
-        guard let configInfo = try? FileManager.default.attributesOfItem(atPath: config.path),
-              (configInfo[.type] as? FileAttributeType) == .typeRegular,
-              (configInfo[.size] as? NSNumber)?.int64Value ?? 0 > 0 else {
+        guard let configInfo = try? config.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
+              configInfo.isRegularFile == true,
+              configInfo.isSymbolicLink != true,
+              (configInfo.fileSize ?? 0) > 0 else {
             throw EngineStartError.resourcesUnavailable
         }
         // The embedded C entry is synchronous and may block indefinitely.

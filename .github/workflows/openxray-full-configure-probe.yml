@@ -27,6 +27,9 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Tests/XRayLevelFilesTests.cpp -o /tmp/xray-level-files-tests
           /tmp/xray-level-files-tests
   configure:
+    # Native iOS cross-compilation is an explicit, potentially billable run.
+    # Workflow-file pushes only execute the portable Linux regression job.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
     steps:
       - name: Record iOS toolchain and SDK prerequisites

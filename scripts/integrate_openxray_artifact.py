@@ -27,7 +27,6 @@ def main():
         parser.error(f"invalid artifact ZIP: {error}")
     with artifact, tempfile.TemporaryDirectory(prefix="openxray-artifact-") as temp:
         root = Path(temp)
-        archive = artifact
         if len(archive.infolist()) > 10000:
             parser.error("artifact contains too many entries")
         candidates = []
@@ -55,7 +54,7 @@ def main():
                     parser.error("extracted archive exceeds 4 GiB safety limit")
                 out.write(chunk)
         verifier = Path(__file__).with_name("verify_openxray_archive.py")
-        result = subprocess.run([sys.executable, str(verifier), str(target)])
+        result = subprocess.run([sys.executable, str(verifier), "--require-resources", str(target)])
         if result.returncode:
             return result.returncode
         output = args.output.resolve()

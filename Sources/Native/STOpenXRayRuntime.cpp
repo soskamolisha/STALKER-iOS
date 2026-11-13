@@ -1,4 +1,5 @@
 #include "STOpenXRayRuntime.h"
+#include <atomic>
 
 // Weak linkage allows the launcher to build without the optional upstream
 // OpenXRay archive. This bridge does not imply iOS runtime compatibility.
@@ -16,10 +17,17 @@ extern "C" int32_t st_openxray_runtime_linked(void) {
 #endif
 }
 
+static std::atomic_flag runtime_active = ATOMIC_FLAG_INIT;
+
 extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
     if (!command_line) return -2;
 #if defined(__GNUC__) || defined(__clang__)
     if (!st_xray_embedded_run) return -1;
+    // Upstream engine state is process-global: never run two instances at once.
+    if (runtime_active.test_and_set(std::memory_order_acquire)) return -3;
+    struct ReleaseFlag {
+        ~ReleaseFlag() { runtime_active.clear(std::memory_order_release); }
+    } release;
     return st_xray_embedded_run(command_line);
 #else
     return -1;

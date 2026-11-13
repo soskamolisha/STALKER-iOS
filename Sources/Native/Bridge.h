@@ -1,4 +1,5 @@
 #include "STInput.h"
+#include "STOpenXRayRuntime.h"
 
 #include "STCRC.h"
 

@@ -482,7 +482,9 @@ struct TrilogyLauncherView: View {
             .alert(russian ? "Запуск пока недоступен" : "Launch not available", isPresented: $showEngineNotice) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(russian ? "Ресурсы импортированы, но порт игрового движка X-Ray для iOS ещё не готов." : "Resources are imported, but the X-Ray game engine port for iOS is not ready.")
+                Text(russian
+                     ? "Проверка нативного X-Ray завершена. Исполняемый игровой цикл и графика ещё не подключены. Подробности доступны в диагностике выбранной игры."
+                     : "Native X-Ray preflight finished. The playable game loop and graphics are not connected yet. See the selected game's diagnostics for details.")
             }
             .alert(russian ? "О проекте" : "About", isPresented: $showAbout) {
                 Button("OK", role: .cancel) {}

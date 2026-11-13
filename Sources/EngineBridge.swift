@@ -147,7 +147,7 @@ final class XRayBootstrapEngine: GameEngine {
                 }
             }
         }.value
-        if (-6 ... -1).contains(result) {
+        if (-7 ... -1).contains(result) {
             throw EngineStartError.nativeEntryFailed(result)
         }
         return result

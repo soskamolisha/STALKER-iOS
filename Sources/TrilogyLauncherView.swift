@@ -242,6 +242,10 @@ struct TrilogyLauncherView: View {
                                 .buttonStyle(.bordered)
                                 .tint(.yellow)
                                 }
+                                if nativeRunInProgress && nativeRunGame == game {
+                                    ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
+                                        .tint(.orange)
+                                }
                                 if showDiagnostics && st_openxray_runtime_linked() == 1 {
                                     Button(russian ? "Тест запуска X-Ray" : "Test X-Ray entry") {
                                         nativeRunGame = game
@@ -509,7 +513,6 @@ struct TrilogyLauncherView: View {
             ) {
                 Button(russian ? "Запустить тест" : "Run test") {
                     guard let game = nativeRunGame, !nativeRunInProgress else { return }
-                    nativeRunGame = nil
                     nativeRunInProgress = true
                     Task {
                         let engine = XRayBootstrapEngine(gameID: game.rawValue)
@@ -521,6 +524,7 @@ struct TrilogyLauncherView: View {
                         }
                         showDiagnostics = true
                         nativeRunInProgress = false
+                        nativeRunGame = nil
                     }
                 }
                 Button(russian ? "Отмена" : "Cancel", role: .cancel) { nativeRunGame = nil }

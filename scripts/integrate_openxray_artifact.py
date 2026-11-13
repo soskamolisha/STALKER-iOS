@@ -32,16 +32,16 @@ def main():
             parser.error("artifact contains too many entries")
         candidates = []
         for member in archive.infolist():
-                # Bound uncompressed size to avoid archive extraction bombs.
-                if member.file_size > 4 * 1024 * 1024 * 1024:
-                    parser.error("archive member exceeds 4 GiB safety limit")
-                name = Path(member.filename)
-                if member.is_dir():
-                    continue
-                if name.is_absolute() or ".." in name.parts or chr(92) in member.filename:
-                    parser.error("unsafe path inside artifact ZIP")
-                if name.suffix == ".a":
-                    candidates.append(member)
+            # Bound uncompressed size to avoid archive extraction bombs.
+            if member.file_size > 4 * 1024 * 1024 * 1024:
+                parser.error("archive member exceeds 4 GiB safety limit")
+            name = Path(member.filename)
+            if member.is_dir():
+                continue
+            if name.is_absolute() or ".." in name.parts or chr(92) in member.filename:
+                parser.error("unsafe path inside artifact ZIP")
+            if name.suffix == ".a":
+                candidates.append(member)
         if len(candidates) != 1:
             parser.error(f"expected exactly one static .a archive; found {len(candidates)}")
         target = root / "engine.a"

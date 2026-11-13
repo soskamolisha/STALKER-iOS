@@ -20,7 +20,7 @@ if [[ "$input" == *.zip ]]; then
   archive="$(pwd)/build-openxray/engine/libOpenXRayCombinedProbe.a"
 fi
 test -s "$archive" || { echo "Missing or empty archive: $archive" >&2; exit 1; }
-python3 scripts/verify_openxray_archive.py "$archive"
+python3 scripts/verify_openxray_archive.py --require-resources "$archive"
 # The archive path is passed through an Xcode build setting; whitespace can
 # split -force_load into separate linker arguments and silently break linkage.
 if [[ "$archive" == *[[:space:]]* ]]; then

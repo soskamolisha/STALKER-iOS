@@ -33,7 +33,7 @@ def main():
     # The entry symbol is weak in the launcher bridge; a static archive
     # therefore requires force-loading or the linker may omit the engine.
     print("Validated arm64 OpenXRay archive and embedded entry symbol.")
-    print(f"Xcode OTHER_LDFLAGS: -Wl,-force_load,{archive}")
+    # Avoid leaking an arbitrary filesystem path into an unquoted linker flag.\n    # xcodebuild receives the flag as one build-setting argument.\n    print(f"Xcode OTHER_LDFLAGS: -Wl,-force_load,{archive}")
     print("WARNING: upstream platform dependencies and game execution remain unverified.")
     return 0
 

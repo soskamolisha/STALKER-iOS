@@ -6,6 +6,10 @@ if [[ $# -ne 1 ]]; then
   echo "Usage: bash scripts/build_with_openxray.sh /path/to/libOpenXRayCombinedProbe.a or artifact.zip" >&2
   exit 2
 fi
+if [[ ! -f "$1" ]]; then
+  echo "Missing OpenXRay archive or artifact ZIP: $1" >&2
+  exit 1
+fi
 input="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 archive="$input"
 if [[ "$input" == *.zip ]]; then

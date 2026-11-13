@@ -297,6 +297,18 @@ struct TrilogyLauncherView: View {
                                                     : "X-Ray: game data preflight failed"
                                                 showDiagnostics = true
                                             }
+                                            // Exercise the same Swift-to-native lifecycle
+                                            // used by the future playable engine, not only
+                                            // the standalone diagnostics probe.
+                                            let nativeEngine = XRayBootstrapEngine(gameID: game.rawValue)
+                                            do {
+                                                try nativeEngine.start()
+                                            } catch {
+                                                let message = error.localizedDescription
+                                                engineDiagnostics[game.rawValue, default: "X-Ray"] += " · " + message
+                                            }
+                                            nativeEngine.stop()
+                                            showDiagnostics = true
                                             showEngineNotice = true
                                         }
                                     } label: {

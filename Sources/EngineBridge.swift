@@ -21,7 +21,15 @@ enum EngineStartError: LocalizedError {
         switch self {
         case .notPorted: return "Исполняемый X-Ray пока не подключён к iOS"
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
-        case .nativeEntryFailed(let code): return "Нативный мост X-Ray завершился с ошибкой \(code)"
+        case .nativeEntryFailed(let code):
+            switch code {
+            case -5: return "Движок не поддерживает запуск с папкой игровых ресурсов (-5)"
+            case -4: return "Движок вызвал исключение C++ во время запуска (-4)"
+            case -3: return "Нативный движок уже выполняется (-3)"
+            case -2: return "Неверные параметры запуска движка (-2)"
+            case -1: return "Точка входа движка не подключена (-1)"
+            default: return "Нативный мост X-Ray завершился с ошибкой \\(code)"
+            }
         }
     }
 }

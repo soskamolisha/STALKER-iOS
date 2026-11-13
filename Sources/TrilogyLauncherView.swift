@@ -139,7 +139,7 @@ struct TrilogyLauncherView: View {
                 Button {
                     selectedSection = section
                     if section == "about" { showAbout = true }
-                    if section == "import" {
+                    if section == "import" && !nativeRunInProgress {
                         selectedGame = .shadow
                         showImporter = true
                     }
@@ -253,7 +253,7 @@ struct TrilogyLauncherView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .tint(.orange)
-                                    .disabled(nativeRunInProgress || isCopying)
+                                    .disabled(nativeRunInProgress || isCopying || resources.importInProgress)
                                 }
                                 HStack {
                                     if showDiagnostics { Button(russian ? "Проверить ядро" : "Check engine") {
@@ -342,7 +342,7 @@ struct TrilogyLauncherView: View {
                                             .minimumScaleFactor(0.8)
                                     }
                                     .buttonStyle(.borderedProminent).tint(.yellow)
-                                    .disabled(resources.importInProgress || isCopying)
+                                    .disabled(resources.importInProgress || isCopying || nativeRunInProgress)
 
                                 }
                             }

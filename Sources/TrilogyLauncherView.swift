@@ -301,6 +301,12 @@ struct TrilogyLauncherView: View {
                                             // used by the future playable engine, not only
                                             // the standalone diagnostics probe.
                                             let nativeEngine = XRayBootstrapEngine(gameID: game.rawValue)
+                                            engineDiagnostics[game.rawValue, default: "X-Ray"] +=
+                                                nativeEngine.isNativeEntryLinked
+                                                ? (russian ? " · OpenXRay: точка входа связана (запуск не проверен)"
+                                                           : " · OpenXRay: entry linked (launch unverified)")
+                                                : (russian ? " · OpenXRay: исполняемый модуль не подключён"
+                                                           : " · OpenXRay: executable module not linked")
                                             do {
                                                 try nativeEngine.start()
                                             } catch {

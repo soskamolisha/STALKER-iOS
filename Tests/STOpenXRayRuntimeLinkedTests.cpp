@@ -23,7 +23,7 @@ int main() {
     assert(st_openxray_runtime_run(nullptr) == -2);
     // Legacy mock entry is linked, but resource-aware entry is absent.
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
-    assert(st_openxray_runtime_run_with_resources("", "/tmp/game") == -5);
+    assert(st_openxray_runtime_run_with_resources("", "/tmp") == -5);
     assert(st_openxray_runtime_run("-stalker-ios-test") == 42);
     assert(nested_status == -3);
     // Verify the guard is released after the first engine call returns.

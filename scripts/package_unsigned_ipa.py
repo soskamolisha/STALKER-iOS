@@ -30,9 +30,16 @@ def package(app, output):
     temporary = output.with_suffix(output.suffix + ".tmp")
     try:
         with zipfile.ZipFile(temporary, "w", zipfile.ZIP_DEFLATED) as z:
+            # Some on-device IPA signers require explicit Payload and .app
+            # directory entries, as produced by standard Apple ZIP tooling.
+            z.writestr("Payload/", b"")
+            z.writestr(f"Payload/{app.name}/", b"")
             for p in files:
-                if p.is_file():
-                    z.write(p, str(Path("Payload") / app.name / p.relative_to(app)))
+                entry = str(Path("Payload") / app.name / p.relative_to(app))
+                if p.is_dir():
+                    z.writestr(entry + "/", b"")
+                elif p.is_file():
+                    z.write(p, entry)
         with zipfile.ZipFile(temporary) as z:
             if z.testzip() is not None:
                 raise ValueError("Archive integrity check failed")

@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstring>
 #include <string>
+#include <cstdio>
 #include <stdexcept>
 #include <unistd.h>
 #include <cstdlib>
@@ -14,7 +15,8 @@ extern "C" int st_xray_embedded_run(const char*) {
     cross_entry_result = st_openxray_runtime_run_with_resources("", "/tmp");
     return 23;
 }
-static const char* expected_root = "/tmp";
+static std::string test_root;
+static const char* expected_root = nullptr;
 extern "C" int st_xray_embedded_run_with_resources(const char* args, const char* root) {
     assert(root && std::strcmp(root, expected_root) == 0);
     if (std::strcmp(args, "-nested") == 0) {
@@ -26,6 +28,17 @@ extern "C" int st_xray_embedded_run_with_resources(const char* args, const char*
 }
 
 int main() {
+    char root_template[] = "/tmp/stalker-xray-config-XXXXXX";
+    char* created_root = mkdtemp(root_template);
+    assert(created_root != nullptr);
+    test_root = created_root;
+    expected_root = test_root.c_str();
+    assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
+    const std::string config_path = test_root + "/fsgame.ltx";
+    FILE* config = std::fopen(config_path.c_str(), "wb");
+    assert(config != nullptr);
+    assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
+    assert(std::fclose(config) == 0);
     assert(st_openxray_runtime_resources_linked() == 1);
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
@@ -48,4 +61,6 @@ int main() {
     assert(nested_result == -3);
     assert(st_openxray_runtime_run_with_resources("-throw", expected_root) == -4);
     assert(st_openxray_runtime_run_with_resources("", expected_root) == 11);
+    assert(std::remove(config_path.c_str()) == 0);
+    assert(rmdir(expected_root) == 0);
 }

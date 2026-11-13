@@ -45,8 +45,15 @@ def main():
         if len(candidates) != 1:
             parser.error(f"expected exactly one static .a archive; found {len(candidates)}")
         target = root / "engine.a"
+        # Stream with an actual byte limit: ZIP metadata alone is not trustworthy.
+        max_bytes = 4 * 1024 * 1024 * 1024
         with archive.open(candidates[0]) as stream, target.open("wb") as out:
-            shutil.copyfileobj(stream, out)
+            copied = 0
+            while chunk := stream.read(1024 * 1024):
+                copied += len(chunk)
+                if copied > max_bytes:
+                    parser.error("extracted archive exceeds 4 GiB safety limit")
+                out.write(chunk)
         verifier = Path(__file__).with_name("verify_openxray_archive.py")
         result = subprocess.run([sys.executable, str(verifier), str(target)])
         if result.returncode:

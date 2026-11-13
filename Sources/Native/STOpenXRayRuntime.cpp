@@ -7,7 +7,10 @@
 
 // Weak linkage allows the launcher to build without the optional upstream
 // OpenXRay archive. This bridge does not imply iOS runtime compatibility.
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__APPLE__)
+// Mach-O needs weak_import for an optional, undefined external symbol.
+extern "C" int st_xray_embedded_run(const char*) __attribute__((weak_import));
+#elif defined(__GNUC__) || defined(__clang__)
 extern "C" int st_xray_embedded_run(const char*) __attribute__((weak));
 #else
 extern "C" int st_xray_embedded_run(const char*);
@@ -47,7 +50,9 @@ extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
 #endif
 }
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__APPLE__)
+extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak_import));
+#elif defined(__GNUC__) || defined(__clang__)
 extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak));
 #endif
 

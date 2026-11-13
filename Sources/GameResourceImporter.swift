@@ -102,9 +102,17 @@ enum GameResourceImporter {
             throw ImportFailure.invalidFilesystemConfig
         }
         // Do not overwrite the source folder; modify only the staged import.
+        let appdata = staging.appendingPathComponent("appdata", isDirectory: true)
+        // Never allow a preexisting symlink or regular file to redirect
+        // saves/logs outside the imported game sandbox.
+        if (try? appdata.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])) != nil {
+            let values = try appdata.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
+            guard values.isSymbolicLink != true, values.isDirectory == true else {
+                throw ImportFailure.invalidFilesystemConfig
+            }
+        }
+        try fm.createDirectory(at: appdata, withIntermediateDirectories: true)
         try bytes.write(to: config, options: .atomic)
-        try fm.createDirectory(at: staging.appendingPathComponent("appdata", isDirectory: true),
-                               withIntermediateDirectories: true)
     }
 
     private static func unwrapPortDataDirectory(in staging: URL) throws {

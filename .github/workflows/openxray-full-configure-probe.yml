@@ -607,6 +607,9 @@ jobs:
             echo "::error::Missing embedded OpenXRay entry point"
             exit 1
           fi
+          # Reject archives without the resource-aware ABI required by the launcher.
+          # A legacy-only archive cannot launch imported game assets.
+          python3 scripts/verify_openxray_archive.py --require-resources engine-integration/libOpenXRayCombinedProbe.a
           /usr/bin/lipo -verify_arch arm64 engine-integration/libOpenXRayCombinedProbe.a
           /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
           printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=absent\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt

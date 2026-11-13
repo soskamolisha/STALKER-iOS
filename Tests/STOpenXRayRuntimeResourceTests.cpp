@@ -1,6 +1,7 @@
 #include "../Sources/Native/STOpenXRayRuntime.h"
 #include <cassert>
 #include <cstring>
+#include <string>
 #include <stdexcept>
 #include <unistd.h>
 #include <cstdlib>
@@ -37,6 +38,9 @@ int main() {
     assert(unlink(temporary) == 0);
     assert(symlink("/tmp", temporary) == 0);
     assert(st_openxray_runtime_run_with_resources("", temporary) == -6);
+    const std::string slash_link = std::string(temporary) + "/";
+    assert(st_openxray_runtime_run_with_resources("", slash_link.c_str()) == -6);
+    assert(st_openxray_runtime_run_with_resources("", "/tmp/") == -6);
     assert(unlink(temporary) == 0);
     assert(st_openxray_runtime_run("-legacy") == 23);
     assert(cross_entry_result == -3);

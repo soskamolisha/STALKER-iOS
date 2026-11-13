@@ -3,10 +3,15 @@
 # Does not download proprietary game data, sign an IPA or start paid CI.
 set -euo pipefail
 if [[ $# -ne 1 ]]; then
-  echo "Usage: bash scripts/build_with_openxray.sh /path/to/libOpenXRayCombinedProbe.a" >&2
+  echo "Usage: bash scripts/build_with_openxray.sh /path/to/libOpenXRayCombinedProbe.a or artifact.zip" >&2
   exit 2
 fi
-archive="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+input="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+archive="$input"
+if [[ "$input" == *.zip ]]; then
+  python3 scripts/integrate_openxray_artifact.py "$input"
+  archive="$(pwd)/build-openxray/engine/libOpenXRayCombinedProbe.a"
+fi
 test -s "$archive" || { echo "Missing or empty archive: $archive" >&2; exit 1; }
 python3 scripts/verify_openxray_archive.py "$archive"
 command -v xcodegen >/dev/null || { echo "Install xcodegen first" >&2; exit 1; }

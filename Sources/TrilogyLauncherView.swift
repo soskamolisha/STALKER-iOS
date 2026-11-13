@@ -248,7 +248,7 @@ struct TrilogyLauncherView: View {
                                     ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
                                         .tint(.orange)
                                 }
-                                if showDiagnostics && st_openxray_runtime_linked() == 1 {
+                                if showDiagnostics && st_openxray_runtime_resources_linked() == 1 {
                                     Button(russian ? "Тест запуска X-Ray" : "Test X-Ray entry") {
                                         nativeRunGame = game
                                     }

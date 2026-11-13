@@ -8,7 +8,10 @@ extern "C" int32_t st_xray_lzo_decompress(const void* source, uint32_t source_si
     if (!source || !destination || source_size == 0 || expected_size == 0 ||
         expected_size > destination_capacity || expected_size > 64u * 1024u * 1024u)
         return -3;
-    lzo_uint decoded_size = destination_capacity;
+    // Never let the codec write beyond the size declared by the archive.
+    // The caller may provide a larger buffer, but only expected_size bytes
+    // belong to this entry.
+    lzo_uint decoded_size = expected_size;
     const int result = lzo1x_decompress_safe(
         reinterpret_cast<const unsigned char*>(source), source_size,
         reinterpret_cast<unsigned char*>(destination), &decoded_size, nullptr);

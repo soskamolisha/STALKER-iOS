@@ -1,5 +1,6 @@
 #include "STOpenXRayRuntime.h"
 #include <atomic>
+#include <sys/stat.h>
 
 // Weak linkage allows the launcher to build without the optional upstream
 // OpenXRay archive. This bridge does not imply iOS runtime compatibility.
@@ -50,6 +51,8 @@ extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __a
 extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
                                                              const char* resource_root) {
     if (!command_line || !resource_root || !resource_root[0]) return -2;
+    struct stat root_info;
+    if (stat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;
 #if defined(__GNUC__) || defined(__clang__)
     // Never silently call the old entry: it cannot receive the imported root.
     if (!st_xray_embedded_run_with_resources) return -5;

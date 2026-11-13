@@ -120,11 +120,16 @@ final class XRayBootstrapEngine: GameEngine {
         // Do not capture the Swift engine or any UIKit state on this worker.
         // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay
         // does not define it. The empty command line uses upstream defaults.
-        // Resource mounting and renderer integration are still unverified.
+        // Requires the engine to export the resource-aware ABI; otherwise
+        // the bridge returns -5 rather than launching with the wrong data.
         let result = await Task.detached(priority: .userInitiated) {
-            "".withCString { st_openxray_runtime_run($0) }
+            root.path.withCString { rootPointer in
+                "".withCString { argsPointer in
+                    st_openxray_runtime_run_with_resources(argsPointer, rootPointer)
+                }
+            }
         }.value
-        if (-4 ... -1).contains(result) {
+        if (-5 ... -1).contains(result) {
             throw EngineStartError.nativeEntryFailed(result)
         }
         return result

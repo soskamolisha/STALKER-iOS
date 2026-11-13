@@ -105,8 +105,11 @@ final class XRayBootstrapEngine: GameEngine {
         }
         // The embedded C entry is synchronous and may block indefinitely.
         // Do not capture the Swift engine or any UIKit state on this worker.
+        // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay
+        // does not define it. The empty command line uses upstream defaults.
+        // Resource mounting and renderer integration are still unverified.
         let result = await Task.detached(priority: .userInitiated) {
-            "-stalker-ios".withCString { st_openxray_runtime_run($0) }
+            "".withCString { st_openxray_runtime_run($0) }
         }.value
         if (-4 ... -1).contains(result) {
             throw EngineStartError.nativeEntryFailed(result)

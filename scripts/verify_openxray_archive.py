@@ -27,7 +27,14 @@ def main():
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Archive validation failed: {error}", file=sys.stderr)
         return 1
-    if "_st_xray_embedded_run" not in symbols.split():
+    # Only a defined exported symbol counts; a U (undefined) reference is not an implementation.
+    defined = any(
+        len(parts := line.split()) >= 2
+        and parts[-1] == "_st_xray_embedded_run"
+        and parts[-2].upper() != "U"
+        for line in symbols.splitlines()
+    )
+    if not defined:
         print("Missing st_xray_embedded_run export", file=sys.stderr)
         return 1
     # The entry symbol is weak in the launcher bridge; a static archive

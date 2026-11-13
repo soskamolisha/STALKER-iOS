@@ -84,6 +84,7 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STOpenXRayRuntime.cpp Tests/STOpenXRayRuntimeResourceTests.cpp -o /tmp/stalker-openxray-resource-tests
           /tmp/stalker-openxray-resource-tests
           python3 Tests/test_openxray_archive_symbols.py
+          python3 Tests/test_openxray_archive_cli.py
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   build:

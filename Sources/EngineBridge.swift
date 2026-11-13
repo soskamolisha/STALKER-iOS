@@ -15,9 +15,11 @@ enum GameInput: Int32 {
 
 enum EngineStartError: LocalizedError {
     case notPorted
+    case resourcesUnavailable
     var errorDescription: String? {
         switch self {
-        case .notPorted: return "Движок X-Ray пока не портирован на iOS"
+        case .notPorted: return "Исполняемый X-Ray пока не подключён к iOS"
+        case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
         }
     }
 }
@@ -33,6 +35,66 @@ final class UnavailableEngine: GameEngine {
     }
 }
 
+
+
+/// Native resource lifecycle adapter used by the launcher. This connects the
+/// Swift game-engine boundary to the X-Ray C bootstrap, but intentionally does
+/// not report a playable engine until the upstream runtime is linked.
+final class XRayBootstrapEngine: GameEngine {
+    let isAvailable = false
+    private let gameID: String
+    private var handle: STXRayHandle?
+    private let nativeInput = st_input_create()
+
+    init(gameID: String) { self.gameID = gameID }
+    deinit {
+        stop()
+        st_input_destroy(nativeInput)
+    }
+
+    func start() throws {
+        stop()
+        let edition: Int32
+        switch gameID {
+        case "shadow": edition = 0
+        case "clearSky": edition = 1
+        case "pripyat": edition = 2
+        default: throw EngineStartError.resourcesUnavailable
+        }
+        guard let core = st_xray_create() else {
+            throw EngineStartError.resourcesUnavailable
+        }
+        handle = core
+        guard st_xray_initialize(core, edition) == 0 else {
+            stop()
+            throw EngineStartError.resourcesUnavailable
+        }
+        let root = FileManager.default.urls(for: .applicationSupportDirectory,
+                                             in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
+        guard root.path.withCString({ st_xray_attach_resources(core, $0) }) == 0 else {
+            stop()
+            throw EngineStartError.resourcesUnavailable
+        }
+        // Resource bootstrap is successful; the actual render/game loop is
+        // not part of this target yet. Never claim a successful game launch.
+        throw EngineStartError.notPorted
+    }
+
+    func stop() {
+        if let core = handle {
+            st_xray_shutdown(core)
+            st_xray_destroy(core)
+            handle = nil
+        }
+        st_input_reset(nativeInput)
+    }
+
+    func handle(_ input: GameInput, pressed: Bool) {
+        st_input_set(nativeInput, input.rawValue, pressed ? 1 : 0)
+    }
+}
 
 /// Native X-Ray data probe. This is a resource preflight, NOT a playable engine.
 struct XRayResourcePreflight {

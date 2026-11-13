@@ -1,5 +1,7 @@
 #include "STOpenXRayRuntime.h"
 #include <atomic>
+#include <cstring>
+#include <cstddef>
 #include <sys/stat.h>
 
 // Weak linkage allows the launcher to build without the optional upstream
@@ -53,7 +55,7 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     if (!command_line || !resource_root || !resource_root[0]) return -2;
     // A trailing slash makes lstat follow a directory symlink on POSIX.
     // Reject it so callers cannot bypass the no-symlink root check.
-    const size_t root_length = __builtin_strlen(resource_root);
+    const size_t root_length = std::strlen(resource_root);
     if (root_length > 1 && resource_root[root_length - 1] == '/') return -6;
     struct stat root_info;
     if (lstat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;

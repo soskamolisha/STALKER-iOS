@@ -99,10 +99,13 @@ final class XRayBootstrapEngine: GameEngine {
     /// Call only after resource preflight and explicit user opt-in.
     func runEmbeddedEntryForDiagnostics() async throws -> Int32 {
         guard isNativeEntryLinked else { throw EngineStartError.notPorted }
-        guard let probe = XRayResourcePreflight.inspect(gameID: gameID),
-              probe.hasRecognizedGameData else {
-            throw EngineStartError.resourcesUnavailable
-        }
+        // Archive probing performs synchronous disk reads; keep it off the
+        // SwiftUI main actor just like the blocking native entry point.
+        let editionID = gameID
+        let hasData = await Task.detached(priority: .userInitiated) {
+            XRayResourcePreflight.inspect(gameID: editionID)?.hasRecognizedGameData == true
+        }.value
+        guard hasData else { throw EngineStartError.resourcesUnavailable }
         // The embedded C entry is synchronous and may block indefinitely.
         // Do not capture the Swift engine or any UIKit state on this worker.
         // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay

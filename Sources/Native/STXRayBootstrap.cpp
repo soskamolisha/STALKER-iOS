@@ -417,6 +417,7 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
     uint32_t chunk_id = 0, chunk_size = 0;
     uint64_t chunk_offset = 0;
     int32_t chunk_compressed = 0;
+    bool found_directory = false;
     for (uint32_t i = 0; i < 64; ++i) {
         const int32_t result = st_xray_archive_chunk_info(handle, archive_index, i,
                                                            &chunk_id, &chunk_offset,
@@ -424,6 +425,7 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
         if (result == -2) break;
         if (result != 0) return result;
         if (chunk_id == 1) {
+            found_directory = true;
             const uint64_t file_begin = static_cast<uint64_t>(data_offset) + relative_offset;
             const uint64_t file_end = file_begin + size;
             const uint64_t directory_begin = chunk_offset - 8;
@@ -432,6 +434,7 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
             break;
         }
     }
+    if (!found_directory) return -2;
     return st_xray_archive_read(handle, archive_index,
                                 static_cast<uint64_t>(data_offset) + relative_offset,
                                 destination, size);

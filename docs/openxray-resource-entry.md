@@ -29,3 +29,23 @@ rejected. Do not fabricate this export merely to pass symbol validation.
 Upstream source references:
 - https://github.com/OpenXRay/xray-16/blob/dev/src/xrEngine/x_ray.cpp
 - https://github.com/OpenXRay/xray-16/blob/dev/src/xr_3da/entry_point.cpp
+
+## Concrete launcher-to-engine path contract
+
+The launcher currently imports each edition under
+`Application Support/ImportedGames/{shadow,clearSky,pripyat}` and passes
+that **directory** as `resource_root` to
+`st_openxray_runtime_run_with_resources`. The existing native
+`XRayBootstrap::attachResources` recognizes a nonempty `gamedata/`
+directory or `gamedata.db*` archives at that root; it does **not**
+locate or validate an `fsgame.ltx` filesystem configuration. Thus
+successful resource preflight cannot imply that upstream
+`Core.Initialize` can mount the data.
+
+Before enabling the runtime entry, the engine adapter must resolve a
+game-specific filesystem config from the imported layout, validate its
+paths against the iOS sandbox, and pass that resolved configuration to
+upstream initialization. The archive ABI currently carries only
+`(command_line, resource_root)`; the adapter owns the config lookup.
+Do not synthesize a generic `fsgame.ltx` without confirming the
+required aliases and per-edition resource layout.

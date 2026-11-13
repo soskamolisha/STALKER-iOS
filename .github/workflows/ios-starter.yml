@@ -25,6 +25,12 @@ jobs:
           set -euo pipefail
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
+          # Verify the native controls and geometry bridge on every push,
+          # without invoking a paid macOS/iPhoneOS runner.
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests
+          /tmp/stalker-input-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
+          /tmp/stalker-mesh-bridge-tests
   build:
     # Keep macOS IPA builds opt-in while the account's free Actions compute
     # allowance is exhausted. Portable Linux tests still run on pushes.

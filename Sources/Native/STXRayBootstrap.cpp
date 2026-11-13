@@ -440,6 +440,7 @@ int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_in
                                          uint32_t entry_index, void* destination,
                                          uint32_t destination_capacity) {
     if (!handle || !destination) return -1;
+    if (destination_capacity == 0 || destination_capacity > 64u * 1024u * 1024u) return -3;
     char name[4097] {};
     uint32_t real_size = 0, compressed_size = 0, crc = 0, data_offset = 0;
     const int32_t status = st_xray_archive_directory_entry(

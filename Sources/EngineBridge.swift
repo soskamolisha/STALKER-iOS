@@ -16,10 +16,12 @@ enum GameInput: Int32 {
 enum EngineStartError: LocalizedError {
     case notPorted
     case resourcesUnavailable
+    case nativeEntryFailed(Int32)
     var errorDescription: String? {
         switch self {
         case .notPorted: return "Исполняемый X-Ray пока не подключён к iOS"
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
+        case .nativeEntryFailed(let code): return "Нативный мост X-Ray завершился с ошибкой \(code)"
         }
     }
 }
@@ -103,9 +105,13 @@ final class XRayBootstrapEngine: GameEngine {
         }
         // The embedded C entry is synchronous and may block indefinitely.
         // Do not capture the Swift engine or any UIKit state on this worker.
-        return await Task.detached(priority: .userInitiated) {
+        let result = await Task.detached(priority: .userInitiated) {
             "-stalker-ios".withCString { st_openxray_runtime_run($0) }
         }.value
+        if (-4 ... -1).contains(result) {
+            throw EngineStartError.nativeEntryFailed(result)
+        }
+        return result
     }
 
     func stop() {

@@ -26,10 +26,13 @@ def main():
         with zipfile.ZipFile(source) as archive:
             candidates = []
             for member in archive.infolist():
+                # Bound uncompressed size to avoid archive extraction bombs.
+                if member.file_size > 4 * 1024 * 1024 * 1024:
+                    parser.error("archive member exceeds 4 GiB safety limit")
                 name = Path(member.filename)
                 if member.is_dir():
                     continue
-                if name.is_absolute() or ".." in name.parts:
+                if name.is_absolute() or ".." in name.parts or "\\\\" in member.filename:
                     parser.error("unsafe path inside artifact ZIP")
                 if name.suffix == ".a":
                     candidates.append(member)

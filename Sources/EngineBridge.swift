@@ -28,7 +28,7 @@ enum EngineStartError: LocalizedError {
             case -3: return "Нативный движок уже выполняется (-3)"
             case -2: return "Неверные параметры запуска движка (-2)"
             case -1: return "Точка входа движка не подключена (-1)"
-            default: return "Нативный мост X-Ray завершился с ошибкой \\(code)"
+            default: return "Нативный мост X-Ray завершился с ошибкой \(code)"
             }
         }
     }

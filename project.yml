@@ -28,3 +28,7 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SUPPORTS_MACCATALYST: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+        # Optional upstream OpenXRay static archive. Leave unset for the
+        # lightweight launcher; never treat the archive as a playable engine.
+        # A weak entry reference alone will not pull objects from a .a file.
+        OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS)"

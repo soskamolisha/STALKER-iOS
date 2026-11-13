@@ -87,9 +87,11 @@ enum GameResourceImporter {
             throw ImportFailure.invalidFilesystemConfig
         }
         let lines = text.components(separatedBy: "\n")
-        let indices = lines.indices.filter {
-            lines[$0].trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased().hasPrefix("$app_data_root$")
+        let indices = lines.indices.filter { lineIndex in
+            let line = lines[lineIndex].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let equals = line.firstIndex(of: "=") else { return false }
+            return line[..<equals].trimmingCharacters(in: .whitespaces)
+                .lowercased() == "$app_data_root$"
         }
         guard indices.count == 1 else { throw ImportFailure.invalidFilesystemConfig }
         var edited = lines

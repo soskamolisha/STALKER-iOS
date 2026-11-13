@@ -260,6 +260,7 @@ jobs:
           from pathlib import Path
           p = Path("upstream/src/xr_3da/entry_point.cpp")
           s = p.read_text()
+          s = '#include <sys/stat.h>\n#include <string>\n' + s
           anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
           assert anchor in s, "Upstream entry point layout changed"
           bridge = "\n".join([
@@ -267,6 +268,19 @@ jobs:
               'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
               '{',
               '    return entry_point(command_line ? command_line : "");',
+              '}',
+              '',
+              '// Resource-aware entry (paths containing spaces need upstream parser adaptation).',
+              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run_with_resources(const char* command_line, const char* resource_root)',
+              '{',
+              '    if (!resource_root || resource_root[0] != 47) return -6;',
+              '    const std::string root(resource_root);',
+              '    if (root.find_first_of(" \\t\\r\\n\\\"") != std::string::npos) return -6;',
+              '    const std::string config = root + "/fsgame.ltx";',
+              '    struct stat info {};',
+              '    if (stat(config.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) return -7;',
+              '    const std::string args = std::string(command_line ? command_line : "") + " -fsltx " + config;',
+              '    return entry_point(args.c_str());',
               '}',
               '',
               ''
@@ -612,9 +626,9 @@ jobs:
           python3 scripts/verify_openxray_archive.py --require-resources engine-integration/libOpenXRayCombinedProbe.a
           /usr/bin/lipo -verify_arch arm64 engine-integration/libOpenXRayCombinedProbe.a
           /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
-          printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=absent\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
+          printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=present\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
           rm engine-integration/exported-symbols.txt
-          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Legacy entry only: missing st_xray_embedded_run_with_resources, so strict launcher integration rejects this archive.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
+          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Resource-aware ABI present, but iOS runtime and paths with spaces are not yet supported.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

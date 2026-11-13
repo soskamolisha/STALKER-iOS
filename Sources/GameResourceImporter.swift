@@ -76,6 +76,12 @@ enum GameResourceImporter {
         let config = staging.appendingPathComponent("fsgame.ltx")
         let fm = FileManager.default
         guard fm.fileExists(atPath: config.path) else { return }
+        // A copied symlink could point outside the staged import. Never read
+        // or rewrite an external configuration through that link.
+        let configValues = try config.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
+        guard configValues.isSymbolicLink != true, configValues.isRegularFile == true else {
+            throw ImportFailure.invalidFilesystemConfig
+        }
         let original = try Data(contentsOf: config)
         guard let text = String(data: original, encoding: .isoLatin1) else {
             throw ImportFailure.invalidFilesystemConfig

@@ -27,10 +27,10 @@ def main():
         parser.error(f"invalid artifact ZIP: {error}")
     with artifact, tempfile.TemporaryDirectory(prefix="openxray-artifact-") as temp:
         root = Path(temp)
-        if len(archive.infolist()) > 10000:
+        if len(artifact.infolist()) > 10000:
             parser.error("artifact contains too many entries")
         candidates = []
-        for member in archive.infolist():
+        for member in artifact.infolist():
             # Bound uncompressed size to avoid archive extraction bombs.
             if member.file_size > 4 * 1024 * 1024 * 1024:
                 parser.error("archive member exceeds 4 GiB safety limit")
@@ -46,7 +46,7 @@ def main():
         target = root / "engine.a"
         # Stream with an actual byte limit: ZIP metadata alone is not trustworthy.
         max_bytes = 4 * 1024 * 1024 * 1024
-        with archive.open(candidates[0]) as stream, target.open("wb") as out:
+        with artifact.open(candidates[0]) as stream, target.open("wb") as out:
             copied = 0
             while chunk := stream.read(1024 * 1024):
                 copied += len(chunk)

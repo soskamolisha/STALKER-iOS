@@ -609,9 +609,9 @@ jobs:
           fi
           /usr/bin/lipo -verify_arch arm64 engine-integration/libOpenXRayCombinedProbe.a
           /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
-          printf 'entry_point=st_xray_embedded_run\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
+          printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=absent\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
           rm engine-integration/exported-symbols.txt
-          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
+          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Legacy entry only: missing st_xray_embedded_run_with_resources, so strict launcher integration rejects this archive.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

@@ -62,6 +62,12 @@ jobs:
             exit 1
           fi
           grep -q 'Missing OpenXRay archive or artifact ZIP' /tmp/openxray-negative.log
+          # A missing ZIP should also fail before Xcode or artifact extraction.
+          if bash scripts/build_with_openxray.sh /tmp/does-not-exist-openxray.zip > /tmp/openxray-missing-zip.log 2>&1; then
+            echo "::error::Missing ZIP unexpectedly accepted"
+            exit 1
+          fi
+          grep -q 'Missing OpenXRay archive or artifact ZIP' /tmp/openxray-missing-zip.log
       - name: Test X-Ray resource import on Linux
         run: |
           set -euo pipefail

@@ -21,11 +21,17 @@ def main():
     source = args.artifact_zip.resolve()
     if not source.is_file():
         parser.error(f"artifact not found: {source}")
-    with tempfile.TemporaryDirectory(prefix="openxray-artifact-") as temp:
+    try:
+        artifact = zipfile.ZipFile(source)
+    except (OSError, zipfile.BadZipFile) as error:
+        parser.error(f"invalid artifact ZIP: {error}")
+    with artifact, tempfile.TemporaryDirectory(prefix="openxray-artifact-") as temp:
         root = Path(temp)
-        with zipfile.ZipFile(source) as archive:
-            candidates = []
-            for member in archive.infolist():
+        archive = artifact
+        if len(archive.infolist()) > 10000:
+            parser.error("artifact contains too many entries")
+        candidates = []
+        for member in archive.infolist():
                 # Bound uncompressed size to avoid archive extraction bombs.
                 if member.file_size > 4 * 1024 * 1024 * 1024:
                     parser.error("archive member exceeds 4 GiB safety limit")
@@ -36,11 +42,11 @@ def main():
                     parser.error("unsafe path inside artifact ZIP")
                 if name.suffix == ".a":
                     candidates.append(member)
-            if len(candidates) != 1:
-                parser.error(f"expected exactly one static .a archive; found {len(candidates)}")
-            target = root / "engine.a"
-            with archive.open(candidates[0]) as stream, target.open("wb") as out:
-                shutil.copyfileobj(stream, out)
+        if len(candidates) != 1:
+            parser.error(f"expected exactly one static .a archive; found {len(candidates)}")
+        target = root / "engine.a"
+        with archive.open(candidates[0]) as stream, target.open("wb") as out:
+            shutil.copyfileobj(stream, out)
         verifier = Path(__file__).with_name("verify_openxray_archive.py")
         result = subprocess.run([sys.executable, str(verifier), str(target)])
         if result.returncode:

@@ -12,6 +12,9 @@ if [[ ! -f "$1" ]]; then
 fi
 input="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 archive="$input"
+# Refuse to perform a paid-platform build on an unsupported host.
+command -v xcodebuild >/dev/null || { echo "Requires macOS with Xcode" >&2; exit 1; }
+command -v xcodegen >/dev/null || { echo "Install xcodegen first" >&2; exit 1; }
 if [[ "$input" == *.zip ]]; then
   python3 scripts/integrate_openxray_artifact.py "$input"
   archive="$(pwd)/build-openxray/engine/libOpenXRayCombinedProbe.a"
@@ -24,8 +27,6 @@ if [[ "$archive" == *[[:space:]]* ]]; then
   echo "OpenXRay archive path must not contain whitespace: $archive" >&2
   exit 1
 fi
-command -v xcodegen >/dev/null || { echo "Install xcodegen first" >&2; exit 1; }
-command -v xcodebuild >/dev/null || { echo "Requires macOS with Xcode" >&2; exit 1; }
 xcodegen generate
 # The archive must be force-loaded because the bridge uses a weak symbol.
 # The final link may still fail due to missing upstream libraries/frameworks.

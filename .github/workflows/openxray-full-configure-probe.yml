@@ -595,7 +595,12 @@ jobs:
             tail -n 35 embedded-entry/engine-partial-link.log
             exit 1
           fi
-          rm embedded-entry/libOpenXRayCombinedProbe.a
+          # Keep the compiled engine archive as a reusable integration input.
+          # This is NOT a complete, independently linkable iOS game runtime.
+          mkdir -p engine-integration
+          mv embedded-entry/libOpenXRayCombinedProbe.a engine-integration/libOpenXRayCombinedProbe.a
+          /usr/bin/shasum -a 256 engine-integration/libOpenXRayCombinedProbe.a > engine-integration/SHA256SUMS
+          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1
@@ -625,6 +630,15 @@ jobs:
           /usr/bin/libtool -static -o embedded-entry/libXRayEntryPointProbe.a embedded-entry/entry_point.o
           /usr/bin/ar -t embedded-entry/libXRayEntryPointProbe.a
           echo "This archive contains only an entry-point object, NOT a linkable full engine."
+      - name: Upload reusable arm64 engine integration archive
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-arm64-integration-archive
+          path: engine-integration/
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
       - name: Upload embedded entry-point linkage diagnostics
         if: always()
         uses: actions/upload-artifact@v4

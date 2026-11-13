@@ -42,3 +42,31 @@ extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
     return -1;
 #endif
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak));
+#endif
+
+extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
+                                                             const char* resource_root) {
+    if (!command_line || !resource_root || !resource_root[0]) return -2;
+#if defined(__GNUC__) || defined(__clang__)
+    // Never silently call the old entry: it cannot receive the imported root.
+    if (!st_xray_embedded_run_with_resources) return -5;
+    if (runtime_active.test_and_set(std::memory_order_acquire)) return -3;
+    struct ReleaseFlag {
+        ~ReleaseFlag() { runtime_active.clear(std::memory_order_release); }
+    } release;
+#if defined(__cpp_exceptions)
+    try {
+        return st_xray_embedded_run_with_resources(command_line, resource_root);
+    } catch (...) {
+        return -4;
+    }
+#else
+    return st_xray_embedded_run_with_resources(command_line, resource_root);
+#endif
+#else
+    return -5;
+#endif
+}

@@ -28,7 +28,16 @@ extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
     struct ReleaseFlag {
         ~ReleaseFlag() { runtime_active.clear(std::memory_order_release); }
     } release;
+    // Never allow a C++ exception to unwind across the Swift-facing C ABI.
+#if defined(__cpp_exceptions)
+    try {
+        return st_xray_embedded_run(command_line);
+    } catch (...) {
+        return -4;
+    }
+#else
     return st_xray_embedded_run(command_line);
+#endif
 #else
     return -1;
 #endif

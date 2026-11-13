@@ -92,6 +92,22 @@ final class XRayBootstrapEngine: GameEngine {
         throw EngineStartError.notPorted
     }
 
+    /// Experimental native entry invocation. Never run on the UI thread.
+    /// This is not a verified gameplay path: SDL/UIKit integration is pending.
+    /// Call only after resource preflight and explicit user opt-in.
+    func runEmbeddedEntryForDiagnostics() async throws -> Int32 {
+        guard isNativeEntryLinked else { throw EngineStartError.notPorted }
+        guard let probe = XRayResourcePreflight.inspect(gameID: gameID),
+              probe.hasRecognizedGameData else {
+            throw EngineStartError.resourcesUnavailable
+        }
+        // The embedded C entry is synchronous and may block indefinitely.
+        // Do not capture the Swift engine or any UIKit state on this worker.
+        return await Task.detached(priority: .userInitiated) {
+            "-stalker-ios".withCString { st_openxray_runtime_run($0) }
+        }.value
+    }
+
     func stop() {
         if let core = handle {
             st_xray_shutdown(core)

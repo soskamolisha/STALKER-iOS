@@ -61,7 +61,7 @@ jobs:
             echo "::error::Missing archive unexpectedly accepted"
             exit 1
           fi
-          grep -q 'Missing or empty archive' /tmp/openxray-negative.log
+          grep -q 'Missing OpenXRay archive or artifact ZIP' /tmp/openxray-negative.log
       - name: Test X-Ray resource import on Linux
         run: |
           set -euo pipefail

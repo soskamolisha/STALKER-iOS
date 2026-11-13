@@ -29,6 +29,8 @@ jobs:
           # without invoking a paid macOS/iPhoneOS runner.
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests
           /tmp/stalker-input-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STOpenXRayRuntime.cpp Tests/STOpenXRayRuntimeTests.cpp -o /tmp/stalker-openxray-runtime-tests
+          /tmp/stalker-openxray-runtime-tests
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   build:

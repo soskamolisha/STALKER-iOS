@@ -10,6 +10,8 @@ on:
       - 'Tests/**'
       - 'project.yml'
       - 'scripts/package_unsigned_ipa.py'
+      - 'scripts/build_with_openxray.sh'
+      - 'scripts/verify_openxray_archive.py'
       - '.github/workflows/ios-starter.yml'
 concurrency:
   group: ios-starter-${{ github.ref }}
@@ -20,6 +22,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Validate optional OpenXRay integration script
+        run: |
+          bash -n scripts/build_with_openxray.sh
+          python3 -m py_compile scripts/verify_openxray_archive.py
       - name: Test X-Ray resource import on Linux
         run: |
           set -euo pipefail

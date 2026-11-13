@@ -98,7 +98,7 @@ final class XRayBootstrapEngine: GameEngine {
     /// This is not a verified gameplay path: SDL/UIKit integration is pending.
     /// Call only after resource preflight and explicit user opt-in.
     func runEmbeddedEntryForDiagnostics() async throws -> Int32 {
-        guard isNativeEntryLinked else { throw EngineStartError.notPorted }
+        guard st_openxray_runtime_resources_linked() == 1 else { throw EngineStartError.notPorted }
         // Archive probing performs synchronous disk reads; keep it off the
         // SwiftUI main actor just like the blocking native entry point.
         let editionID = gameID

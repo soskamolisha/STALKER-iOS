@@ -108,6 +108,8 @@ struct TrilogyLauncherView: View {
     @State private var showAbout = false
     @State private var showDiagnostics = false
     @State private var showEngineNotice = false
+    @State private var nativeRunGame: GameEdition?
+    @State private var nativeRunInProgress = false
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var sidebar: some View {
@@ -239,6 +241,14 @@ struct TrilogyLauncherView: View {
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(.yellow)
+                                }
+                                if showDiagnostics && st_openxray_runtime_linked() == 1 {
+                                    Button(russian ? "Тест запуска X-Ray" : "Test X-Ray entry") {
+                                        nativeRunGame = game
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.orange)
+                                    .disabled(nativeRunInProgress || isCopying)
                                 }
                                 HStack {
                                     if showDiagnostics { Button(russian ? "Проверить ядро" : "Check engine") {
@@ -491,6 +501,33 @@ struct TrilogyLauncherView: View {
                 Text(russian
                      ? "Проверка нативного X-Ray завершена. Исполняемый игровой цикл и графика ещё не подключены. Подробности доступны в диагностике выбранной игры."
                      : "Native X-Ray preflight finished. The playable game loop and graphics are not connected yet. See the selected game's diagnostics for details.")
+            }
+            .confirmationDialog(
+                russian ? "Экспериментальный запуск X-Ray" : "Experimental X-Ray launch",
+                isPresented: Binding(get: { nativeRunGame != nil }, set: { if !$0 { nativeRunGame = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button(russian ? "Запустить тест" : "Run test") {
+                    guard let game = nativeRunGame, !nativeRunInProgress else { return }
+                    nativeRunGame = nil
+                    nativeRunInProgress = true
+                    Task {
+                        let engine = XRayBootstrapEngine(gameID: game.rawValue)
+                        do {
+                            let code = try await engine.runEmbeddedEntryForDiagnostics()
+                            engineDiagnostics[game.rawValue] = "Native entry returned: " + String(code) + " (gameplay unverified)"
+                        } catch {
+                            engineDiagnostics[game.rawValue] = error.localizedDescription
+                        }
+                        showDiagnostics = true
+                        nativeRunInProgress = false
+                    }
+                }
+                Button(russian ? "Отмена" : "Cancel", role: .cancel) { nativeRunGame = nil }
+            } message: {
+                Text(russian
+                     ? "Только диагностика: движок может зависнуть или закрыть приложение. Игра не проверена."
+                     : "Diagnostics only: the engine may hang or terminate the app. Gameplay is unverified.")
             }
             .alert(russian ? "О проекте" : "About", isPresented: $showAbout) {
                 Button("OK", role: .cancel) {}

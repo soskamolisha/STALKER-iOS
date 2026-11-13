@@ -51,6 +51,10 @@ extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __a
 extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
                                                              const char* resource_root) {
     if (!command_line || !resource_root || !resource_root[0]) return -2;
+    // A trailing slash makes lstat follow a directory symlink on POSIX.
+    // Reject it so callers cannot bypass the no-symlink root check.
+    const size_t root_length = __builtin_strlen(resource_root);
+    if (root_length > 1 && resource_root[root_length - 1] == '/') return -6;
     struct stat root_info;
     if (lstat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;
 #if defined(__GNUC__) || defined(__clang__)

@@ -125,6 +125,14 @@ final class XRayBootstrapEngine: GameEngine {
         guard FileManager.default.fileExists(atPath: root.path) else {
             throw EngineStartError.resourcesUnavailable
         }
+        // The upstream X-Ray filesystem requires a game-specific fsgame.ltx.
+        // Recognized gamedata archives alone are insufficient for mounting.
+        let config = root.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        guard let configInfo = try? FileManager.default.attributesOfItem(atPath: config.path),
+              (configInfo[.type] as? FileAttributeType) == .typeRegular,
+              (configInfo[.size] as? NSNumber)?.int64Value ?? 0 > 0 else {
+            throw EngineStartError.resourcesUnavailable
+        }
         // The embedded C entry is synchronous and may block indefinitely.
         // Do not capture the Swift engine or any UIKit state on this worker.
         // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay

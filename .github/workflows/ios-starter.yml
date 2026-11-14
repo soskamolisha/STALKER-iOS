@@ -73,6 +73,8 @@ jobs:
           set -euo pipefail
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
+          /tmp/stalker-native-resource-probe-tests
           # Verify the native controls and geometry bridge on every push,
           # without invoking a paid macOS/iPhoneOS runner.
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests

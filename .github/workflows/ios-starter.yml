@@ -199,7 +199,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -305,8 +305,18 @@ jobs:
                   let root = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
                   let config = root.appendingPathComponent("fsgame.ltx")
                   let gamedata = root.appendingPathComponent("gamedata", isDirectory: true)
-                  let archives = (try? FileManager.default.contentsOfDirectory(atPath: root.path))?.filter {
-                      $0.lowercased().hasSuffix(".db") || $0.lowercased().contains(".db")
+                  let archives = (try? FileManager.default.contentsOfDirectory(atPath: root.path))?.filter { name in
+                      let lower = name.lowercased()
+                      guard lower.hasPrefix("gamedata.db") else { return false }
+                      let suffix = lower.dropFirst("gamedata.db".count)
+                      guard (1...2).contains(suffix.count),
+                            suffix.allSatisfy({ $0.isASCII && $0.isLetter || $0.isASCII && $0.isNumber }) else { return false }
+                      let path = root.appendingPathComponent(name).path
+                      var isDirectory: ObjCBool = false
+                      guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+                            !isDirectory.boolValue else { return false }
+                      let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                      return size > 0
                   } ?? []
                   let configSize = (try? FileManager.default.attributesOfItem(atPath: config.path)[.size] as? NSNumber)?.int64Value ?? 0
                   var isDirectory: ObjCBool = false

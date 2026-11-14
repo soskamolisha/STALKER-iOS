@@ -118,7 +118,7 @@ jobs:
           retention-days: 14
   xray-ios-link-smoke:
     # Separate experimental iOS app; the production launcher remains unchanged.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' || github.event.head_commit.message == 'Verify X-Ray engine entry safety in iOS smoke app' || github.event.head_commit.message == 'Fix native smoke source newline escaping' || github.event.head_commit.message == 'Show X-Ray runtime diagnostics in experimental IPA' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' || github.event.head_commit.message == 'Verify X-Ray engine entry safety in iOS smoke app' || github.event.head_commit.message == 'Fix native smoke source newline escaping' || github.event.head_commit.message == 'Show X-Ray runtime diagnostics in experimental IPA' || github.event.head_commit.message == 'Fix X-Ray diagnostics source formatting' }}
     runs-on: macos-latest
     timeout-minutes: 18
     steps:
@@ -148,7 +148,8 @@ jobs:
               UIViewController *controller = [UIViewController new];
               controller.view.backgroundColor = UIColor.blackColor;
               UILabel *label = [UILabel new];
-              NSString *diagnostics = [NSString stringWithFormat:@"X-Ray native bridge: %@\\nEngine runtime: %@\\nResource-aware entry: %@\\nInput controls: %@\\nGameplay: unavailable", runtimeAbsent ? @"not linked" : @"linked", resourceEntryAbsent ? @"not linked" : @"linked", inputOK ? @"OK" : @"FAILED"];\n              label.text = inputOK && absentEntryRejectsLaunch ? diagnostics : @"Native bridge smoke test failed";
+              NSString *diagnostics = [NSString stringWithFormat:@"X-Ray native bridge: %@\\nEngine runtime: %@\\nResource-aware entry: %@\\nInput controls: %@\\nGameplay: unavailable", runtimeAbsent ? @"not linked" : @"linked", resourceEntryAbsent ? @"not linked" : @"linked", inputOK ? @"OK" : @"FAILED"];
+              label.text = inputOK && absentEntryRejectsLaunch ? diagnostics : @"Native bridge smoke test failed";
               label.textColor = UIColor.whiteColor;
               label.numberOfLines = 0;
               label.textAlignment = NSTextAlignmentCenter;

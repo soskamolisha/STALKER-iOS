@@ -8,6 +8,7 @@
 extern "C" int32_t st_xray_probe_shadow_resources(const char*, uint32_t*, uint64_t*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_chunks(const char*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_chunk_info(const char*, uint32_t, uint32_t*, uint32_t*, int32_t*);
+extern "C" int32_t st_xray_probe_first_archive_chunk_read(const char*, uint32_t, void*, uint32_t, uint32_t*);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -34,6 +35,13 @@ int main() {
     int32_t compressed = -1;
     assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == 0);
     assert(id == 1 && size == 3 && compressed == 0);
+    char payload[4] = {};
+    uint32_t actual = 99;
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 2, &actual) == -6);
+    assert(actual == 0);
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 3, &actual) == 0);
+    assert(actual == 3 && std::string(payload, 3) == "abc");
+    assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
     // Truncated payload must be rejected rather than accepted as a chunk.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);

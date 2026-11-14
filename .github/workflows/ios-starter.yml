@@ -199,7 +199,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -290,30 +290,30 @@ jobs:
           s=s.replace('Text("X-RAY OFF")', 'Text(XRayStatus.summary)')
           s=s.replace('Text("Только интерфейс · игровой движок отключён")', 'Text(XRayStatus.details)')
           s=s.replace('Text(sectionDescription)', 'Text(infoSection == "О проекте" ? XRayStatus.details : sectionDescription)')
-          s=s.replace('import UIKit', 'import UIKit\\nimport UniformTypeIdentifiers')
+          s=s.replace('import UIKit', 'import UIKit\nimport UniformTypeIdentifiers')
           s=s.replace('@State private var settings = false', '@State private var settings = false\\n    @State private var importingGameFolder = false\\n    @State private var importMessage: String?')
           s=s.replace('Text(infoSection ?? "STALKER Mobile")', 'Text(infoSection ?? "STALKER Mobile")\\n                        if infoSection == "Импорт ресурсов" {\\n                            Button("Выбрать папку Тени Чернобыля") { importingGameFolder = true }\\n                                .buttonStyle(.borderedProminent).tint(.yellow)\\n                            if let importMessage { Text(importMessage).font(.footnote).foregroundStyle(.white) }\\n                        }')
           s=s.replace('        .sheet(isPresented: $settings) {', '''        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
-            switch result {
-            case .failure(let error): importMessage = "Ошибка выбора: \\(error.localizedDescription)"
-            case .success(let url):
-                let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                do {
-                    let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                    let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
-                    guard !FileManager.default.fileExists(atPath: target.path) else {
-                        importMessage = "Папка ShadowOfChernobyl уже существует. Удаление или замена не выполняется."
-                        return
-                    }
-                    try FileManager.default.copyItem(at: url, to: target)
-                    importMessage = "Папка скопирована. " + XRayStatus.resourcePreflight
-                } catch {
-                    importMessage = "Ошибка копирования: \\(error.localizedDescription)"
-                }
-            }
-        }
-        .sheet(isPresented: $settings) {''')
+                      switch result {
+                      case .failure(let error): importMessage = "Ошибка выбора: \\(error.localizedDescription)"
+                      case .success(let url):
+                          let access = url.startAccessingSecurityScopedResource()
+                          defer { if access { url.stopAccessingSecurityScopedResource() } }
+                          do {
+                              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                              let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                              guard !FileManager.default.fileExists(atPath: target.path) else {
+                                  importMessage = "Папка ShadowOfChernobyl уже существует. Удаление или замена не выполняется."
+                                  return
+                              }
+                              try FileManager.default.copyItem(at: url, to: target)
+                              importMessage = "Папка скопирована. " + XRayStatus.resourcePreflight
+                          } catch {
+                              importMessage = "Ошибка копирования: \\(error.localizedDescription)"
+                          }
+                      }
+                  }
+                  .sheet(isPresented: $settings) {''')
 
           p.write_text(s)
           PY

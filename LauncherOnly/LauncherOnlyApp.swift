@@ -24,6 +24,8 @@ struct LauncherOnlyView: View {
     @State private var section = "Главная"
     @State private var notice = false
     @State private var settings = false
+    @State private var selectedGame: Edition?
+    @AppStorage("launcher.showWheel") private var showWheel = true
     private let menu: [(String, String)] = [
         ("Главная", "house.fill"), ("Игры", "square.grid.2x2"),
         ("Импорт ресурсов", "square.and.arrow.down"), ("Настройки", "gearshape"),
@@ -35,14 +37,14 @@ struct LauncherOnlyView: View {
             ZStack {
                 LinearGradient(colors: [.black, Color(red: 0.14, green: 0.16, blue: 0.12)],
                                startPoint: .bottom, endPoint: .top).ignoresSafeArea()
-                wheel.opacity(0.30).ignoresSafeArea()
+                if showWheel { wheel.opacity(0.30).ignoresSafeArea() }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(menu, id: \.0) { item in
                             Button {
                                 section = item.0
                                 if item.0 == "Настройки" { settings = true }
-                                else if item.0 != "Главная" && item.0 != "Игры" { notice = true }
+                                else if item.0 == "Импорт ресурсов" || item.0 == "Сохранения" || item.0 == "О проекте" { notice = true }
                             } label: {
                                 Label(item.0, systemImage: item.1)
                                     .font(.system(size: 12, weight: .semibold))
@@ -90,7 +92,7 @@ struct LauncherOnlyView: View {
                                         .lineLimit(1).minimumScaleFactor(0.65)
                                     Label("Ресурсы не добавлены", systemImage: "folder")
                                         .font(.caption2).foregroundStyle(.gray)
-                                    Button("Выбрать игру") { notice = true }
+                                    Button("Выбрать игру") { selectedGame = game }
                                         .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)
                                         .frame(maxWidth: .infinity)
                                 }
@@ -111,12 +113,50 @@ struct LauncherOnlyView: View {
         } message: {
             Text("Это демонстрационный лаунчер. Движок X-Ray и запуск игр отключены.")
         }
+        .sheet(item: $selectedGame) { game in
+            NavigationStack {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        if let url = Bundle.main.url(forResource: "card_\\(game.rawValue)", withExtension: "jpg"),
+                           let image = UIImage(contentsOfFile: url.path) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxHeight: 260)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        Text(game.title)
+                            .font(.title2.bold())
+                            .foregroundStyle(.yellow)
+                        Label("Файлы игры пока не добавлены", systemImage: "folder.badge.questionmark")
+                            .foregroundStyle(.white)
+                        Text("Это версия лаунчера без X-Ray. Игру запустить нельзя, но карточки и меню работают.")
+                            .multilineTextAlignment(.center)
+                            .font(.footnote)
+                            .foregroundStyle(.gray)
+                        Button("Вернуться к играм") { selectedGame = nil }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.yellow)
+                    }
+                    .padding(24)
+                }
+                .navigationTitle("Информация об игре")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Закрыть") { selectedGame = nil }
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $settings) {
             NavigationStack {
                 Form {
                     LabeledContent("Версия", value: "Launcher Only")
                     LabeledContent("Движок X-Ray", value: "Отключён")
                     LabeledContent("Карточки", value: "3")
+                    Toggle("Колесо обозрения на фоне", isOn: $showWheel)
                 }
                 .navigationTitle("Настройки")
                 .toolbar {

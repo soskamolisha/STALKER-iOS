@@ -1,5 +1,7 @@
 #include "XRayBootstrap.hpp"
 #include "XRayChunkIndex.hpp"
+#include "XRayChunkPayload.hpp"
+#include <cstring>
 #include <vector>
 #include <cstdint>
 
@@ -61,5 +63,33 @@ extern "C" int32_t st_xray_probe_first_archive_chunk_info(const char* utf8_path,
     *chunk_id = entry.id;
     *payload_size = entry.size;
     *compressed = entry.compressed ? 1 : 0;
+    return 0;
+}
+
+/* Read a bounded uncompressed X-Ray chunk into a caller-owned buffer.
+   Compressed chunks deliberately require a separate decoder. */
+extern "C" int32_t st_xray_probe_first_archive_chunk_read(const char* utf8_path,
+                                                             uint32_t chunk_index,
+                                                             void* destination,
+                                                             uint32_t capacity,
+                                                             uint32_t* actual_size) {
+    if (!utf8_path || !actual_size || (!destination && capacity)) return -1;
+    *actual_size = 0;
+    stalker::XRayBootstrap bootstrap;
+    if (!bootstrap.initialize(stalker::GameEdition::shadow) ||
+        !bootstrap.attachResources(utf8_path) ||
+        bootstrap.packedArchiveNames().empty()) return -3;
+    const std::string archive = bootstrap.resourceRoot() + "/" +
+                                bootstrap.packedArchiveNames().front();
+    std::vector<stalker::ChunkEntry> entries;
+    if (!stalker::indexXRayChunks(archive, entries, 65536)) return -4;
+    if (chunk_index >= entries.size()) return -2;
+    const auto& entry = entries[chunk_index];
+    if (entry.compressed) return -5;
+    if (entry.size > capacity || entry.size > 65536) return -6;
+    std::vector<std::uint8_t> payload;
+    if (!stalker::readChunkPayload(archive, entry, payload, 65536)) return -4;
+    if (!payload.empty()) std::memcpy(destination, payload.data(), payload.size());
+    *actual_size = static_cast<uint32_t>(payload.size());
     return 0;
 }

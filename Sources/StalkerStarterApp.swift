@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 struct StalkerStarterApp: App {
     var body: some Scene {
         WindowGroup {
-            GameShellView()
+            TrilogyLauncherView()
                 .preferredColorScheme(.dark)
         }
     }

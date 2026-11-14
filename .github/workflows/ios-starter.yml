@@ -2,21 +2,697 @@ name: Build iOS starter
 on:
   workflow_dispatch:
   push:
+    branches:
+      - feature/trilogy-launcher-v3
     paths:
       - 'Sources/**'
-      - 'project.yml'
+      - 'Resources/**'
       - 'Tests/**'
+      - 'project.yml'
       - 'scripts/package_unsigned_ipa.py'
+      - 'scripts/build_with_openxray.sh'
+      - 'scripts/verify_openxray_archive.py'
+      - 'scripts/integrate_openxray_artifact.py'
       - '.github/workflows/ios-starter.yml'
+concurrency:
+  group: ios-starter-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  build:
-    runs-on: macos-latest
+  portable-resource-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
+      - name: Validate optional OpenXRay integration script
+        run: |
+          bash -n scripts/build_with_openxray.sh
+          python3 -m py_compile scripts/verify_openxray_archive.py
+          python3 -m py_compile scripts/integrate_openxray_artifact.py
+          # Artifact ZIP path traversal must be rejected before extraction.
+          python3 - <<'PY'
+          import tempfile, zipfile, subprocess, sys
+          from pathlib import Path
+          with tempfile.TemporaryDirectory() as temp:
+              path = Path(temp) / "malicious.zip"
+              with zipfile.ZipFile(path, "w") as z:
+                  z.writestr("../escape.a", b"not an engine")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "unsafe path" in result.stderr, result.stderr
+              with zipfile.ZipFile(path, "w") as z:
+                  z.writestr("folder\\\\escape.a", b"not an engine")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "unsafe path" in result.stderr, result.stderr
+              path.write_bytes(b"not a zip")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "invalid artifact ZIP" in result.stderr, result.stderr
+              with zipfile.ZipFile(path, "w") as z:
+                  z.writestr("first.a", b"fake")
+                  z.writestr("second.a", b"fake")
+              result = subprocess.run([sys.executable, "scripts/integrate_openxray_artifact.py", str(path)], capture_output=True, text=True)
+              assert result.returncode != 0, result.stdout
+              assert "expected exactly one static .a archive" in result.stderr, result.stderr
+          PY
+          # A missing engine archive must fail immediately rather than
+          # producing a launcher falsely described as OpenXRay-enabled.
+          if bash scripts/build_with_openxray.sh /tmp/does-not-exist-openxray.a > /tmp/openxray-negative.log 2>&1; then
+            echo "::error::Missing archive unexpectedly accepted"
+            exit 1
+          fi
+          grep -q 'Missing OpenXRay archive or artifact ZIP' /tmp/openxray-negative.log
+          # A missing ZIP should also fail before Xcode or artifact extraction.
+          if bash scripts/build_with_openxray.sh /tmp/does-not-exist-openxray.zip > /tmp/openxray-missing-zip.log 2>&1; then
+            echo "::error::Missing ZIP unexpectedly accepted"
+            exit 1
+          fi
+          grep -q 'Missing OpenXRay archive or artifact ZIP' /tmp/openxray-missing-zip.log
+      - name: Test X-Ray resource import on Linux
+        run: |
+          set -euo pipefail
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
+          /tmp/stalker-xray-bootstrap-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
+          /tmp/stalker-native-resource-probe-tests
+          # Verify the native controls and geometry bridge on every push,
+          # without invoking a paid macOS/iPhoneOS runner.
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests
+          /tmp/stalker-input-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STOpenXRayRuntime.cpp Tests/STOpenXRayRuntimeTests.cpp -o /tmp/stalker-openxray-runtime-tests
+          /tmp/stalker-openxray-runtime-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STOpenXRayRuntime.cpp Tests/STOpenXRayRuntimeLinkedTests.cpp -o /tmp/stalker-openxray-linked-tests
+          /tmp/stalker-openxray-linked-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STOpenXRayRuntime.cpp Tests/STOpenXRayRuntimeResourceTests.cpp -o /tmp/stalker-openxray-resource-tests
+          /tmp/stalker-openxray-resource-tests
+          python3 Tests/test_openxray_archive_symbols.py
+          python3 Tests/test_openxray_archive_cli.py
+          python3 Tests/test_openxray_artifact_import.py
+          python3 Tests/test_adapt_fsgame_ios.py
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
+          /tmp/stalker-mesh-bridge-tests
+  xray-ios-native-probe:
+    # Experimental arm64 iPhoneOS compilation; does not alter the working launcher IPA.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Probe X-Ray native bridge on iPhoneOS' }}
+    runs-on: macos-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile native X-Ray resource bridge and input for iPhone ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CXX="$(xcrun --sdk iphoneos --find clang++)"
+          mkdir -p build/xray-ios-probe
+          for source in Sources/Native/STOpenXRayRuntime.cpp Sources/Native/STInput.cpp; do
+            name="$(basename "${source%.cpp}")"
+            "$CXX" -std=c++17 -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 \
+              -Wall -Wextra -c "$source" -o "build/xray-ios-probe/$name.o"
+          done
+          xcrun --sdk iphoneos ar rcs build/xray-ios-probe/libSTXRayBridgeProbe.a build/xray-ios-probe/*.o
+          xcrun lipo -info build/xray-ios-probe/libSTXRayBridgeProbe.a
+          echo "Native bridge compiles for iPhoneOS ARM64; full engine and renderer are NOT linked."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STXRay-iPhoneOS-ARM64-bridge-probe
+          path: build/xray-ios-probe/libSTXRayBridgeProbe.a
+          retention-days: 14
+  xray-ios-link-smoke:
+    # Separate experimental iOS app; the production launcher remains unchanged.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' || github.event.head_commit.message == 'Verify X-Ray engine entry safety in iOS smoke app' || github.event.head_commit.message == 'Fix native smoke source newline escaping' || github.event.head_commit.message == 'Show X-Ray runtime diagnostics in experimental IPA' || github.event.head_commit.message == 'Fix X-Ray diagnostics source formatting' }}
+    runs-on: macos-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create native bridge smoke-test iOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p XRayLinkSmoke
+          cat > XRayLinkSmoke/main.mm <<'OBJC'
+          #import <UIKit/UIKit.h>
+          #include "../Sources/Native/STInput.h"
+          #include "../Sources/Native/STOpenXRayRuntime.h"
+          @interface SmokeAppDelegate : UIResponder <UIApplicationDelegate>
+          @property (nonatomic, strong) UIWindow *window;
+          @end
+          @implementation SmokeAppDelegate
+          - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+              STInput *input = st_input_create();
+              st_input_set(input, 4, 1);
+              const BOOL inputOK = (st_input_snapshot(input) == (1u << 4));
+              st_input_destroy(input);
+              const BOOL runtimeAbsent = (st_openxray_runtime_linked() == 0);
+              const BOOL resourceEntryAbsent = (st_openxray_runtime_resources_linked() == 0);
+              const BOOL absentEntryRejectsLaunch = (st_openxray_runtime_run("-soc -nointro -nosplash") == -1);
+              self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+              UIViewController *controller = [UIViewController new];
+              controller.view.backgroundColor = UIColor.blackColor;
+              UILabel *label = [UILabel new];
+              NSString *diagnostics = [NSString stringWithFormat:@"X-Ray native bridge: %@\\nEngine runtime: %@\\nResource-aware entry: %@\\nInput controls: %@\\nGameplay: unavailable", runtimeAbsent ? @"not linked" : @"linked", resourceEntryAbsent ? @"not linked" : @"linked", inputOK ? @"OK" : @"FAILED"];
+              label.text = inputOK && absentEntryRejectsLaunch ? diagnostics : @"Native bridge smoke test failed";
+              label.textColor = UIColor.whiteColor;
+              label.numberOfLines = 0;
+              label.textAlignment = NSTextAlignmentCenter;
+              label.frame = controller.view.bounds;
+              label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+              [controller.view addSubview:label];
+              self.window.rootViewController = controller;
+              [self.window makeKeyAndVisible];
+              return YES;
+          }
+          @end
+          int main(int argc, char *argv[]) {
+              @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass([SmokeAppDelegate class])); }
+          }
+          OBJC
+          cat > XRayLinkSmoke/project.yml <<'YAML'
+          name: XRayLinkSmoke
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            XRayLinkSmoke:
+              type: application
+              platform: iOS
+              sources:
+                - path: main.mm
+                - path: ../Sources/Native/STInput.cpp
+                - path: ../Sources/Native/STOpenXRayRuntime.cpp
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.xraylinksmoke
+                  CLANG_ENABLE_MODULES: "YES"
+                  CLANG_ENABLE_OBJC_ARC: "YES"
+                  OTHER_LDFLAGS: "-framework UIKit -framework Foundation"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          brew install xcodegen
+          (cd XRayLinkSmoke && xcodegen generate)
+          xcodebuild -project XRayLinkSmoke/XRayLinkSmoke.xcodeproj -scheme XRayLinkSmoke -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath XRayLinkSmoke/build CODE_SIGNING_ALLOWED=NO build
+          APP="XRayLinkSmoke/build/Build/Products/Release-iphoneos/XRayLinkSmoke.app"
+          xcrun lipo "$APP/XRayLinkSmoke" -verify_arch arm64
+          python3 scripts/package_unsigned_ipa.py "$APP" XRayLinkSmoke-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XRay-Native-Link-Smoke-IPA
+          path: XRayLinkSmoke-unsigned.ipa
+          retention-days: 14
+  launcher-native-bridge-ipa:
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' || github.event.head_commit.message == 'Report imported X-Ray archive inventory' || github.event.head_commit.message == 'Fix Swift archive inventory diagnostic string' || github.event.head_commit.message == 'Link native X-Ray resource bootstrap into launcher' || github.event.head_commit.message == 'Wire X-Ray archive chunk inspector into iOS launcher' || github.event.head_commit.message == 'Build X-Ray chunk metadata diagnostics on iPhone' || github.event.head_commit.message == 'Link bounded X-Ray chunk payload reader into launcher' || github.event.head_commit.message == 'Verify hardened X-Ray payload reader on iOS' || github.event.head_commit.message == 'Verify hardened X-Ray archive indexer on iOS' || github.event.head_commit.message == 'Build upstream CRC32 archive payload probe on iOS' }}
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned upstream OpenXRay xrCore source
+        uses: actions/checkout@v4
+        with:
+          repository: Eternal-Entropia/openxray-android
+          ref: 1b84cfbc5efa3e9af942164e5a3c2dde43b77f51
+          path: openxray-upstream
+          persist-credentials: false
+          sparse-checkout: |
+            src/xrCore/crc32.cpp
+            src/xrCore/Math/fast_lc16.hpp
+            License.txt
+          sparse-checkout-cone-mode: false
+      - name: Prepare launcher with X-Ray native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
+          cp Resources/card_*.jpg LauncherOnly/
+          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/panorama_pripyat.png; elif [ -f Resources/panorama_pripyat.png.PNG ]; then cp Resources/panorama_pripyat.png.PNG LauncherOnly/panorama_pripyat.png; else echo "Missing panorama"; exit 1; fi
+          if [ -f Resources/stalker_mobile_title.png ]; then cp Resources/stalker_mobile_title.png LauncherOnly/stalker_mobile_title.png; elif [ -f Resources/stalker_mobile_title.png.PNG ]; then cp Resources/stalker_mobile_title.png.PNG LauncherOnly/stalker_mobile_title.png; else echo "Missing title logo"; exit 1; fi
+          sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
+          cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          JSON
+          cat > LauncherOnly/project.yml <<'YAML'
+          name: STALKERLauncherOnly
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            STALKERLauncherOnly:
+              type: application
+              platform: iOS
+              sources:
+                - path: LauncherOnlyApp.swift
+                - path: XRayStatus.swift
+                - path: ../Sources/Native/STOpenXRayRuntime.cpp
+                - path: ../Sources/Native/STInput.cpp
+                - path: ../Sources/Native/STXRayResourceProbe.cpp
+                - path: ../Sources/Native/XRayBootstrap.cpp
+                - path: ../Sources/Native/XRayLevelCatalog.cpp
+                - path: ../Sources/Native/XRayChunkIndex.cpp
+                - path: ../Sources/Native/XRayChunkPayload.cpp
+                - path: ../openxray-upstream/src/xrCore/crc32.cpp
+                - path: ../Tests/OpenXRayCRCProbe.cpp
+                - path: ../Tests/OpenXRayMathProbe.cpp
+                - path: Assets.xcassets
+                - path: card_shadow.jpg
+                  buildPhase: resources
+                - path: card_clearSky.jpg
+                  buildPhase: resources
+                - path: card_pripyat.jpg
+                  buildPhase: resources
+                - path: panorama_pripyat.png
+                  buildPhase: resources
+                - path: stalker_mobile_title.png
+                  buildPhase: resources
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+                  SWIFT_VERSION: "5.0"
+                  CLANG_CXX_LANGUAGE_STANDARD: "c++17"
+                  HEADER_SEARCH_PATHS: "$(SRCROOT)/../Tests/OpenXRayCompat $(SRCROOT)/../openxray-upstream/src/xrCore/Math"
+                  TARGETED_DEVICE_FAMILY: "1"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+                  INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+                  INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+                  INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          cat > LauncherOnly/XRayStatus.swift <<'SWIFT'
+          import Foundation
+          @_silgen_name("st_openxray_runtime_linked")
+          private func xrayRuntimeLinked() -> Int32
+          @_silgen_name("st_openxray_runtime_resources_linked")
+          private func xrayResourceEntryLinked() -> Int32
+          @_silgen_name("st_openxray_crc32")
+          private func openXRayCRC32(_ bytes: UnsafeRawPointer, _ length: UInt32) -> UInt32
+          @_silgen_name("st_openxray_math_sample")
+          private func openXRayMathSample(_ seed: UInt32) -> UInt32
+          @_silgen_name("st_xray_probe_shadow_resources")
+          private func xrayProbeShadowResources(_ path: UnsafePointer<CChar>, _ archives: UnsafeMutablePointer<UInt32>, _ bytes: UnsafeMutablePointer<UInt64>, _ levels: UnsafeMutablePointer<UInt32>) -> Int32
+          @_silgen_name("st_xray_probe_first_archive_chunks")
+          private func xrayProbeFirstArchiveChunks(_ path: UnsafePointer<CChar>, _ count: UnsafeMutablePointer<UInt32>) -> Int32
+          @_silgen_name("st_xray_probe_first_archive_chunk_info")
+          private func xrayProbeFirstChunkInfo(_ path: UnsafePointer<CChar>, _ index: UInt32, _ id: UnsafeMutablePointer<UInt32>, _ size: UnsafeMutablePointer<UInt32>, _ compressed: UnsafeMutablePointer<Int32>) -> Int32
+          enum XRayStatus {
+              static var nativeResourceProbe: String {
+                  let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                  let root = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                  var count: UInt32 = 0
+                  var bytes: UInt64 = 0
+                  var levels: UInt32 = 0
+                  let result = root.path.withCString { path in
+                      xrayProbeShadowResources(path, &count, &bytes, &levels)
+                  }
+                  var chunks: UInt32 = 0
+                  let chunkResult = root.path.withCString { path in
+                      xrayProbeFirstArchiveChunks(path, &chunks)
+                  }
+                  var firstID: UInt32 = 0
+                  var firstSize: UInt32 = 0
+                  var firstCompressed: Int32 = 0
+                  let infoResult = root.path.withCString { path in
+                      xrayProbeFirstChunkInfo(path, 0, &firstID, &firstSize, &firstCompressed)
+                  }
+                  let firstInfo = infoResult == 0 ? ", first chunk ID: " + String(firstID) + ", size: " + String(firstSize) + ", compressed: " + String(firstCompressed) : ""
+                  let chunkStatus = chunkResult == 0 ? "First archive chunks: " + String(chunks) + firstInfo : "First archive chunk scan: unavailable (" + String(chunkResult) + ")"
+                  return result == 0
+                      ? "Native X-Ray resources: READY, archives: " + String(count) + ", bytes: " + String(bytes) + ", loose levels: " + String(levels) + ". " + chunkStatus
+                      : "Native X-Ray resources: NOT READY (code " + String(result) + ")"
+              }
+              static var xrMathCheck: String {
+                  let a = openXRayMathSample(123)
+                  let b = openXRayMathSample(123)
+                  let c = openXRayMathSample(124)
+                  return a == b && a != c ? "xrCore math: PASS (on device)" : "xrCore math: FAIL"
+              }
+              static var xrCoreCheck: String {
+                  let bytes = Array("123456789".utf8)
+                  let crc = bytes.withUnsafeBytes { raw in openXRayCRC32(raw.baseAddress!, UInt32(raw.count)) }
+                  return crc == 0xCBF43926 ? "xrCore CRC32: PASS (on device)" : "xrCore CRC32: FAIL"
+              }
+              static var summary: String {
+                  "X-RAY BRIDGE · " + (xrayRuntimeLinked() == 1 ? "RUNTIME LINKED" : "ENGINE NOT LINKED")
+              }
+              static var details: String {
+                  "Native X-Ray bridge: linked. Runtime: " + (xrayRuntimeLinked() == 1 ? "linked" : "not linked") +
+                  ". Resource entry: " + (xrayResourceEntryLinked() == 1 ? "linked" : "not linked") +
+                  ". " + xrCoreCheck + ". " + xrMathCheck + ". " + nativeResourceProbe + ". " + resourcePreflight + ". Gameplay is not available yet."
+              }
+              static var resourcePreflight: String {
+                  let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                  let root = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                  let config = root.appendingPathComponent("fsgame.ltx")
+                  let gamedata = root.appendingPathComponent("gamedata", isDirectory: true)
+                  let archives = (try? FileManager.default.contentsOfDirectory(atPath: root.path))?.filter { name in
+                      let lower = name.lowercased()
+                      guard lower.hasPrefix("gamedata.db") else { return false }
+                      let suffix = lower.dropFirst("gamedata.db".count)
+                      guard (1...2).contains(suffix.count),
+                            suffix.allSatisfy({ $0.isASCII && $0.isLetter || $0.isASCII && $0.isNumber }) else { return false }
+                      let path = root.appendingPathComponent(name).path
+                      var isDirectory: ObjCBool = false
+                      guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory),
+                            !isDirectory.boolValue else { return false }
+                      let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                      return size > 0
+                  } ?? []
+                  let configSize = (try? FileManager.default.attributesOfItem(atPath: config.path)[.size] as? NSNumber)?.int64Value ?? 0
+                  var isDirectory: ObjCBool = false
+                  let dataFolder = FileManager.default.fileExists(atPath: gamedata.path, isDirectory: &isDirectory) && isDirectory.boolValue
+                  let dataExists = dataFolder || !archives.isEmpty
+                  let archiveBytes = archives.reduce(Int64(0)) { sum, name in
+                      let path = root.appendingPathComponent(name).path
+                      let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.int64Value ?? 0
+                      return sum > Int64.max - size ? sum : sum + size
+                  }
+                  let inventory = "Archives: " + String(archives.count) + ", bytes: " + String(archiveBytes) + ", loose gamedata: " + (dataFolder ? "present" : "absent") + ". "
+                  return "ShadowOfChernobyl resources: " + inventory + (configSize > 0 && dataExists ? "candidate files detected (not validated)" : "missing nonempty fsgame.ltx or gamedata/archives")
+              }
+          }
+          SWIFT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("LauncherOnly/LauncherOnlyApp.swift")
+          s=p.read_text()
+          s=s.replace('Text("X-RAY OFF")', 'Text(XRayStatus.summary)')
+          s=s.replace('Text("Только интерфейс · игровой движок отключён")', 'Text(XRayStatus.details)')
+          s=s.replace('Text("Это версия лаунчера без X-Ray. Игру запустить нельзя, но карточки и меню работают.")', 'Text(XRayStatus.details)')
+          s=s.replace('Text(sectionDescription)', 'Text(infoSection == "О проекте" ? XRayStatus.details : sectionDescription)')
+          s=s.replace('import UIKit', 'import UIKit\nimport UniformTypeIdentifiers')
+          s=s.replace('@State private var settings = false', '@State private var settings = false\n    @State private var importingGameFolder = false\n    @State private var importMessage: String?')
+          s=s.replace('''                        Text(infoSection ?? "STALKER Mobile")
+                            .font(.title2.bold()).foregroundStyle(.yellow)''', '''                        Text(infoSection ?? "STALKER Mobile")
+                            .font(.title2.bold()).foregroundStyle(.yellow)
+                        if infoSection == "Импорт ресурсов" {
+                            Button("Выбрать папку Тени Чернобыля") { importingGameFolder = true }
+                                .buttonStyle(.borderedProminent).tint(.yellow)
+                            if let importMessage { Text(importMessage).font(.footnote).foregroundStyle(.white) }
+                        }''')
+          s=s.replace('        .sheet(isPresented: $settings) {', '''        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
+                      switch result {
+                      case .failure(let error): importMessage = "Ошибка выбора: \\(error.localizedDescription)"
+                      case .success(let url):
+                          let access = url.startAccessingSecurityScopedResource()
+                          defer { if access { url.stopAccessingSecurityScopedResource() } }
+                          do {
+                              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                              let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                              guard !FileManager.default.fileExists(atPath: target.path) else {
+                                  importMessage = "Папка ShadowOfChernobyl уже существует. Удаление или замена не выполняется."
+                                  return
+                              }
+                              try FileManager.default.copyItem(at: url, to: target)
+                              importMessage = "Папка скопирована. " + XRayStatus.resourcePreflight
+                          } catch {
+                              importMessage = "Ошибка копирования: \\(error.localizedDescription)"
+                          }
+                      }
+                  }
+                  .sheet(isPresented: $settings) {''')
+
+          p.write_text(s)
+          PY
+          brew install xcodegen
+          (cd LauncherOnly && xcodegen generate)
+      - name: Build launcher and native bridge unsigned iPhone app
+        run: |
+          xcodebuild -project LauncherOnly/STALKERLauncherOnly.xcodeproj -scheme STALKERLauncherOnly -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath LauncherOnly/build CODE_SIGNING_ALLOWED=NO build
+      - name: Verify artwork and package native bridge IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app"
+          /usr/bin/lipo "$APP/STALKERLauncherOnly" -verify_arch arm64
+          # Xcode strips exported symbols in Release; verify unstripped object files instead.
+          OBJDIR="LauncherOnly/build/Build/Intermediates.noindex/STALKERLauncherOnly.build/Release-iphoneos/STALKERLauncherOnly.build/Objects-normal/arm64"
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_openxray_crc32
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_openxray_math_sample
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_shadow_resources
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunks
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunk_info
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunk_read
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunk_crc32
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_openxray_runtime_linked
+          test ! -e "$APP/_CodeSignature"
+          test ! -e "$APP/embedded.mobileprovision"
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          app=Path("LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app")
+          info=plistlib.loads((app/"Info.plist").read_bytes())
+          assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
+          assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
+          for name in ("card_shadow.jpg","card_clearSky.jpg","card_pripyat.jpg","panorama_pripyat.png","Assets.car"):
+              assert (app/name).is_file(), f"Missing launcher artwork: {name}"
+          assert (app/"STALKERLauncherOnly").is_file()
+          print("Launcher artwork bundled; X-Ray native bridge linked, gameplay not yet available")
+          PY
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERMobile-XRayBridge-unsigned.ipa
+      - name: Upload launcher with X-Ray native bridge IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-XRayBridge-IPA
+          path: STALKERMobile-XRayBridge-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+  launcher-only-ipa:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded title logo IPA' }}
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare independent launcher project and bundled artwork
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
+          cp Resources/card_*.jpg LauncherOnly/
+          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/panorama_pripyat.png; elif [ -f Resources/panorama_pripyat.png.PNG ]; then cp Resources/panorama_pripyat.png.PNG LauncherOnly/panorama_pripyat.png; else echo "Missing panorama"; exit 1; fi
+          if [ -f Resources/stalker_mobile_title.png ]; then cp Resources/stalker_mobile_title.png LauncherOnly/stalker_mobile_title.png; elif [ -f Resources/stalker_mobile_title.png.PNG ]; then cp Resources/stalker_mobile_title.png.PNG LauncherOnly/stalker_mobile_title.png; else echo "Missing title logo"; exit 1; fi
+          sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
+          cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          JSON
+          cat > LauncherOnly/project.yml <<'YAML'
+          name: STALKERLauncherOnly
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            STALKERLauncherOnly:
+              type: application
+              platform: iOS
+              sources:
+                - path: LauncherOnlyApp.swift
+                - path: Assets.xcassets
+                - path: card_shadow.jpg
+                  buildPhase: resources
+                - path: card_clearSky.jpg
+                  buildPhase: resources
+                - path: card_pripyat.jpg
+                  buildPhase: resources
+                - path: panorama_pripyat.png
+                  buildPhase: resources
+                - path: stalker_mobile_title.png
+                  buildPhase: resources
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+                  SWIFT_VERSION: "5.0"
+                  TARGETED_DEVICE_FAMILY: "1"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+                  INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+                  INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+                  INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          brew install xcodegen
+          (cd LauncherOnly && xcodegen generate)
+      - name: Build launcher-only unsigned iPhone app
+        run: |
+          xcodebuild -project LauncherOnly/STALKERLauncherOnly.xcodeproj -scheme STALKERLauncherOnly -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath LauncherOnly/build CODE_SIGNING_ALLOWED=NO build
+      - name: Verify artwork, engine exclusion and package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app"
+          /usr/bin/lipo "$APP/STALKERLauncherOnly" -verify_arch arm64
+          test ! -e "$APP/_CodeSignature"
+          test ! -e "$APP/embedded.mobileprovision"
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          app=Path("LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app")
+          info=plistlib.loads((app/"Info.plist").read_bytes())
+          assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
+          assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
+          for name in ("card_shadow.jpg","card_clearSky.jpg","card_pripyat.jpg","panorama_pripyat.png","Assets.car"):
+              assert (app/name).is_file(), f"Missing launcher artwork: {name}"
+          assert not any("OpenXRay" in p.name or "xrCore" in p.name for p in app.rglob("*"))
+          print("Launcher artwork bundled; no OpenXRay engine files")
+          PY
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERMobile-LauncherOnly-unsigned.ipa
+      - name: Upload clean launcher-only IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-LauncherOnly-IPA
+          path: STALKERMobile-LauncherOnly-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+  minimal-install-test:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build minimal ESign installation test' || github.event.head_commit.message == 'Fix minimal iPhone test entry point' || github.event.head_commit.message == 'Fix minimal iPhone test source path' || github.event.head_commit.message == 'Fix minimal IPA architecture check' }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create independent minimal iPhone app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p MinimalInstall
+          cat > MinimalInstall/TestApp.swift <<'SWIFT'
+          import UIKit
+          @main
+          class MinimalApp: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
+              func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  let window = UIWindow(frame: UIScreen.main.bounds)
+                  let controller = UIViewController()
+                  controller.view.backgroundColor = .black
+                  let label = UILabel()
+                  label.text = "STALKER Mobile - installation test OK"
+                  label.textColor = .white
+                  label.textAlignment = .center
+                  label.numberOfLines = 0
+                  label.translatesAutoresizingMaskIntoConstraints = false
+                  controller.view.addSubview(label)
+                  NSLayoutConstraint.activate([
+                      label.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+                      label.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+                      label.leadingAnchor.constraint(greaterThanOrEqualTo: controller.view.leadingAnchor, constant: 12),
+                      label.trailingAnchor.constraint(lessThanOrEqualTo: controller.view.trailingAnchor, constant: -12)
+                  ])
+                  window.rootViewController = controller
+                  window.makeKeyAndVisible()
+                  self.window = window
+                  return true
+              }
+          }
+          SWIFT
+          cat > MinimalInstall/project.yml <<'YAML'
+          name: STALKERInstallTest
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            STALKERInstallTest:
+              type: application
+              platform: iOS
+              sources:
+                - TestApp.swift
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+                  SWIFT_VERSION: "5.0"
+                  TARGETED_DEVICE_FAMILY: "1"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+                  INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "NO"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          brew install xcodegen
+          (cd MinimalInstall && xcodegen generate)
+          xcodebuild -project MinimalInstall/STALKERInstallTest.xcodeproj -scheme STALKERInstallTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath MinimalInstall/build CODE_SIGNING_ALLOWED=NO build
+      - name: Package and validate minimal unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="MinimalInstall/build/Build/Products/Release-iphoneos/STALKERInstallTest.app"
+          /usr/bin/lipo "$APP/STALKERInstallTest" -verify_arch arm64
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERInstallTest-unsigned.ipa
+          python3 - <<'PY'
+          import plistlib, zipfile
+          with zipfile.ZipFile("STALKERInstallTest-unsigned.ipa") as z:
+              assert z.testzip() is None
+              info=plistlib.loads(z.read("Payload/STALKERInstallTest.app/Info.plist"))
+              assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
+              assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
+              assert "Payload/STALKERInstallTest.app/STALKERInstallTest" in z.namelist()
+              print("Minimal unsigned ARM64 iPhone IPA verified")
+          PY
+      - name: Upload minimal installation test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERInstallTest-IPA-only
+          path: STALKERInstallTest-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+  build:
+    # Keep macOS IPA builds opt-in while the account's free Actions compute
+    # allowance is exhausted. Portable Linux tests still run on pushes.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' || github.event.head_commit.message == 'Run macOS IPA installation diagnostics' || github.event.head_commit.message == 'Build clean unsigned iPhone IPA' }}
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Record runner start for cancellation diagnostics
+        run: |
+          echo "Runner started at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Run ID: $GITHUB_RUN_ID attempt: $GITHUB_RUN_ATTEMPT"
+          echo "Runner: $RUNNER_NAME OS: $RUNNER_OS"
+
       - uses: actions/checkout@v4
       - name: Test native input
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests
           /tmp/stalker-input-tests
+      - name: Test portable X-Ray engine bootstrap
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
+          /tmp/stalker-xray-bootstrap-tests
+      - name: Test native X-Ray level catalog
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelCatalog.cpp Tests/XRayLevelCatalogTests.cpp -o /tmp/stalker-xray-level-tests
+          /tmp/stalker-xray-level-tests
+      - name: Test native X-Ray loose level files
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Tests/XRayLevelFilesTests.cpp -o /tmp/stalker-xray-level-files-tests
+          /tmp/stalker-xray-level-files-tests
+      - name: Test native X-Ray level chunk header
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelHeader.cpp Tests/XRayLevelHeaderTests.cpp -o /tmp/stalker-xray-level-header-tests
+          /tmp/stalker-xray-level-header-tests
+      - name: Test native X-Ray chunk index
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayChunkIndex.cpp Tests/XRayChunkIndexTests.cpp -o /tmp/stalker-xray-chunk-index-tests
+          /tmp/stalker-xray-chunk-index-tests
+      - name: Test native X-Ray level inspection
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Tests/XRayLevelInspectionTests.cpp -o /tmp/stalker-xray-inspection-tests
+          /tmp/stalker-xray-inspection-tests
+      - name: Test native X-Ray bounded chunk payload reader
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/XRayChunkPayloadTests.cpp -o /tmp/stalker-xray-payload-tests
+          /tmp/stalker-xray-payload-tests
+      - name: Test native X-Ray collision header
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Tests/XRayCFormHeaderTests.cpp -o /tmp/stalker-xray-cform-tests
+          /tmp/stalker-xray-cform-tests
+      - name: Test native X-Ray collision geometry reader
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Tests/XRayCFormGeometryTests.cpp -o /tmp/stalker-xray-cform-geometry-tests
+          /tmp/stalker-xray-cform-geometry-tests
+      - name: Test native Metal preview mesh bridge
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
+          /tmp/stalker-mesh-bridge-tests
+      - name: Compile native sparse collision sampler
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -c Sources/Native/STXRayMeshSample.cpp -o /tmp/stalker-mesh-sampler.o
+      - name: Test native sparse collision sampler
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayMeshSample.cpp Tests/STXRayMeshSampleTests.cpp -o /tmp/stalker-mesh-sample-tests
+          /tmp/stalker-mesh-sample-tests
       - name: Test archive chunk reader
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror Tests/ArchiveChunkTests.cpp -o /tmp/stalker-archive-tests
@@ -34,6 +710,11 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             src/xrCore/crc32.cpp
+            oxr_deps/lzo-src/minilzo/minilzo.c
+            oxr_deps/lzo-src/minilzo/minilzo.h
+            oxr_deps/lzo-src/include/lzo/lzoconf.h
+            oxr_deps/lzo-src/include/lzo/lzodefs.h
+            oxr_deps/lzo-src/COPYING
             License.txt
           sparse-checkout-cone-mode: false
       - name: Stage upstream CRC32 implementation for XcodeGen
@@ -41,32 +722,223 @@ jobs:
           test "$(git -C openxray-upstream rev-parse HEAD)" = "1b84cfbc5efa3e9af942164e5a3c2dde43b77f51"
           test -s openxray-upstream/License.txt
           cp openxray-upstream/src/xrCore/crc32.cpp Sources/Native/Upstream/crc32.cpp
+          cp openxray-upstream/oxr_deps/lzo-src/minilzo/minilzo.c Sources/Native/Upstream/minilzo.c
+          cp openxray-upstream/oxr_deps/lzo-src/minilzo/minilzo.h Sources/Native/Upstream/minilzo.h
+          cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzoconf.h Sources/Native/Upstream/lzoconf.h
+          cp openxray-upstream/oxr_deps/lzo-src/include/lzo/lzodefs.h Sources/Native/Upstream/lzodefs.h
+          cp openxray-upstream/oxr_deps/lzo-src/COPYING Sources/Native/Upstream/LZO-COPYING
+          cc -std=c99 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
+      - name: Test X-Ray Swift bridge C ABI
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Sources/Native/STXRayLZO.cpp Sources/Native/STXRayCrypto.cpp Tests/XRayBootstrapBridgeTests.cpp /tmp/stalker-minilzo.o -I Sources/Native/Upstream -o /tmp/stalker-xray-bridge-tests
+          /tmp/stalker-xray-bridge-tests
+      - name: Verify miniLZO round-trip and corruption handling
+        run: |
+          cat > /tmp/stalker-lzo-test.c <<'EOF'
+          #include "minilzo.h"
+          #include <assert.h>
+          #include <stdlib.h>
+          #include <string.h>
+          int main(void) {
+              const unsigned char input[] = "STALKER X-Ray packed archive codec test";
+              unsigned char packed[256] = {0};
+              unsigned char output[256] = {0};
+              lzo_uint packed_size = sizeof(packed);
+              lzo_uint output_size = sizeof(output);
+              void *work = malloc(LZO1X_1_MEM_COMPRESS);
+              assert(work != NULL);
+              assert(lzo_init() == LZO_E_OK);
+              assert(lzo1x_1_compress(input, sizeof(input), packed, &packed_size, work) == LZO_E_OK);
+              assert(lzo1x_decompress_safe(packed, packed_size, output, &output_size, NULL) == LZO_E_OK);
+              assert(output_size == sizeof(input));
+              assert(memcmp(input, output, sizeof(input)) == 0);
+              output_size = sizeof(output);
+              assert(lzo1x_decompress_safe(packed, packed_size - 1, output, &output_size, NULL) != LZO_E_OK);
+              free(work);
+              return 0;
+          }
+          EOF
+          cc -std=c99 -I Sources/Native/Upstream /tmp/stalker-lzo-test.c /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-test
+          /tmp/stalker-lzo-test
+      - name: Test native LZO1X Swift bridge
+        run: |
+          cat > /tmp/stalker-lzo-bridge-test.cpp <<'EOF'
+          #include "STXRayBootstrap.h"
+          #include "minilzo.h"
+          #include <cassert>
+          #include <cstring>
+          #include <cstdlib>
+          int main() {
+              const unsigned char input[] = "X-Ray LZO1X archive data";
+              unsigned char packed[256] = {};
+              unsigned char decoded[256] = {};
+              lzo_uint packedSize = sizeof(packed);
+              void* work = std::malloc(LZO1X_1_MEM_COMPRESS);
+              assert(work);
+              assert(lzo_init() == LZO_E_OK);
+              assert(lzo1x_1_compress(input, sizeof(input), packed, &packedSize, work) == LZO_E_OK);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, sizeof(decoded), sizeof(input)) == 0);
+              assert(std::memcmp(input, decoded, sizeof(input)) == 0);
+              assert(st_xray_lzo_decompress(packed, packedSize - 1, decoded, sizeof(decoded), sizeof(input)) == -4);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, sizeof(decoded), sizeof(input) + 1) == -3);
+              assert(st_xray_lzo_decompress(packed, packedSize, decoded, 4, sizeof(input)) == -3);
+              std::free(work);
+          }
+          EOF
+          c++ -std=c++17 -I Sources/Native -I Sources/Native/Upstream Sources/Native/STXRayLZO.cpp /tmp/stalker-lzo-bridge-test.cpp /tmp/stalker-minilzo.o -o /tmp/stalker-lzo-bridge-test
+          /tmp/stalker-lzo-bridge-test
+      - name: Test X-Ray legacy directory cipher
+        run: |
+          cat > /tmp/stalker-crypto-test.cpp <<'EOF'
+          #include "STXRayBootstrap.h"
+          #include <cassert>
+          #include <cstdint>
+          #include <cstring>
+          int main() {
+              // Ciphertext generated independently using OpenXRay's key schedule.
+              const uint8_t ww[] = {0x67,0x3d,0x55,0x7c,0x5b,0x3e,0x62,0x5b};
+              const uint8_t ru[] = {0xb0,0x2d,0xb6,0x39,0x64,0x45,0xc9,0xc8};
+              uint8_t a[8], b[8];
+              std::memcpy(a, ww, 8);
+              std::memcpy(b, ru, 8);
+              assert(st_xray_directory_decrypt(nullptr, 0, 2) == -1);
+              assert(st_xray_directory_decrypt(a, 8, 0) == 0);
+              assert(st_xray_directory_decrypt(b, 8, 1) == 0);
+          }
+          EOF
+          c++ -std=c++17 -I Sources/Native Sources/Native/STXRayCrypto.cpp /tmp/stalker-crypto-test.cpp -o /tmp/stalker-crypto-test
+          /tmp/stalker-crypto-test
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Prepare STALKER Mobile home screen icon
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+          source = Path("Resources/AppIcon.png")
+          assert source.is_file(), "Missing Resources/AppIcon.png"
+          target = Path("Sources/Assets.xcassets/AppIcon.appiconset")
+          target.mkdir(parents=True, exist_ok=True)
+          subprocess.run(["sips", "-s", "format", "png", str(source), "--out", str(target / "AppIcon.png")], check=True)
+          subprocess.run(["sips", "-z", "1024", "1024", str(target / "AppIcon.png"), "--out", str(target / "AppIcon.png")], check=True)
+          (target / "Contents.json").write_text(json.dumps({"images": [{"filename": "AppIcon.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}], "info": {"author": "xcode", "version": 1}}, indent=2) + "\n")
+          print("Prepared AppIcon asset catalog")
+          PY
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Run Swift X-Ray parser self-tests
+        run: |
+          swiftc Sources/XRayBinaryReader.swift Sources/XRayChunkScanner.swift Sources/XRayArchiveInspector.swift Sources/GameResourceScanner.swift Sources/GameResourceImporter.swift Sources/XRayParserSelfTest.swift Tests/XRayParserTestMain.swift -o /tmp/stalker-xray-parser-tests
+          /tmp/stalker-xray-parser-tests
       - name: Build iOS simulator app
         run: |
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
       - name: Build unsigned physical-device app
         run: |
-          xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+      - name: Diagnose iPhone app bundle and signing on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
+          mkdir -p install-diagnostics
+          /usr/bin/file "$APP/STALKERiOSStarter" | tee install-diagnostics/executable.txt
+          /usr/bin/lipo -info "$APP/STALKERiOSStarter" | tee install-diagnostics/architectures.txt
+          /usr/bin/plutil -lint "$APP/Info.plist" | tee install-diagnostics/plist.txt
+          /usr/bin/codesign -dv --verbose=4 "$APP" > install-diagnostics/codesign.txt 2>&1 || true
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP" > install-diagnostics/signature-verification.txt 2>&1 || true
+          /usr/bin/find "$APP" -maxdepth 3 -type f | sort > install-diagnostics/bundle-files.txt
+          /usr/bin/plutil -extract CFBundleIdentifier raw "$APP/Info.plist" | tee install-diagnostics/bundle-id.txt
+          test ! -e "$APP/embedded.mobileprovision"
+          echo "Unsigned GitHub build: final GBox signature and provisioning cannot be verified here." | tee install-diagnostics/limitations.txt
+      - name: Upload macOS installation diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERiOSStarter-macos-install-diagnostics
+          path: install-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Verify clean unsigned iPhone app for external signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
+          test -f "$APP/Info.plist"
+          test -f "$APP/STALKERiOSStarter"
+          test ! -e "$APP/_CodeSignature"
+          test ! -e "$APP/embedded.mobileprovision"
+          python3 - <<'PY'
+          import plistlib, subprocess
+          from pathlib import Path
+          app = Path("build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app")
+          with (app / "Info.plist").open("rb") as handle:
+              info = plistlib.load(handle)
+          assert info["CFBundleSupportedPlatforms"] == ["iPhoneOS"], info.get("CFBundleSupportedPlatforms")
+          assert info["MinimumOSVersion"] == "17.0", info.get("MinimumOSVersion")
+          assert info["CFBundleIdentifier"] == "com.stalkermobile.ios", info.get("CFBundleIdentifier")
+          assert info["CFBundleExecutable"] == "STALKERiOSStarter"
+          output = subprocess.check_output(["/usr/bin/lipo", "-archs", str(app / "STALKERiOSStarter")], text=True).split()
+          assert "arm64" in output, output
+          print("Clean unsigned iPhoneOS app verified; must be signed with a matching provisioning profile.")
+          PY
+      - name: Verify home screen icon is compiled into device app
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          app = Path("build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app")
+          assets = app / "Assets.car"
+          assert assets.is_file() and assets.stat().st_size > 0, "Missing compiled Assets.car"
+          with (app / "Info.plist").open("rb") as handle:
+              info = plistlib.load(handle)
+          icons = info.get("CFBundleIcons", {}).get("CFBundlePrimaryIcon", {})
+          name = icons.get("CFBundleIconName")
+          assert name == "AppIcon", f"Expected AppIcon in Info.plist, got {name!r}"
+          print(f"Verified iPhone icon: {name}, Assets.car: {assets.stat().st_size} bytes")
+          PY
       - name: Package unsigned prototype IPA
         run: |
-          APP="build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
           lipo "$APP/STALKERiOSStarter" -verify_arch arm64
           python3 scripts/package_unsigned_ipa.py "$APP" STALKERiOSStarter-unsigned.ipa
       - name: Package build outputs
         run: |
           cd build-simulator/Build/Products/Debug-iphonesimulator
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-simulator.zip" STALKERiOSStarter.app
-          cd "$GITHUB_WORKSPACE/build-device/Build/Products/Debug-iphoneos"
+          cd "$GITHUB_WORKSPACE/build-device/Build/Products/Release-iphoneos"
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-unsigned-device.zip" STALKERiOSStarter.app
+      - name: Verify IPA archive before publishing
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          path = "STALKERiOSStarter-unsigned.ipa"
+          import plistlib
+          with zipfile.ZipFile(path) as archive:
+              bad = archive.testzip()
+              assert bad is None, f"Damaged IPA entry: {bad}"
+              assert any(name.startswith("Payload/STALKERiOSStarter.app/") for name in archive.namelist()), "Missing app payload"
+              info = plistlib.loads(archive.read("Payload/STALKERiOSStarter.app/Info.plist"))
+              for key in ("CFBundleIdentifier", "CFBundleExecutable", "CFBundleShortVersionString", "CFBundleVersion"):
+                  value = info.get(key)
+                  assert isinstance(value, str) and value.strip(), f"Missing or invalid {key}: {value!r}"
+                  print(f"{key}={value}")
+              assert info["CFBundleExecutable"] == "STALKERiOSStarter", "Unexpected executable"
+              assert "Payload/STALKERiOSStarter.app/STALKERiOSStarter" in archive.namelist(), "Missing app executable"
+              assert not any(name.endswith(".debug.dylib") or name.endswith("/__preview.dylib") for name in archive.namelist()), "Unexpected debug-only dylib in release IPA"
+          print("IPA integrity and install metadata verified (code signing still required)")
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: STALKERiOSStarter-builds
+          name: STALKERiOSStarter-IPA-only
+          if-no-files-found: error
+          compression-level: 0
+          path: STALKERiOSStarter-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STALKERiOSStarter-debug-files
           if-no-files-found: error
           path: |
-            STALKERiOSStarter-unsigned.ipa
             STALKERiOSStarter-simulator.zip
             STALKERiOSStarter-unsigned-device.zip

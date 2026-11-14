@@ -15,12 +15,24 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources
+        type: folder
+        optional: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.stalkermobilestarter
+        PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
         GENERATE_INFOPLIST_FILE: "YES"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleVersion: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SUPPORTS_MACCATALYST: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+        # Optional upstream OpenXRay static archive. Leave unset for the
+        # lightweight launcher; never treat the archive as a playable engine.
+        # A weak entry reference alone will not pull objects from a .a file.
+        OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS)"

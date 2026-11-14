@@ -43,6 +43,16 @@ int main() {
     assert(actual == 3 && std::string(payload, 3) == "abc");
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
+    // A compressed chunk must be indexed but not returned as raw decoded data.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};
+      out.write(reinterpret_cast<const char*>(compressedHeader), sizeof(compressedHeader)); }
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == 0);
+    assert(chunks == 1);
+    assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == 0);
+    assert(id == 1 && size == 3 && compressed == 1);
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 3, &actual) == -5);
+    assert(actual == 0);
     // Truncated payload must be rejected rather than accepted as a chunk.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char invalid[] = {1,0,0,0,10,0,0,0,'x'};
@@ -51,6 +61,12 @@ int main() {
     assert(chunks == 0);
     assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == -4);
     assert(std::remove(archive.c_str()) == 0);
+    const std::string target = std::string(root) + "/target.bin";
+    { std::ofstream out(target, std::ios::binary); out << "outside"; }
+    assert(symlink(target.c_str(), archive.c_str()) == 0);
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == -3);
+    assert(std::remove(archive.c_str()) == 0);
+    assert(std::remove(target.c_str()) == 0);
     assert(rmdir(root) == 0);
     return 0;
 }

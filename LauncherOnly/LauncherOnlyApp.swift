@@ -59,26 +59,60 @@ struct LauncherOnlyView: View {
                     }
                 }
                 HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 7) {
                         ForEach(menu, id: \.0) { item in
                             Button {
                                 section = item.0
                                 if item.0 == "Настройки" { settings = true }
                                 else if item.0 == "Импорт ресурсов" || item.0 == "Сохранения" || item.0 == "О проекте" { infoSection = item.0 }
                             } label: {
-                                Label(item.0, systemImage: item.1)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(10)
-                                    .foregroundStyle(section == item.0 ? .yellow : .white)
-                                    .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
+                                let active = section == item.0
+                                HStack(spacing: 9) {
+                                    Image(systemName: item.1)
+                                        .font(.system(size: 17, weight: .bold))
+                                        .frame(width: 23)
+                                        .foregroundStyle(active ? Color.yellow : Color.white.opacity(0.88))
+                                    Text(item.0.uppercased())
+                                        .font(.system(size: 12, weight: .black, design: .monospaced).width(.condensed))
+                                        .tracking(-0.55)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.68)
+                                        .foregroundStyle(active ? Color.yellow : Color.white.opacity(0.92))
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 12)
+                                .frame(height: 43)
+                                .background {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(LinearGradient(colors: [
+                                            Color(red: 0.22, green: 0.22, blue: 0.20).opacity(0.94),
+                                            Color(red: 0.045, green: 0.047, blue: 0.046).opacity(0.95),
+                                            Color(red: 0.14, green: 0.13, blue: 0.11).opacity(0.95)
+                                        ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                }
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .strokeBorder(active ? Color.orange.opacity(0.94) : Color.gray.opacity(0.63),
+                                                      lineWidth: active ? 1.5 : 0.8)
+                                }
+                                .overlay(alignment: .top) {
+                                    Rectangle().fill(Color.white.opacity(0.13)).frame(height: 1).padding(.horizontal, 6)
+                                }
+                                .overlay(alignment: .leading) {
+                                    Circle().fill(Color.gray.opacity(0.8)).frame(width: 3, height: 3).padding(.leading, 4)
+                                }
+                                .overlay(alignment: .trailing) {
+                                    Circle().fill(Color.gray.opacity(0.8)).frame(width: 3, height: 3).padding(.trailing, 4)
+                                }
+                                .shadow(color: active ? Color.orange.opacity(0.55) : .black.opacity(0.7),
+                                        radius: active ? 7 : 3, x: 0, y: 2)
                             }.buttonStyle(.plain)
                         }
                         Spacer()
                         Image(systemName: "radiation")
                             .font(.system(size: 70)).foregroundStyle(.yellow.opacity(0.4))
                     }
-                    .frame(width: min(165, geo.size.width * 0.22))
+                    .frame(width: min(188, geo.size.width * 0.235))
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             VStack(alignment: .leading) {

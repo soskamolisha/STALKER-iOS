@@ -99,7 +99,8 @@ jobs:
           /usr/bin/file "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-object.txt
           /usr/bin/lipo -verify_arch arm64 "$RUNNER_TEMP/st-ios-arm64-probe.o"
           /usr/bin/nm -gU "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-symbols.txt
-          grep -Eq '[[:space:]]T[[:space:]]_st_ios_arm64_probe      - name: Build SDL2 for iPhoneOS arm64
+          grep -F _st_ios_arm64_probe engine-diagnostics/ios-arm64-symbols.txt
+      - name: Build SDL2 for iPhoneOS arm64
         shell: bash
         run: |
           set -euo pipefail

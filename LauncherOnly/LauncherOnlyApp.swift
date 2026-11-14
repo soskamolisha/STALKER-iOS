@@ -37,9 +37,13 @@ struct LauncherOnlyView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                LinearGradient(colors: [.black, Color(red: 0.14, green: 0.16, blue: 0.12)],
-                               startPoint: .bottom, endPoint: .top).ignoresSafeArea()
-                if showWheel { wheel.opacity(0.30).ignoresSafeArea() }
+                LinearGradient(stops: [
+                    .init(color: Color(red: 0.09, green: 0.10, blue: 0.11), location: 0),
+                    .init(color: Color(red: 0.37, green: 0.28, blue: 0.22), location: 0.40),
+                    .init(color: Color(red: 0.55, green: 0.32, blue: 0.20), location: 0.64),
+                    .init(color: Color(red: 0.11, green: 0.12, blue: 0.14), location: 1)
+                ], startPoint: .bottom, endPoint: .top).ignoresSafeArea()
+                if showWheel { wheel.ignoresSafeArea() }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(menu, id: \.0) { item in
@@ -240,27 +244,61 @@ struct LauncherOnlyView: View {
     private var wheel: some View {
         GeometryReader { geo in
             Canvas { ctx, size in
-                let center = CGPoint(x: size.width * 0.75, y: size.height * 0.42)
-                let radius = min(size.width * 0.19, size.height * 0.34)
-                let ink = Color.black.opacity(0.9)
-                ctx.stroke(Path(ellipseIn: CGRect(x: center.x-radius, y: center.y-radius,
-                                                 width: radius*2, height: radius*2)),
-                           with: .color(ink), lineWidth: 5)
-                for index in 0..<16 {
-                    let angle = Double(index) * .pi / 8
+                // Pripyat wheel: oversized silhouette with suspended passenger cabins.
+                let center = CGPoint(x: size.width * 0.72, y: size.height * 0.40)
+                let radius = min(size.width * 0.31, size.height * 0.48)
+                let steel = Color(red: 0.055, green: 0.057, blue: 0.052).opacity(0.91)
+                let frame = CGRect(x: center.x - radius, y: center.y - radius,
+                                   width: radius * 2, height: radius * 2)
+                ctx.stroke(Path(ellipseIn: frame), with: .color(steel), lineWidth: 5)
+                let inner = radius * 0.78
+                ctx.stroke(Path(ellipseIn: CGRect(x: center.x-inner, y: center.y-inner,
+                                                   width: inner*2, height: inner*2)),
+                           with: .color(steel), lineWidth: 2)
+                for index in 0..<20 {
+                    let angle = Double(index) * .pi / 10
+                    let outer = CGPoint(x: center.x + radius*cos(angle),
+                                        y: center.y + radius*sin(angle))
                     var spoke = Path()
                     spoke.move(to: center)
-                    spoke.addLine(to: CGPoint(x: center.x + radius*cos(angle),
-                                              y: center.y + radius*sin(angle)))
-                    ctx.stroke(spoke, with: .color(ink), lineWidth: 3)
+                    spoke.addLine(to: outer)
+                    ctx.stroke(spoke, with: .color(steel), lineWidth: 2.5)
+                    let cabinWidth = max(12, radius * 0.16)
+                    let cabinHeight = cabinWidth * 0.68
+                    let cabin = CGRect(x: outer.x - cabinWidth/2,
+                                       y: outer.y + 3, width: cabinWidth, height: cabinHeight)
+                    var suspension = Path()
+                    suspension.move(to: outer)
+                    suspension.addLine(to: CGPoint(x: outer.x, y: cabin.minY))
+                    ctx.stroke(suspension, with: .color(steel), lineWidth: 2)
+                    ctx.fill(Path(roundedRect: cabin, cornerRadius: 2),
+                             with: .color(steel))
+                    let window = CGRect(x: cabin.minX + cabinWidth*0.18,
+                                        y: cabin.minY + cabinHeight*0.18,
+                                        width: cabinWidth*0.64, height: cabinHeight*0.32)
+                    ctx.fill(Path(window), with: .color(Color(red: 0.34, green: 0.25, blue: 0.20).opacity(0.55)))
                 }
                 var support = Path()
                 support.move(to: center)
-                support.addLine(to: CGPoint(x: center.x-radius*0.6, y: size.height))
+                support.addLine(to: CGPoint(x: center.x-radius*0.52, y: size.height))
                 support.move(to: center)
-                support.addLine(to: CGPoint(x: center.x+radius*0.6, y: size.height))
-                ctx.stroke(support, with: .color(ink), lineWidth: 7)
+                support.addLine(to: CGPoint(x: center.x+radius*0.52, y: size.height))
+                ctx.stroke(support, with: .color(steel), lineWidth: 9)
+                var horizon = Path()
+                horizon.move(to: CGPoint(x: 0, y: size.height * 0.88))
+                for i in 0...28 {
+                    let x = size.width * CGFloat(i) / 28
+                    let h = CGFloat([0.05,0.10,0.08,0.14,0.06,0.12,0.07][i % 7])
+                    horizon.addLine(to: CGPoint(x: x, y: size.height*(0.88-h)))
+                    horizon.addLine(to: CGPoint(x: x, y: size.height*0.88))
+                }
+                horizon.addLine(to: CGPoint(x: size.width, y: size.height))
+                horizon.addLine(to: CGPoint(x: 0, y: size.height))
+                horizon.closeSubpath()
+                ctx.fill(horizon, with: .color(steel.opacity(0.75)))
             }
+            .overlay(Color.black.opacity(0.13))
+            .allowsHitTesting(false)
         }
     }
 }

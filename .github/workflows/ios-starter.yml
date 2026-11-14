@@ -92,7 +92,7 @@ jobs:
   build:
     # Keep macOS IPA builds opt-in while the account's free Actions compute
     # allowance is exhausted. Portable Linux tests still run on pushes.
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' }}
     runs-on: macos-latest
     timeout-minutes: 45
     steps:

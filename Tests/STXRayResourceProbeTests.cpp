@@ -9,6 +9,13 @@ extern "C" int32_t st_xray_probe_shadow_resources(const char*, uint32_t*, uint64
 extern "C" int32_t st_xray_probe_first_archive_chunks(const char*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_chunk_info(const char*, uint32_t, uint32_t*, uint32_t*, int32_t*);
 extern "C" int32_t st_xray_probe_first_archive_chunk_read(const char*, uint32_t, void*, uint32_t, uint32_t*);
+extern "C" int32_t st_xray_probe_first_archive_chunk_crc32(const char*, uint32_t, uint32_t*);
+extern "C" uint32_t st_openxray_crc32(const void* data, uint32_t size) {
+    const auto* bytes = static_cast<const unsigned char*>(data);
+    uint32_t sum = 0;
+    for (uint32_t i = 0; i < size; ++i) sum += bytes[i];
+    return sum; // Test double only: iOS links the real upstream CRC32.
+}
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -41,6 +48,9 @@ int main() {
     assert(actual == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 3, &actual) == 0);
     assert(actual == 3 && std::string(payload, 3) == "abc");
+    uint32_t crc = 0;
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == 0);
+    assert(crc == 294);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
     // Two adjacent chunks must retain their own offsets and payload boundaries.

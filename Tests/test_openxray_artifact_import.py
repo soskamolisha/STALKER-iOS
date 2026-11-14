@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise artifact ZIP import with a fake Apple toolchain on Linux."""
 import os
+import stat
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +51,14 @@ sys.exit(9)
     accepted = run(legacy + "\n" + resource, entries)
     assert accepted.returncode == 0, accepted.stdout + accepted.stderr
     assert (output / "libOpenXRayCombinedProbe.a").read_bytes() == b"mock-engine"
+
+    # A ZIP member marked as a Unix symlink must not be imported as a library.
+    link = zipfile.ZipInfo("libOpenXRayCombinedProbe.a")
+    link.create_system = 3
+    link.external_attr = (stat.S_IFLNK | 0o777) << 16
+    rejected = run(legacy + "\n" + resource, [(link, b"/tmp/other.a")])
+    assert rejected.returncode != 0, rejected.stdout + rejected.stderr
+    assert "symbolic link" in rejected.stderr
 
     rejected = run(legacy + "\n" + resource, entries + [("extra.a", b"other")])
     assert rejected.returncode != 0

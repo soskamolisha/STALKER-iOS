@@ -27,6 +27,7 @@ struct LauncherOnlyView: View {
     @State private var selectedGame: Edition?
     @AppStorage("launcher.showWheel") private var showWheel = true
     @AppStorage("launcher.largeCards") private var largeCards = false
+    @AppStorage("launcher.showResourceLabels") private var showResourceLabels = true
     private let menu: [(String, String)] = [
         ("Главная", "house.fill"), ("Игры", "square.grid.2x2"),
         ("Импорт ресурсов", "square.and.arrow.down"), ("Настройки", "gearshape"),
@@ -91,8 +92,10 @@ struct LauncherOnlyView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 9))
                                     Text(game.title).font(.headline).foregroundStyle(.yellow)
                                         .lineLimit(1).minimumScaleFactor(0.65)
-                                    Label("Ресурсы не добавлены", systemImage: "folder")
-                                        .font(.caption2).foregroundStyle(.gray)
+                                    if showResourceLabels {
+                                        Label("Ресурсы не добавлены", systemImage: "folder")
+                                            .font(.caption2).foregroundStyle(.gray)
+                                    }
                                     Button("Выбрать игру") { selectedGame = game }
                                         .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)
                                         .frame(maxWidth: .infinity)
@@ -189,6 +192,7 @@ struct LauncherOnlyView: View {
                     LabeledContent("Карточки", value: "3")
                     Toggle("Колесо обозрения на фоне", isOn: $showWheel)
                     Toggle("Увеличенные карточки", isOn: $largeCards)
+                    Toggle("Показывать подписи ресурсов", isOn: $showResourceLabels)
                 }
                 .navigationTitle("Настройки")
                 .toolbar {

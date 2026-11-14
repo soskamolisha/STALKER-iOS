@@ -26,6 +26,7 @@ struct LauncherOnlyView: View {
     @State private var settings = false
     @State private var selectedGame: Edition?
     @AppStorage("launcher.showWheel") private var showWheel = true
+    @AppStorage("launcher.largeCards") private var largeCards = false
     private let menu: [(String, String)] = [
         ("Главная", "house.fill"), ("Игры", "square.grid.2x2"),
         ("Импорт ресурсов", "square.and.arrow.down"), ("Настройки", "gearshape"),
@@ -71,7 +72,7 @@ struct LauncherOnlyView: View {
                             Spacer()
                             Text("X-RAY OFF").font(.caption.bold()).foregroundStyle(.orange)
                         }
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: largeCards ? 6 : 10) {
                             ForEach(Edition.allCases) { game in
                                 VStack(alignment: .leading, spacing: 9) {
                                     GeometryReader { area in
@@ -86,7 +87,7 @@ struct LauncherOnlyView: View {
                                             }
                                         }
                                     }
-                                    .frame(height: 205)
+                                    .frame(height: largeCards ? 235 : 205)
                                     .clipShape(RoundedRectangle(cornerRadius: 9))
                                     Text(game.title).font(.headline).foregroundStyle(.yellow)
                                         .lineLimit(1).minimumScaleFactor(0.65)
@@ -187,6 +188,7 @@ struct LauncherOnlyView: View {
                     LabeledContent("Движок X-Ray", value: "Отключён")
                     LabeledContent("Карточки", value: "3")
                     Toggle("Колесо обозрения на фоне", isOn: $showWheel)
+                    Toggle("Увеличенные карточки", isOn: $largeCards)
                 }
                 .navigationTitle("Настройки")
                 .toolbar {

@@ -199,7 +199,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -292,7 +292,14 @@ jobs:
           s=s.replace('Text(sectionDescription)', 'Text(infoSection == "О проекте" ? XRayStatus.details : sectionDescription)')
           s=s.replace('import UIKit', 'import UIKit\nimport UniformTypeIdentifiers')
           s=s.replace('@State private var settings = false', '@State private var settings = false\n    @State private var importingGameFolder = false\n    @State private var importMessage: String?')
-          s=s.replace('Text(infoSection ?? "STALKER Mobile")', 'Text(infoSection ?? "STALKER Mobile")\n                        if infoSection == "Импорт ресурсов" {\n                            Button("Выбрать папку Тени Чернобыля") { importingGameFolder = true }\n                                .buttonStyle(.borderedProminent).tint(.yellow)\n                            if let importMessage { Text(importMessage).font(.footnote).foregroundStyle(.white) }\n                        }')
+          s=s.replace('''                        Text(infoSection ?? "STALKER Mobile")
+                            .font(.title2.bold()).foregroundStyle(.yellow)''', '''                        Text(infoSection ?? "STALKER Mobile")
+                            .font(.title2.bold()).foregroundStyle(.yellow)
+                        if infoSection == "Импорт ресурсов" {
+                            Button("Выбрать папку Тени Чернобыля") { importingGameFolder = true }
+                                .buttonStyle(.borderedProminent).tint(.yellow)
+                            if let importMessage { Text(importMessage).font(.footnote).foregroundStyle(.white) }
+                        }''')
           s=s.replace('        .sheet(isPresented: $settings) {', '''        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
                       switch result {
                       case .failure(let error): importMessage = "Ошибка выбора: \\(error.localizedDescription)"

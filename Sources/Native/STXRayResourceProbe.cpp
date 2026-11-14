@@ -93,3 +93,20 @@ extern "C" int32_t st_xray_probe_first_archive_chunk_read(const char* utf8_path,
     *actual_size = static_cast<uint32_t>(payload.size());
     return 0;
 }
+
+/* CRC32 of a bounded, uncompressed chunk using the linked upstream xrCore utility.
+   This validates that the archive payload can flow through real OpenXRay code. */
+extern "C" uint32_t st_openxray_crc32(const void*, uint32_t);
+extern "C" int32_t st_xray_probe_first_archive_chunk_crc32(const char* utf8_path,
+                                                              uint32_t chunk_index,
+                                                              uint32_t* crc) {
+    if (!crc) return -1;
+    *crc = 0;
+    std::uint8_t payload[65536] = {};
+    uint32_t size = 0;
+    const int32_t result = st_xray_probe_first_archive_chunk_read(
+        utf8_path, chunk_index, payload, sizeof(payload), &size);
+    if (result != 0) return result;
+    *crc = st_openxray_crc32(payload, size);
+    return 0;
+}

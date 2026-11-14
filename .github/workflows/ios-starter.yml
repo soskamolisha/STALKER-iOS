@@ -199,7 +199,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -277,9 +277,11 @@ jobs:
                   let archives = (try? FileManager.default.contentsOfDirectory(atPath: root.path))?.filter {
                       $0.lowercased().hasSuffix(".db") || $0.lowercased().contains(".db")
                   } ?? []
-                  let configExists = FileManager.default.fileExists(atPath: config.path)
-                  let dataExists = FileManager.default.fileExists(atPath: gamedata.path) || !archives.isEmpty
-                  return "ShadowOfChernobyl resources: " + (configExists && dataExists ? "candidate files detected (not validated)" : "missing fsgame.ltx or gamedata/archives")
+                  let configSize = (try? FileManager.default.attributesOfItem(atPath: config.path)[.size] as? NSNumber)?.int64Value ?? 0
+                  var isDirectory: ObjCBool = false
+                  let dataFolder = FileManager.default.fileExists(atPath: gamedata.path, isDirectory: &isDirectory) && isDirectory.boolValue
+                  let dataExists = dataFolder || !archives.isEmpty
+                  return "ShadowOfChernobyl resources: " + (configSize > 0 && dataExists ? "candidate files detected (not validated)" : "missing nonempty fsgame.ltx or gamedata/archives")
               }
           }
           SWIFT

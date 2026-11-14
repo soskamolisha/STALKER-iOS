@@ -116,31 +116,25 @@ struct LauncherOnlyView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             VStack(alignment: .leading) {
-                                Text("S.T.A.L.K.E.R. MOBILE")
-                                    .font(.system(size: 29, weight: .black, design: .monospaced).width(.condensed))
-                                    .tracking(-1.1)
-                                    .foregroundStyle(.white)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.6)
-                                    .overlay {
-                                        GeometryReader { titleArea in
-                                            Canvas { context, size in
-                                                // Weathered stencil cuts inspired by the reference lettering.
-                                                let cuts: [(CGFloat, CGFloat, CGFloat)] = [
-                                                    (0.12, 0.29, 0.23), (0.27, 0.04, 0.38),
-                                                    (0.45, 0.52, 0.17), (0.64, 0.15, 0.28),
-                                                    (0.83, 0.43, 0.18), (0.94, 0.10, 0.22)
-                                                ]
-                                                for (x, y, width) in cuts {
-                                                    let rect = CGRect(x: size.width * x, y: size.height * y,
-                                                                      width: size.width * width, height: 1.7)
-                                                    context.fill(Path(rect), with: .color(.black.opacity(0.88)))
-                                                }
-                                            }
-                                            .allowsHitTesting(false)
-                                        }
+                                Group {
+                                    if let logoURL = Bundle.main.url(forResource: "stalker_mobile_title", withExtension: "png"),
+                                       let logo = UIImage(contentsOfFile: logoURL.path) {
+                                        Image(uiImage: logo)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .frame(height: 55)
+                                    } else {
+                                        Text("S.T.A.L.K.E.R. MOBILE")
+                                            .font(.system(size: 33, weight: .black, design: .monospaced).width(.condensed))
+                                            .tracking(-1.5)
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.55)
+                                            .shadow(color: .orange.opacity(0.6), radius: 8, x: 0, y: 2)
+                                            .shadow(color: .black, radius: 2, x: 3, y: 4)
                                     }
-                                    .shadow(color: .black, radius: 1, x: 2, y: 3)
+                                }
                                 Text("ТРИЛОГИЯ · ЛАУНЧЕР")
                                     .font(.caption).foregroundStyle(.white.opacity(0.8))
                             }

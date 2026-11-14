@@ -95,6 +95,22 @@ jobs:
           lipo "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" -verify_arch arm64
           file "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
 
+      - name: Link upstream OpenXRay objects into iPhoneOS arm64 executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/openxray-ios-link-main.cpp" <<'EOF'
+          extern "C" int main() { return 0; }
+          EOF
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
+            -std=c++17 "$RUNNER_TEMP/openxray-ios-link-main.cpp" \
+            -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            -o "$RUNNER_TEMP/openxray-ios-link-smoke"
+          lipo "$RUNNER_TEMP/openxray-ios-link-smoke" -verify_arch arm64
+          xcrun nm -g "$RUNNER_TEMP/openxray-ios-link-smoke" | grep -E 'crc32|fast_lc16' || true
+          echo "Upstream OpenXRay object archive linked into an arm64 iPhoneOS executable."
+
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)
         uses: actions/upload-artifact@v4
         with:

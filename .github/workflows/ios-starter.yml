@@ -199,7 +199,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -213,6 +213,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             src/xrCore/crc32.cpp
+            src/xrCore/Math/fast_lc16.hpp
             License.txt
           sparse-checkout-cone-mode: false
       - name: Prepare launcher with X-Ray native bridge
@@ -243,6 +244,7 @@ jobs:
                 - path: ../Sources/Native/STInput.cpp
                 - path: ../openxray-upstream/src/xrCore/crc32.cpp
                 - path: ../Tests/OpenXRayCRCProbe.cpp
+                - path: ../Tests/OpenXRayMathProbe.cpp
                 - path: Assets.xcassets
                 - path: card_shadow.jpg
                   buildPhase: resources
@@ -259,7 +261,7 @@ jobs:
                   PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
                   SWIFT_VERSION: "5.0"
                   CLANG_CXX_LANGUAGE_STANDARD: "c++17"
-                  HEADER_SEARCH_PATHS: "$(SRCROOT)/../Tests/OpenXRayCompat"
+                  HEADER_SEARCH_PATHS: "$(SRCROOT)/../Tests/OpenXRayCompat $(SRCROOT)/../openxray-upstream/src/xrCore/Math"
                   TARGETED_DEVICE_FAMILY: "1"
                   GENERATE_INFOPLIST_FILE: "YES"
                   ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -276,7 +278,15 @@ jobs:
           private func xrayResourceEntryLinked() -> Int32
           @_silgen_name("st_openxray_crc32")
           private func openXRayCRC32(_ bytes: UnsafeRawPointer, _ length: UInt32) -> UInt32
+          @_silgen_name("st_openxray_math_sample")
+          private func openXRayMathSample(_ seed: UInt32) -> UInt32
           enum XRayStatus {
+              static var xrMathCheck: String {
+                  let a = openXRayMathSample(123)
+                  let b = openXRayMathSample(123)
+                  let c = openXRayMathSample(124)
+                  return a == b && a != c ? "xrCore math: PASS (on device)" : "xrCore math: FAIL"
+              }
               static var xrCoreCheck: String {
                   let bytes = Array("123456789".utf8)
                   let crc = bytes.withUnsafeBytes { raw in openXRayCRC32(raw.baseAddress!, UInt32(raw.count)) }
@@ -288,7 +298,7 @@ jobs:
               static var details: String {
                   "Native X-Ray bridge: linked. Runtime: " + (xrayRuntimeLinked() == 1 ? "linked" : "not linked") +
                   ". Resource entry: " + (xrayResourceEntryLinked() == 1 ? "linked" : "not linked") +
-                  ". " + xrCoreCheck + ". " + resourcePreflight + ". Gameplay is not available yet."
+                  ". " + xrCoreCheck + ". " + xrMathCheck + ". " + resourcePreflight + ". Gameplay is not available yet."
               }
               static var resourcePreflight: String {
                   let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -360,6 +370,7 @@ jobs:
           APP="LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app"
           /usr/bin/lipo "$APP/STALKERLauncherOnly" -verify_arch arm64
           xcrun nm -g "$APP/STALKERLauncherOnly" | grep -F _st_openxray_crc32
+          xcrun nm -g "$APP/STALKERLauncherOnly" | grep -F _st_openxray_math_sample
           xcrun nm -g "$APP/STALKERLauncherOnly" | grep -F _st_openxray_runtime_linked
           test ! -e "$APP/_CodeSignature"
           test ! -e "$APP/embedded.mobileprovision"

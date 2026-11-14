@@ -31,6 +31,8 @@ jobs:
     # Workflow-file pushes only execute the portable Linux regression job.
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: macos-latest
+    # Cap potentially billable cross-compilation while collecting diagnostics.
+    timeout-minutes: 90
     steps:
       - name: Record iOS toolchain and SDK prerequisites
         shell: bash

@@ -51,6 +51,9 @@ int main() {
     uint32_t crc = 0;
     assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == 0);
     assert(crc == 294);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, nullptr) == -1);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 1, &crc) == -2);
+    assert(crc == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
     // Two adjacent chunks must retain their own offsets and payload boundaries.
@@ -66,6 +69,8 @@ int main() {
     assert(id == 2 && size == 4 && compressed == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 4, &actual) == 0);
     assert(actual == 4 && std::string(payload, 4) == "defg");
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 1, &crc) == 0);
+    assert(crc == 406);
     assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 4, &actual) == 0);
     assert(actual == 3 && std::string(payload, 3) == "abc");
     // Empty payloads are legal, including with a null destination and zero capacity.
@@ -76,6 +81,8 @@ int main() {
     assert(chunks == 1);
     assert(st_xray_probe_first_archive_chunk_read(root, 0, nullptr, 0, &actual) == 0);
     assert(actual == 0);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == 0);
+    assert(crc == 0);
     // Reject a partial trailing chunk header.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char trailing[] = {3,0,0,0,0,0,0,0,1,2,3};
@@ -92,6 +99,8 @@ int main() {
     assert(id == 1 && size == 3 && compressed == 1);
     assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 3, &actual) == -5);
     assert(actual == 0);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -5);
+    assert(crc == 0);
     // Truncated payload must be rejected rather than accepted as a chunk.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char invalid[] = {1,0,0,0,10,0,0,0,'x'};

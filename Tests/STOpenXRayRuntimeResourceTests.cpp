@@ -58,6 +58,8 @@ int main() {
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
     assert(st_openxray_runtime_run_with_resources("", "") == -2);
     assert(st_openxray_runtime_run_with_resources("", "/this-directory-must-not-exist-stalker") == -6);
+    assert(st_openxray_runtime_run_with_resources("", ".") == -6);
+    assert(st_openxray_runtime_run_with_resources("", "relative/game") == -6);
     char temporary[] = "/tmp/stalker-resource-link-XXXXXX";
     const int fd = mkstemp(temporary);
     assert(fd >= 0);

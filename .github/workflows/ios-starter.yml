@@ -89,6 +89,94 @@ jobs:
           python3 Tests/test_adapt_fsgame_ios.py
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
+  minimal-install-test:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build minimal ESign installation test' }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create independent minimal iPhone app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p MinimalInstall
+          cat > MinimalInstall/main.swift <<'SWIFT'
+          import UIKit
+          @main
+          class MinimalApp: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
+              func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  let window = UIWindow(frame: UIScreen.main.bounds)
+                  let controller = UIViewController()
+                  controller.view.backgroundColor = .black
+                  let label = UILabel()
+                  label.text = "STALKER Mobile - installation test OK"
+                  label.textColor = .white
+                  label.textAlignment = .center
+                  label.numberOfLines = 0
+                  label.translatesAutoresizingMaskIntoConstraints = false
+                  controller.view.addSubview(label)
+                  NSLayoutConstraint.activate([
+                      label.centerXAnchor.constraint(equalTo: controller.view.centerXAnchor),
+                      label.centerYAnchor.constraint(equalTo: controller.view.centerYAnchor),
+                      label.leadingAnchor.constraint(greaterThanOrEqualTo: controller.view.leadingAnchor, constant: 12),
+                      label.trailingAnchor.constraint(lessThanOrEqualTo: controller.view.trailingAnchor, constant: -12)
+                  ])
+                  window.rootViewController = controller
+                  window.makeKeyAndVisible()
+                  self.window = window
+                  return true
+              }
+          }
+          SWIFT
+          cat > MinimalInstall/project.yml <<'YAML'
+          name: STALKERInstallTest
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            STALKERInstallTest:
+              type: application
+              platform: iOS
+              sources:
+                - main.swift
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+                  SWIFT_VERSION: "5.0"
+                  TARGETED_DEVICE_FAMILY: "1"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+                  INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "NO"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          brew install xcodegen
+          (cd MinimalInstall && xcodegen generate)
+          xcodebuild -project MinimalInstall/STALKERInstallTest.xcodeproj -scheme STALKERInstallTest -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath MinimalInstall/build CODE_SIGNING_ALLOWED=NO build
+      - name: Package and validate minimal unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="MinimalInstall/build/Build/Products/Release-iphoneos/STALKERInstallTest.app"
+          /usr/bin/lipo -verify_arch arm64 "$APP/STALKERInstallTest"
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERInstallTest-unsigned.ipa
+          python3 - <<'PY'
+          import plistlib, zipfile
+          with zipfile.ZipFile("STALKERInstallTest-unsigned.ipa") as z:
+              assert z.testzip() is None
+              info=plistlib.loads(z.read("Payload/STALKERInstallTest.app/Info.plist"))
+              assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
+              assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
+              assert "Payload/STALKERInstallTest.app/STALKERInstallTest" in z.namelist()
+              print("Minimal unsigned ARM64 iPhone IPA verified")
+          PY
+      - name: Upload minimal installation test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERInstallTest-IPA-only
+          path: STALKERInstallTest-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
   build:
     # Keep macOS IPA builds opt-in while the account's free Actions compute
     # allowance is exhausted. Portable Linux tests still run on pushes.

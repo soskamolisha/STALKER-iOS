@@ -22,7 +22,7 @@ private enum Edition: String, CaseIterable, Identifiable {
 
 struct LauncherOnlyView: View {
     @State private var section = "Главная"
-    @State private var notice = false
+    @State private var infoSection: String?
     @State private var settings = false
     @State private var selectedGame: Edition?
     @AppStorage("launcher.showWheel") private var showWheel = true
@@ -44,7 +44,7 @@ struct LauncherOnlyView: View {
                             Button {
                                 section = item.0
                                 if item.0 == "Настройки" { settings = true }
-                                else if item.0 == "Импорт ресурсов" || item.0 == "Сохранения" || item.0 == "О проекте" { notice = true }
+                                else if item.0 == "Импорт ресурсов" || item.0 == "Сохранения" || item.0 == "О проекте" { infoSection = item.0 }
                             } label: {
                                 Label(item.0, systemImage: item.1)
                                     .font(.system(size: 12, weight: .semibold))
@@ -108,10 +108,40 @@ struct LauncherOnlyView: View {
                 }.padding(16)
             }
         }
-        .alert("STALKER Mobile", isPresented: $notice) {
-            Button("Понятно", role: .cancel) {}
-        } message: {
-            Text("Это демонстрационный лаунчер. Движок X-Ray и запуск игр отключены.")
+        .sheet(isPresented: Binding(
+            get: { infoSection != nil },
+            set: { if !$0 { infoSection = nil } }
+        )) {
+            NavigationStack {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    VStack(spacing: 18) {
+                        Image(systemName: infoSection == "Импорт ресурсов" ? "square.and.arrow.down" :
+                              infoSection == "Сохранения" ? "externaldrive" : "radiation")
+                            .font(.system(size: 55))
+                            .foregroundStyle(.yellow)
+                        Text(infoSection ?? "STALKER Mobile")
+                            .font(.title2.bold()).foregroundStyle(.yellow)
+                        Text(sectionDescription)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white.opacity(0.85))
+                        if infoSection == "О проекте" {
+                            LabeledContent("Версия", value: "Launcher Only")
+                                .foregroundStyle(.white)
+                            LabeledContent("X-Ray", value: "Не подключён")
+                                .foregroundStyle(.white)
+                        }
+                        Button("Вернуться в меню") { infoSection = nil }
+                            .buttonStyle(.borderedProminent).tint(.yellow)
+                    }
+                    .padding(28)
+                }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Закрыть") { infoSection = nil }
+                    }
+                }
+            }
         }
         .sheet(item: $selectedGame) { game in
             NavigationStack {
@@ -165,6 +195,17 @@ struct LauncherOnlyView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var sectionDescription: String {
+        switch infoSection {
+        case "Импорт ресурсов":
+            return "Импорт игровых файлов будет доступен после проверки безопасного подключения ресурсов. В этой версии импорт отключён."
+        case "Сохранения":
+            return "Сохранений пока нет. Этот лаунчер не запускает игры и не создаёт игровые сохранения."
+        default:
+            return "STALKER Mobile — интерфейс выбора трёх игр. Эта сборка предназначена для проверки дизайна и установки на iPhone."
         }
     }
 

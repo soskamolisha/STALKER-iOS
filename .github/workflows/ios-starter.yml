@@ -90,7 +90,7 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   minimal-install-test:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build minimal ESign installation test' || github.event.head_commit.message == 'Fix minimal iPhone test entry point' || github.event.head_commit.message == 'Fix minimal iPhone test source path' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build minimal ESign installation test' || github.event.head_commit.message == 'Fix minimal iPhone test entry point' || github.event.head_commit.message == 'Fix minimal iPhone test source path' || github.event.head_commit.message == 'Fix minimal IPA architecture check' }}
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
@@ -158,7 +158,7 @@ jobs:
         run: |
           set -euo pipefail
           APP="MinimalInstall/build/Build/Products/Release-iphoneos/STALKERInstallTest.app"
-          /usr/bin/lipo -verify_arch arm64 "$APP/STALKERInstallTest"
+          /usr/bin/lipo "$APP/STALKERInstallTest" -verify_arch arm64
           python3 scripts/package_unsigned_ipa.py "$APP" STALKERInstallTest-unsigned.ipa
           python3 - <<'PY'
           import plistlib, zipfile

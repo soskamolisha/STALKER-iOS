@@ -39,6 +39,20 @@ int main() {
     assert(config != nullptr);
     assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
     assert(std::fclose(config) == 0);
+    // Empty and symlinked configs must never reach the native engine.
+    assert(std::remove(config_path.c_str()) == 0);
+    config = std::fopen(config_path.c_str(), "wb");
+    assert(config != nullptr);
+    assert(std::fclose(config) == 0);
+    assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
+    assert(std::remove(config_path.c_str()) == 0);
+    assert(symlink("/etc/hosts", config_path.c_str()) == 0);
+    assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
+    assert(unlink(config_path.c_str()) == 0);
+    config = std::fopen(config_path.c_str(), "wb");
+    assert(config != nullptr);
+    assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
+    assert(std::fclose(config) == 0);
     assert(st_openxray_runtime_resources_linked() == 1);
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);

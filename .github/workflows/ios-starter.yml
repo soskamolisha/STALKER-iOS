@@ -297,13 +297,13 @@ jobs:
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO build
       - name: Build unsigned physical-device app
         run: |
-          xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
       - name: Verify home screen icon is compiled into device app
         run: |
           python3 - <<'PY'
           import plistlib
           from pathlib import Path
-          app = Path("build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app")
+          app = Path("build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app")
           assets = app / "Assets.car"
           assert assets.is_file() and assets.stat().st_size > 0, "Missing compiled Assets.car"
           with (app / "Info.plist").open("rb") as handle:
@@ -315,14 +315,14 @@ jobs:
           PY
       - name: Package unsigned prototype IPA
         run: |
-          APP="build-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
           lipo "$APP/STALKERiOSStarter" -verify_arch arm64
           python3 scripts/package_unsigned_ipa.py "$APP" STALKERiOSStarter-unsigned.ipa
       - name: Package build outputs
         run: |
           cd build-simulator/Build/Products/Debug-iphonesimulator
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-simulator.zip" STALKERiOSStarter.app
-          cd "$GITHUB_WORKSPACE/build-device/Build/Products/Debug-iphoneos"
+          cd "$GITHUB_WORKSPACE/build-device/Build/Products/Release-iphoneos"
           zip -r "$GITHUB_WORKSPACE/STALKERiOSStarter-unsigned-device.zip" STALKERiOSStarter.app
       - name: Verify IPA archive before publishing
         run: |
@@ -341,6 +341,7 @@ jobs:
                   print(f"{key}={value}")
               assert info["CFBundleExecutable"] == "STALKERiOSStarter", "Unexpected executable"
               assert "Payload/STALKERiOSStarter.app/STALKERiOSStarter" in archive.namelist(), "Missing app executable"
+              assert not any(name.endswith(".debug.dylib") or name.endswith("/__preview.dylib") for name in archive.namelist()), "Unexpected debug-only dylib in release IPA"
           print("IPA integrity and install metadata verified (code signing still required)")
           PY
       - uses: actions/upload-artifact@v4

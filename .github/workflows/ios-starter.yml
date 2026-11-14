@@ -89,6 +89,33 @@ jobs:
           python3 Tests/test_adapt_fsgame_ios.py
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
+  xray-ios-native-probe:
+    # Experimental arm64 iPhoneOS compilation; does not alter the working launcher IPA.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Probe X-Ray native bridge on iPhoneOS' }}
+    runs-on: macos-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile native X-Ray resource bridge and input for iPhone ARM64
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CXX="$(xcrun --sdk iphoneos --find clang++)"
+          mkdir -p build/xray-ios-probe
+          for source in Sources/Native/STOpenXRayRuntime.cpp Sources/Native/STInput.cpp; do
+            name="$(basename "${source%.cpp}")"
+            "$CXX" -std=c++17 -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 \
+              -Wall -Wextra -c "$source" -o "build/xray-ios-probe/$name.o"
+          done
+          xcrun --sdk iphoneos ar rcs build/xray-ios-probe/libSTXRayBridgeProbe.a build/xray-ios-probe/*.o
+          xcrun lipo -info build/xray-ios-probe/libSTXRayBridgeProbe.a
+          echo "Native bridge compiles for iPhoneOS ARM64; full engine and renderer are NOT linked."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: STXRay-iPhoneOS-ARM64-bridge-probe
+          path: build/xray-ios-probe/libSTXRayBridgeProbe.a
+          retention-days: 14
   launcher-only-ipa:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded title logo IPA' }}
     runs-on: macos-latest

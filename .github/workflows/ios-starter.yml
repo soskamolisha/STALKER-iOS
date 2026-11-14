@@ -92,7 +92,7 @@ jobs:
   build:
     # Keep macOS IPA builds opt-in while the account's free Actions compute
     # allowance is exhausted. Portable Linux tests still run on pushes.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' || github.event.head_commit.message == 'Run macOS IPA installation diagnostics' }}
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -298,6 +298,29 @@ jobs:
       - name: Build unsigned physical-device app
         run: |
           xcodebuild -project STALKERiOSStarter.xcodeproj -scheme STALKERiOSStarter -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build
+      - name: Diagnose iPhone app bundle and signing on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
+          mkdir -p install-diagnostics
+          /usr/bin/file "$APP/STALKERiOSStarter" | tee install-diagnostics/executable.txt
+          /usr/bin/lipo -info "$APP/STALKERiOSStarter" | tee install-diagnostics/architectures.txt
+          /usr/bin/plutil -lint "$APP/Info.plist" | tee install-diagnostics/plist.txt
+          /usr/bin/codesign -dv --verbose=4 "$APP" > install-diagnostics/codesign.txt 2>&1 || true
+          /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP" > install-diagnostics/signature-verification.txt 2>&1 || true
+          /usr/bin/find "$APP" -maxdepth 3 -type f | sort > install-diagnostics/bundle-files.txt
+          /usr/bin/plutil -extract CFBundleIdentifier raw "$APP/Info.plist" | tee install-diagnostics/bundle-id.txt
+          test ! -e "$APP/embedded.mobileprovision"
+          echo "Unsigned GitHub build: final GBox signature and provisioning cannot be verified here." | tee install-diagnostics/limitations.txt
+      - name: Upload macOS installation diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERiOSStarter-macos-install-diagnostics
+          path: install-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Verify home screen icon is compiled into device app
         run: |
           python3 - <<'PY'

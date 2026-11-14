@@ -36,3 +36,30 @@ extern "C" int32_t st_xray_probe_first_archive_chunks(const char* utf8_path,
     *chunk_count = static_cast<uint32_t>(entries.size());
     return 0;
 }
+
+/* Inspect one indexed top-level chunk without loading its payload.
+   -2: chunk index out of range; -3: resources unavailable; -4: malformed archive. */
+extern "C" int32_t st_xray_probe_first_archive_chunk_info(const char* utf8_path,
+                                                             uint32_t chunk_index,
+                                                             uint32_t* chunk_id,
+                                                             uint32_t* payload_size,
+                                                             int32_t* compressed) {
+    if (!utf8_path || !chunk_id || !payload_size || !compressed) return -1;
+    *chunk_id = 0;
+    *payload_size = 0;
+    *compressed = 0;
+    stalker::XRayBootstrap bootstrap;
+    if (!bootstrap.initialize(stalker::GameEdition::shadow) ||
+        !bootstrap.attachResources(utf8_path)) return -3;
+    if (bootstrap.packedArchiveNames().empty()) return -3;
+    const std::string archive = bootstrap.resourceRoot() + "/" +
+                                bootstrap.packedArchiveNames().front();
+    std::vector<stalker::ChunkEntry> entries;
+    if (!stalker::indexXRayChunks(archive, entries, 65536)) return -4;
+    if (chunk_index >= entries.size()) return -2;
+    const auto& entry = entries[chunk_index];
+    *chunk_id = entry.id;
+    *payload_size = entry.size;
+    *compressed = entry.compressed ? 1 : 0;
+    return 0;
+}

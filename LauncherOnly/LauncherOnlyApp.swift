@@ -83,19 +83,20 @@ struct LauncherOnlyView: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text("S.T.A.L.K.E.R. MOBILE")
-                                    .tracking(1.2)
+                                    .font(.system(size: 27, weight: .black, design: .rounded).width(.condensed))
+                                    .tracking(0.35)
                                     .foregroundStyle(
                                         LinearGradient(colors: [
-                                            Color(red: 0.94, green: 0.95, blue: 0.94),
-                                            Color(red: 0.70, green: 0.74, blue: 0.76),
-                                            Color(red: 0.44, green: 0.50, blue: 0.54)
+                                            Color(red: 0.99, green: 0.99, blue: 0.97),
+                                            Color(red: 0.78, green: 0.81, blue: 0.82),
+                                            Color(red: 0.36, green: 0.40, blue: 0.42)
                                         ], startPoint: .top, endPoint: .bottom)
                                     )
-                                .font(.system(size: 21, weight: .black, design: .monospaced))
-                                .minimumScaleFactor(0.65)
-                                .lineLimit(1)
-                                .shadow(color: .black, radius: 2, x: 2, y: 3)
-                                .shadow(color: .white.opacity(0.16), radius: 5, x: 0, y: 0)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.72)
+                                    .shadow(color: .black, radius: 0, x: 2, y: 3)
+                                    .shadow(color: .black.opacity(0.95), radius: 2, x: 4, y: 5)
+                                    .shadow(color: .white.opacity(0.55), radius: 1, x: -1, y: -1)
                                 Text("ТРИЛОГИЯ · ЛАУНЧЕР")
                                     .font(.caption).foregroundStyle(.white.opacity(0.8))
                             }
@@ -108,8 +109,11 @@ struct LauncherOnlyView: View {
                                     GeometryReader { area in
                                         if let url = Bundle.main.url(forResource: "card_\(game.rawValue)", withExtension: "jpg"),
                                            let image = UIImage(contentsOfFile: url.path) {
-                                            Image(uiImage: image).resizable().scaledToFill()
-                                                .frame(width: area.size.width, height: area.size.height).clipped()
+                                            Image(uiImage: image)
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: area.size.width, height: area.size.height)
+                                                .background(Color.black.opacity(0.55))
                                         } else {
                                             ZStack {
                                                 Color.black
@@ -117,10 +121,10 @@ struct LauncherOnlyView: View {
                                             }
                                         }
                                     }
-                                    .frame(height: largeCards ? 190 : 160)
+                                    .frame(height: largeCards ? 180 : 150)
                                     .overlay(alignment: .bottomLeading) {
                                         ZStack(alignment: .bottomLeading) {
-                                            LinearGradient(colors: [.clear, .black.opacity(0.94)],
+                                            LinearGradient(colors: [.clear, .black.opacity(0.78)],
                                                            startPoint: .center, endPoint: .bottom)
                                             Text(game.title)
                                                 .font(.system(size: 15, weight: .heavy))

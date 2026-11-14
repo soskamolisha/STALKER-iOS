@@ -83,20 +83,30 @@ struct LauncherOnlyView: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text("S.T.A.L.K.E.R. MOBILE")
-                                    .font(.system(size: 27, weight: .black, design: .rounded).width(.condensed))
-                                    .tracking(0.35)
-                                    .foregroundStyle(
-                                        LinearGradient(colors: [
-                                            Color(red: 0.99, green: 0.99, blue: 0.97),
-                                            Color(red: 0.78, green: 0.81, blue: 0.82),
-                                            Color(red: 0.36, green: 0.40, blue: 0.42)
-                                        ], startPoint: .top, endPoint: .bottom)
-                                    )
+                                    .font(.system(size: 29, weight: .black, design: .monospaced).width(.condensed))
+                                    .tracking(-1.1)
+                                    .foregroundStyle(.white)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.72)
-                                    .shadow(color: .black, radius: 0, x: 2, y: 3)
-                                    .shadow(color: .black.opacity(0.95), radius: 2, x: 4, y: 5)
-                                    .shadow(color: .white.opacity(0.55), radius: 1, x: -1, y: -1)
+                                    .minimumScaleFactor(0.6)
+                                    .overlay {
+                                        GeometryReader { titleArea in
+                                            Canvas { context, size in
+                                                // Weathered stencil cuts inspired by the reference lettering.
+                                                let cuts: [(CGFloat, CGFloat, CGFloat)] = [
+                                                    (0.12, 0.29, 0.23), (0.27, 0.04, 0.38),
+                                                    (0.45, 0.52, 0.17), (0.64, 0.15, 0.28),
+                                                    (0.83, 0.43, 0.18), (0.94, 0.10, 0.22)
+                                                ]
+                                                for (x, y, width) in cuts {
+                                                    let rect = CGRect(x: size.width * x, y: size.height * y,
+                                                                      width: size.width * width, height: 1.7)
+                                                    context.fill(Path(rect), with: .color(.black.opacity(0.88)))
+                                                }
+                                            }
+                                            .allowsHitTesting(false)
+                                        }
+                                    }
+                                    .shadow(color: .black, radius: 1, x: 2, y: 3)
                                 Text("ТРИЛОГИЯ · ЛАУНЧЕР")
                                     .font(.caption).foregroundStyle(.white.opacity(0.8))
                             }

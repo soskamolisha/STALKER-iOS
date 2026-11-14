@@ -52,6 +52,13 @@ sys.exit(9)
     assert accepted.returncode == 0, accepted.stdout + accepted.stderr
     assert (output / "libOpenXRayCombinedProbe.a").read_bytes() == b"mock-engine"
 
+    # A failed verification must preserve an already published good archive.
+    published = output / "libOpenXRayCombinedProbe.a"
+    rejected = run(legacy, entries)
+    assert rejected.returncode != 0
+    assert published.read_bytes() == b"mock-engine"
+    assert not (output / ".libOpenXRayCombinedProbe.a.tmp").exists()
+
     # A ZIP member marked as a Unix symlink must not be imported as a library.
     link = zipfile.ZipInfo("libOpenXRayCombinedProbe.a")
     link.create_system = 3

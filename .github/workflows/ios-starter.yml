@@ -90,7 +90,7 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   launcher-only-ipa:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -101,7 +101,7 @@ jobs:
           set -euo pipefail
           mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
           cp Resources/card_*.jpg LauncherOnly/
-          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/; fi
+          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/panorama_pripyat.png; elif [ -f Resources/panorama_pripyat.png.PNG ]; then cp Resources/panorama_pripyat.png.PNG LauncherOnly/panorama_pripyat.png; else echo "Missing panorama"; exit 1; fi
           sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
           cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
           {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
@@ -126,7 +126,6 @@ jobs:
                   buildPhase: resources
                 - path: panorama_pripyat.png
                   buildPhase: resources
-                  optional: true
               settings:
                 base:
                   PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
@@ -159,7 +158,7 @@ jobs:
           info=plistlib.loads((app/"Info.plist").read_bytes())
           assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
           assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
-          for name in ("card_shadow.jpg","card_clearSky.jpg","card_pripyat.jpg","Assets.car"):
+          for name in ("card_shadow.jpg","card_clearSky.jpg","card_pripyat.jpg","panorama_pripyat.png","Assets.car"):
               assert (app/name).is_file(), f"Missing launcher artwork: {name}"
           assert not any("OpenXRay" in p.name or "xrCore" in p.name for p in app.rglob("*"))
           print("Launcher artwork bundled; no OpenXRay engine files")

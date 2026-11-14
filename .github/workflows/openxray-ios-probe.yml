@@ -143,6 +143,33 @@ jobs:
           xcrun nm -g "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" | grep -F _st_openxray_crc32
           echo "OpenXRay xrCore component and STALKER Mobile bridge coexist in one iPhoneOS binary."
 
+      - name: Execute upstream xrCore with launcher bridge on macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/stalker-xray-host-main.cpp" <<'EOF'
+          #include <cstdint>
+          #include "STOpenXRayRuntime.h"
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              if (st_openxray_crc32(data, 9) != 0xcbf43926U) return 1;
+              if (st_openxray_runtime_linked() != 0) return 2;
+              if (st_openxray_runtime_run(nullptr) != -2) return 3;
+              if (st_openxray_runtime_run("") != -1) return 4;
+              return 0;
+          }
+          EOF
+          clang++ -std=c++17 -O2 -Wall -Wextra \
+            -I Sources/Native -I Tests/OpenXRayCompat \
+            "$RUNNER_TEMP/stalker-xray-host-main.cpp" \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            openxray-upstream/src/xrCore/crc32.cpp \
+            Tests/OpenXRayCRCProbe.cpp \
+            -o "$RUNNER_TEMP/stalker-xray-host-integration-test"
+          "$RUNNER_TEMP/stalker-xray-host-integration-test"
+          echo "Upstream CRC32 and launcher bridge executed together on macOS host (not iPhone)."
+
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)
         uses: actions/upload-artifact@v4
         with:

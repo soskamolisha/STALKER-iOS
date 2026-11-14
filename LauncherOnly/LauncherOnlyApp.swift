@@ -88,10 +88,21 @@ struct LauncherOnlyView: View {
                                             }
                                         }
                                     }
-                                    .frame(height: largeCards ? 235 : 205)
+                                    .frame(height: largeCards ? 215 : 185)
+                                    .overlay(alignment: .bottomLeading) {
+                                        ZStack(alignment: .bottomLeading) {
+                                            LinearGradient(colors: [.clear, .black.opacity(0.94)],
+                                                           startPoint: .center, endPoint: .bottom)
+                                            Text(game.title)
+                                                .font(.system(size: 15, weight: .heavy))
+                                                .foregroundStyle(.white)
+                                                .shadow(color: .black, radius: 3)
+                                                .lineLimit(2)
+                                                .minimumScaleFactor(0.75)
+                                                .padding(10)
+                                        }
+                                    }
                                     .clipShape(RoundedRectangle(cornerRadius: 9))
-                                    Text(game.title).font(.headline).foregroundStyle(.yellow)
-                                        .lineLimit(1).minimumScaleFactor(0.65)
                                     if showResourceLabels {
                                         Label("Ресурсы не добавлены", systemImage: "folder")
                                             .font(.caption2).foregroundStyle(.gray)

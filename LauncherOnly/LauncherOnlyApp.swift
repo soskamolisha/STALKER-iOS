@@ -122,19 +122,6 @@ struct LauncherOnlyView: View {
                                         }
                                     }
                                     .frame(height: largeCards ? 180 : 150)
-                                    .overlay(alignment: .bottomLeading) {
-                                        ZStack(alignment: .bottomLeading) {
-                                            LinearGradient(colors: [.clear, .black.opacity(0.78)],
-                                                           startPoint: .center, endPoint: .bottom)
-                                            Text(game.title)
-                                                .font(.system(size: 15, weight: .heavy))
-                                                .foregroundStyle(.white)
-                                                .shadow(color: .black, radius: 3)
-                                                .lineLimit(2)
-                                                .minimumScaleFactor(0.75)
-                                                .padding(10)
-                                        }
-                                    }
                                     .clipShape(RoundedRectangle(cornerRadius: 9))
                                     Button("Выбрать игру") { selectedGame = game }
                                         .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)

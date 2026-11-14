@@ -43,6 +43,21 @@ int main() {
     assert(actual == 3 && std::string(payload, 3) == "abc");
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
+    // Two adjacent chunks must retain their own offsets and payload boundaries.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char twoChunks[] = {
+          1,0,0,0,3,0,0,0,'a','b','c',
+          2,0,0,0,4,0,0,0,'d','e','f','g'
+      };
+      out.write(reinterpret_cast<const char*>(twoChunks), sizeof(twoChunks)); }
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == 0);
+    assert(chunks == 2);
+    assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == 0);
+    assert(id == 2 && size == 4 && compressed == 0);
+    assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 4, &actual) == 0);
+    assert(actual == 4 && std::string(payload, 4) == "defg");
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 4, &actual) == 0);
+    assert(actual == 3 && std::string(payload, 3) == "abc");
     // A compressed chunk must be indexed but not returned as raw decoded data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};

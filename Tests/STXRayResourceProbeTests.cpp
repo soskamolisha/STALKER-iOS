@@ -58,6 +58,20 @@ int main() {
     assert(actual == 4 && std::string(payload, 4) == "defg");
     assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 4, &actual) == 0);
     assert(actual == 3 && std::string(payload, 3) == "abc");
+    // Empty payloads are legal, including with a null destination and zero capacity.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char emptyChunk[] = {3,0,0,0,0,0,0,0};
+      out.write(reinterpret_cast<const char*>(emptyChunk), sizeof(emptyChunk)); }
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == 0);
+    assert(chunks == 1);
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, nullptr, 0, &actual) == 0);
+    assert(actual == 0);
+    // Reject a partial trailing chunk header.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char trailing[] = {3,0,0,0,0,0,0,0,1,2,3};
+      out.write(reinterpret_cast<const char*>(trailing), sizeof(trailing)); }
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == -4);
+    assert(chunks == 0);
     // A compressed chunk must be indexed but not returned as raw decoded data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};

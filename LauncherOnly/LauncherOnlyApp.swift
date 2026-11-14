@@ -43,7 +43,19 @@ struct LauncherOnlyView: View {
                     .init(color: Color(red: 0.55, green: 0.32, blue: 0.20), location: 0.64),
                     .init(color: Color(red: 0.11, green: 0.12, blue: 0.14), location: 1)
                 ], startPoint: .bottom, endPoint: .top).ignoresSafeArea()
-                if showWheel { wheel.ignoresSafeArea() }
+                if showWheel {
+                    if let url = Bundle.main.url(forResource: "panorama_pripyat", withExtension: "png"),
+                       let background = UIImage(contentsOfFile: url.path) {
+                        Image(uiImage: background)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                            .ignoresSafeArea()
+                    } else {
+                        wheel.ignoresSafeArea()
+                    }
+                }
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(menu, id: \.0) { item in

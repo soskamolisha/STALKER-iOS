@@ -67,6 +67,14 @@ jobs:
           submodules: recursive
           path: upstream
           persist-credentials: false
+      - name: Record exact upstream revision for reproducible iOS diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p engine-diagnostics
+          git -C upstream rev-parse HEAD | tee engine-diagnostics/openxray-upstream-sha.txt
+          git -C upstream submodule status --recursive > engine-diagnostics/openxray-submodules.txt
+          echo "OpenXRay upstream revision: $(cat engine-diagnostics/openxray-upstream-sha.txt)"
       - name: Build SDL2 for iPhoneOS arm64
         shell: bash
         run: |

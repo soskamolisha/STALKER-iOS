@@ -75,6 +75,17 @@ jobs:
           git -C upstream rev-parse HEAD | tee engine-diagnostics/openxray-upstream-sha.txt
           git -C upstream submodule status --recursive > engine-diagnostics/openxray-submodules.txt
           echo "OpenXRay upstream revision: $(cat engine-diagnostics/openxray-upstream-sha.txt)"
+      - name: Record iOS compiler target triple before dependency builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p engine-diagnostics
+          sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
+          compiler="$(xcrun --sdk iphoneos --find clang++)"
+          {
+            printf 'sdk=%s\ncompiler=%s\n' "$sdk" "$compiler"
+            "$compiler" -target arm64-apple-ios17.0 -isysroot "$sdk" -print-target-triple
+          } | tee engine-diagnostics/ios-target-triple.txt
       - name: Build SDL2 for iPhoneOS arm64
         shell: bash
         run: |

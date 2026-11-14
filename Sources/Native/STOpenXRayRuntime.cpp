@@ -61,6 +61,9 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     // The upstream resource-aware entry requires an absolute filesystem root.
     // Reject relative paths here instead of relying on upstream behavior.
     if (resource_root[0] != '/') return -6;
+    // Upstream currently constructs an unquoted -fsltx argument.
+    // Reject whitespace and quotes to prevent a broken config path.
+    if (std::strpbrk(resource_root, " \t\r\n\"") != nullptr) return -6;
     // A trailing slash makes lstat follow a directory symlink on POSIX.
     // Reject it so callers cannot bypass the no-symlink root check.
     const size_t root_length = std::strlen(resource_root);

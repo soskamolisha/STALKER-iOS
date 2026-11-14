@@ -116,6 +116,84 @@ jobs:
           name: STXRay-iPhoneOS-ARM64-bridge-probe
           path: build/xray-ios-probe/libSTXRayBridgeProbe.a
           retention-days: 14
+  xray-ios-link-smoke:
+    # Separate experimental iOS app; the production launcher remains unchanged.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' }}
+    runs-on: macos-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create native bridge smoke-test iOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p XRayLinkSmoke
+          cat > XRayLinkSmoke/main.mm <<'OBJC'
+          #import <UIKit/UIKit.h>
+          #include "../Sources/Native/STInput.h"
+          #include "../Sources/Native/STOpenXRayRuntime.h"
+          @interface SmokeAppDelegate : UIResponder <UIApplicationDelegate>
+          @property (nonatomic, strong) UIWindow *window;
+          @end
+          @implementation SmokeAppDelegate
+          - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+              STInput *input = st_input_create();
+              st_input_set(input, 4, 1);
+              const BOOL inputOK = (st_input_snapshot(input) == (1u << 4));
+              st_input_destroy(input);
+              const BOOL runtimeAbsent = (st_openxray_runtime_linked() == 0);
+              self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+              UIViewController *controller = [UIViewController new];
+              controller.view.backgroundColor = UIColor.blackColor;
+              UILabel *label = [UILabel new];
+              label.text = inputOK && runtimeAbsent ? @"X-Ray native bridge linked; gameplay unavailable" : @"Native bridge smoke test failed";
+              label.textColor = UIColor.whiteColor;
+              label.numberOfLines = 0;
+              label.textAlignment = NSTextAlignmentCenter;
+              label.frame = controller.view.bounds;
+              label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+              [controller.view addSubview:label];
+              self.window.rootViewController = controller;
+              [self.window makeKeyAndVisible];
+              return YES;
+          }
+          @end
+          int main(int argc, char *argv[]) {
+              @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass([SmokeAppDelegate class])); }
+          }
+          OBJC
+          cat > XRayLinkSmoke/project.yml <<'YAML'
+          name: XRayLinkSmoke
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            XRayLinkSmoke:
+              type: application
+              platform: iOS
+              sources:
+                - path: main.mm
+                - path: ../Sources/Native/STInput.cpp
+                - path: ../Sources/Native/STOpenXRayRuntime.cpp
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.xraylinksmoke
+                  CLANG_ENABLE_MODULES: "YES"
+                  CLANG_ENABLE_OBJC_ARC: "YES"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          brew install xcodegen
+          (cd XRayLinkSmoke && xcodegen generate)
+          xcodebuild -project XRayLinkSmoke/XRayLinkSmoke.xcodeproj -scheme XRayLinkSmoke -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath XRayLinkSmoke/build CODE_SIGNING_ALLOWED=NO build
+          APP="XRayLinkSmoke/build/Build/Products/Release-iphoneos/XRayLinkSmoke.app"
+          xcrun lipo "$APP/XRayLinkSmoke" -verify_arch arm64
+          python3 scripts/package_unsigned_ipa.py "$APP" XRayLinkSmoke-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XRay-Native-Link-Smoke-IPA
+          path: XRayLinkSmoke-unsigned.ipa
+          retention-days: 14
   launcher-only-ipa:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded title logo IPA' }}
     runs-on: macos-latest

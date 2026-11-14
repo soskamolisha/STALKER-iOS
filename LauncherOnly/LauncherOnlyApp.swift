@@ -27,7 +27,6 @@ struct LauncherOnlyView: View {
     @State private var selectedGame: Edition?
     @AppStorage("launcher.showWheel") private var showWheel = true
     @AppStorage("launcher.largeCards") private var largeCards = false
-    @AppStorage("launcher.showResourceLabels") private var showResourceLabels = true
     private let menu: [(String, String)] = [
         ("Главная", "house.fill"), ("Игры", "square.grid.2x2"),
         ("Импорт ресурсов", "square.and.arrow.down"), ("Настройки", "gearshape"),
@@ -46,12 +45,15 @@ struct LauncherOnlyView: View {
                 if showWheel {
                     if let url = Bundle.main.url(forResource: "panorama_pripyat", withExtension: "png"),
                        let background = UIImage(contentsOfFile: url.path) {
-                        Image(uiImage: background)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .clipped()
-                            .ignoresSafeArea()
+                        GeometryReader { backgroundArea in
+                            Image(uiImage: background)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: backgroundArea.size.width, height: backgroundArea.size.height)
+                                .clipped()
+                        }
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
                     } else {
                         wheel.ignoresSafeArea()
                     }
@@ -115,7 +117,7 @@ struct LauncherOnlyView: View {
                                             }
                                         }
                                     }
-                                    .frame(height: largeCards ? 215 : 185)
+                                    .frame(height: largeCards ? 190 : 160)
                                     .overlay(alignment: .bottomLeading) {
                                         ZStack(alignment: .bottomLeading) {
                                             LinearGradient(colors: [.clear, .black.opacity(0.94)],
@@ -130,10 +132,6 @@ struct LauncherOnlyView: View {
                                         }
                                     }
                                     .clipShape(RoundedRectangle(cornerRadius: 9))
-                                    if showResourceLabels {
-                                        Label("Ресурсы не добавлены", systemImage: "folder")
-                                            .font(.caption2).foregroundStyle(.gray)
-                                    }
                                     Button("Выбрать игру") { selectedGame = game }
                                         .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)
                                         .frame(maxWidth: .infinity)
@@ -190,7 +188,7 @@ struct LauncherOnlyView: View {
                 ZStack {
                     Color.black.ignoresSafeArea()
                     VStack(spacing: 16) {
-                        if let url = Bundle.main.url(forResource: "card_\\(game.rawValue)", withExtension: "jpg"),
+                        if let url = Bundle.main.url(forResource: "card_\(game.rawValue)", withExtension: "jpg"),
                            let image = UIImage(contentsOfFile: url.path) {
                             Image(uiImage: image)
                                 .resizable()
@@ -230,7 +228,6 @@ struct LauncherOnlyView: View {
                     LabeledContent("Карточки", value: "3")
                     Toggle("Колесо обозрения на фоне", isOn: $showWheel)
                     Toggle("Увеличенные карточки", isOn: $largeCards)
-                    Toggle("Показывать подписи ресурсов", isOn: $showResourceLabels)
                 }
                 .navigationTitle("Настройки")
                 .toolbar {

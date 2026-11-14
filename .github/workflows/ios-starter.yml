@@ -90,7 +90,7 @@ jobs:
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
   launcher-only-ipa:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded title logo IPA' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -102,6 +102,7 @@ jobs:
           mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
           cp Resources/card_*.jpg LauncherOnly/
           if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/panorama_pripyat.png; elif [ -f Resources/panorama_pripyat.png.PNG ]; then cp Resources/panorama_pripyat.png.PNG LauncherOnly/panorama_pripyat.png; else echo "Missing panorama"; exit 1; fi
+          if [ -f Resources/stalker_mobile_title.png ]; then cp Resources/stalker_mobile_title.png LauncherOnly/stalker_mobile_title.png; elif [ -f Resources/stalker_mobile_title.png.PNG ]; then cp Resources/stalker_mobile_title.png.PNG LauncherOnly/stalker_mobile_title.png; else echo "Missing title logo"; exit 1; fi
           sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
           cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
           {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
@@ -125,6 +126,8 @@ jobs:
                 - path: card_pripyat.jpg
                   buildPhase: resources
                 - path: panorama_pripyat.png
+                  buildPhase: resources
+                - path: stalker_mobile_title.png
                   buildPhase: resources
               settings:
                 base:

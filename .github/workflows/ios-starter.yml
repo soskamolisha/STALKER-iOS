@@ -198,6 +198,120 @@ jobs:
           name: XRay-Native-Link-Smoke-IPA
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
+  launcher-native-bridge-ipa:
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' }}
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare launcher with X-Ray native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
+          cp Resources/card_*.jpg LauncherOnly/
+          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/panorama_pripyat.png; elif [ -f Resources/panorama_pripyat.png.PNG ]; then cp Resources/panorama_pripyat.png.PNG LauncherOnly/panorama_pripyat.png; else echo "Missing panorama"; exit 1; fi
+          if [ -f Resources/stalker_mobile_title.png ]; then cp Resources/stalker_mobile_title.png LauncherOnly/stalker_mobile_title.png; elif [ -f Resources/stalker_mobile_title.png.PNG ]; then cp Resources/stalker_mobile_title.png.PNG LauncherOnly/stalker_mobile_title.png; else echo "Missing title logo"; exit 1; fi
+          sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
+          cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          JSON
+          cat > LauncherOnly/project.yml <<'YAML'
+          name: STALKERLauncherOnly
+          options:
+            deploymentTarget:
+              iOS: "17.0"
+          targets:
+            STALKERLauncherOnly:
+              type: application
+              platform: iOS
+              sources:
+                - path: LauncherOnlyApp.swift
+                - path: XRayStatus.swift
+                - path: ../Sources/Native/STOpenXRayRuntime.cpp
+                - path: ../Sources/Native/STInput.cpp
+                - path: Assets.xcassets
+                - path: card_shadow.jpg
+                  buildPhase: resources
+                - path: card_clearSky.jpg
+                  buildPhase: resources
+                - path: card_pripyat.jpg
+                  buildPhase: resources
+                - path: panorama_pripyat.png
+                  buildPhase: resources
+                - path: stalker_mobile_title.png
+                  buildPhase: resources
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+                  SWIFT_VERSION: "5.0"
+                  CLANG_CXX_LANGUAGE_STANDARD: "c++17"
+                  TARGETED_DEVICE_FAMILY: "1"
+                  GENERATE_INFOPLIST_FILE: "YES"
+                  ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+                  INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+                  INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
+                  INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+                  CODE_SIGNING_ALLOWED: "NO"
+          YAML
+          cat > LauncherOnly/XRayStatus.swift <<'SWIFT'
+          import Foundation
+          @_silgen_name("st_openxray_runtime_linked")
+          private func xrayRuntimeLinked() -> Int32
+          @_silgen_name("st_openxray_runtime_resources_linked")
+          private func xrayResourceEntryLinked() -> Int32
+          enum XRayStatus {
+              static var summary: String {
+                  "X-RAY BRIDGE · " + (xrayRuntimeLinked() == 1 ? "RUNTIME LINKED" : "ENGINE NOT LINKED")
+              }
+              static var details: String {
+                  "Native X-Ray bridge: linked. Runtime: " + (xrayRuntimeLinked() == 1 ? "linked" : "not linked") +
+                  ". Resource entry: " + (xrayResourceEntryLinked() == 1 ? "linked" : "not linked") +
+                  ". Gameplay is not available yet."
+              }
+          }
+          SWIFT
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("LauncherOnly/LauncherOnlyApp.swift")
+          s=p.read_text()
+          s=s.replace('Text("X-RAY OFF")', 'Text(XRayStatus.summary)')
+          s=s.replace('Text("Только интерфейс · игровой движок отключён")', 'Text(XRayStatus.details)')
+          p.write_text(s)
+          PY
+          brew install xcodegen
+          (cd LauncherOnly && xcodegen generate)
+      - name: Build launcher and native bridge unsigned iPhone app
+        run: |
+          xcodebuild -project LauncherOnly/STALKERLauncherOnly.xcodeproj -scheme STALKERLauncherOnly -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath LauncherOnly/build CODE_SIGNING_ALLOWED=NO build
+      - name: Verify artwork and package native bridge IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app"
+          /usr/bin/lipo "$APP/STALKERLauncherOnly" -verify_arch arm64
+          test ! -e "$APP/_CodeSignature"
+          test ! -e "$APP/embedded.mobileprovision"
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          app=Path("LauncherOnly/build/Build/Products/Release-iphoneos/STALKERLauncherOnly.app")
+          info=plistlib.loads((app/"Info.plist").read_bytes())
+          assert info["CFBundleIdentifier"]=="com.stalkermobile.ios"
+          assert info["CFBundleSupportedPlatforms"]==["iPhoneOS"]
+          for name in ("card_shadow.jpg","card_clearSky.jpg","card_pripyat.jpg","panorama_pripyat.png","Assets.car"):
+              assert (app/name).is_file(), f"Missing launcher artwork: {name}"
+          assert (app/"STALKERLauncherOnly").is_file()
+          print("Launcher artwork bundled; X-Ray native bridge linked, gameplay not yet available")
+          PY
+          python3 scripts/package_unsigned_ipa.py "$APP" STALKERMobile-XRayBridge-unsigned.ipa
+      - name: Upload launcher with X-Ray native bridge IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-XRayBridge-IPA
+          path: STALKERMobile-XRayBridge-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
   launcher-only-ipa:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Build engine-free launcher IPA' || github.event.head_commit.message == 'Build improved launcher IPA' || github.event.head_commit.message == 'Build launcher with information sections' || github.event.head_commit.message == 'Build launcher adjustable cards IPA' || github.event.head_commit.message == 'Build launcher label settings IPA' || github.event.head_commit.message == 'Build smaller launcher cards with titles' || github.event.head_commit.message == 'Build launcher with swapped game cards' || github.event.head_commit.message == 'Build launcher with STALKER title' || github.event.head_commit.message == 'Build launcher steel title IPA' || github.event.head_commit.message == 'Build Pripyat ferris wheel launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded panorama IPA' || github.event.head_commit.message == 'Build corrected panorama layout IPA' || github.event.head_commit.message == 'Build full artwork cards and embossed title IPA' || github.event.head_commit.message == 'Build clean artwork cards IPA' || github.event.head_commit.message == 'Build tightly fitted game cards IPA' || github.event.head_commit.message == 'Build stencil title launcher IPA' || github.event.head_commit.message == 'Build rugged sidebar launcher IPA' || github.event.head_commit.message == 'Build launcher with uploaded title logo IPA' }}
     runs-on: macos-latest

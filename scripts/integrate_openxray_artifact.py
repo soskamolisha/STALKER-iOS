@@ -67,7 +67,14 @@ def main():
         output = args.output.resolve()
         output.mkdir(parents=True, exist_ok=True)
         destination = output / "libOpenXRayCombinedProbe.a"
-        shutil.copyfile(target, destination)
+        # Replace atomically: a failed copy must never leave a partial engine
+        # archive that a later Xcode build could mistake for a valid one.
+        staged = output / ".libOpenXRayCombinedProbe.a.tmp"
+        try:
+            shutil.copyfile(target, staged)
+            staged.replace(destination)
+        finally:
+            staged.unlink(missing_ok=True)
         print(f"Verified archive ready: {destination}")
         print(f"Next: bash scripts/build_with_openxray.sh '{destination}'")
     return 0

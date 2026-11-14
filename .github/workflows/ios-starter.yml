@@ -92,7 +92,7 @@ jobs:
   build:
     # Keep macOS IPA builds opt-in while the account's free Actions compute
     # allowance is exhausted. Portable Linux tests still run on pushes.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' || github.event.head_commit.message == 'Run macOS IPA installation diagnostics' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Trigger one-time Release IPA build' || github.event.head_commit.message == 'Run macOS IPA installation diagnostics' || github.event.head_commit.message == 'Build clean unsigned iPhone IPA' }}
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -321,6 +321,29 @@ jobs:
           path: install-diagnostics/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Verify clean unsigned iPhone app for external signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
+          test -f "$APP/Info.plist"
+          test -f "$APP/STALKERiOSStarter"
+          test ! -e "$APP/_CodeSignature"
+          test ! -e "$APP/embedded.mobileprovision"
+          python3 - <<'PY'
+          import plistlib, subprocess
+          from pathlib import Path
+          app = Path("build-device/Build/Products/Release-iphoneos/STALKERiOSStarter.app")
+          with (app / "Info.plist").open("rb") as handle:
+              info = plistlib.load(handle)
+          assert info["CFBundleSupportedPlatforms"] == ["iPhoneOS"], info.get("CFBundleSupportedPlatforms")
+          assert info["MinimumOSVersion"] == "17.0", info.get("MinimumOSVersion")
+          assert info["CFBundleIdentifier"] == "com.stalkermobile.ios", info.get("CFBundleIdentifier")
+          assert info["CFBundleExecutable"] == "STALKERiOSStarter"
+          output = subprocess.check_output(["/usr/bin/lipo", "-archs", str(app / "STALKERiOSStarter")], text=True).split()
+          assert "arm64" in output, output
+          print("Clean unsigned iPhoneOS app verified; must be signed with a matching provisioning profile.")
+          PY
       - name: Verify home screen icon is compiled into device app
         run: |
           python3 - <<'PY'

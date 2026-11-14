@@ -2,6 +2,9 @@ name: Probe real OpenXRay C++ component for iOS
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/trilogy-launcher-v3]
+    paths: [.github/workflows/openxray-ios-probe.yml]
 
 permissions:
   contents: read

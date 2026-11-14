@@ -101,6 +101,7 @@ jobs:
           set -euo pipefail
           mkdir -p LauncherOnly/Assets.xcassets/AppIcon.appiconset
           cp Resources/card_*.jpg LauncherOnly/
+          if [ -f Resources/panorama_pripyat.png ]; then cp Resources/panorama_pripyat.png LauncherOnly/; fi
           sips -s format png -z 1024 1024 Resources/AppIcon.png --out LauncherOnly/Assets.xcassets/AppIcon.appiconset/icon.png >/dev/null
           cat > LauncherOnly/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
           {"images":[{"filename":"icon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
@@ -123,6 +124,9 @@ jobs:
                   buildPhase: resources
                 - path: card_pripyat.jpg
                   buildPhase: resources
+                - path: panorama_pripyat.png
+                  buildPhase: resources
+                  optional: true
               settings:
                 base:
                   PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios

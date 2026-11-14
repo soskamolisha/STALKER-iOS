@@ -118,7 +118,7 @@ jobs:
           retention-days: 14
   xray-ios-link-smoke:
     # Separate experimental iOS app; the production launcher remains unchanged.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' }}
     runs-on: macos-latest
     timeout-minutes: 18
     steps:
@@ -180,6 +180,7 @@ jobs:
                   PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.xraylinksmoke
                   CLANG_ENABLE_MODULES: "YES"
                   CLANG_ENABLE_OBJC_ARC: "YES"
+                  OTHER_LDFLAGS: "-framework UIKit -framework Foundation"
                   GENERATE_INFOPLIST_FILE: "YES"
                   CODE_SIGNING_ALLOWED: "NO"
           YAML

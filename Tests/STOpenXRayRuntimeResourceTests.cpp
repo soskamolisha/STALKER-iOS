@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <unistd.h>
 #include <cstdlib>
+#include <sys/stat.h>
 
 // Mock only: verifies resource-root forwarding and the shared runtime guard.
 // This does not build or run the real OpenXRay engine.
@@ -49,6 +50,10 @@ int main() {
     assert(symlink("/etc/hosts", config_path.c_str()) == 0);
     assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
     assert(unlink(config_path.c_str()) == 0);
+    // A directory named fsgame.ltx is not a usable filesystem config.
+    assert(mkdir(config_path.c_str(), 0700) == 0);
+    assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
+    assert(rmdir(config_path.c_str()) == 0);
     config = std::fopen(config_path.c_str(), "wb");
     assert(config != nullptr);
     assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);

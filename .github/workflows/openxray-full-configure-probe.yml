@@ -99,6 +99,735 @@ jobs:
           /usr/bin/file "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-object.txt
           /usr/bin/lipo -verify_arch arm64 "$RUNNER_TEMP/st-ios-arm64-probe.o"
           /usr/bin/nm -gU "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-symbols.txt
+          grep -Eq '[[:space:]]T[[:space:]]_st_ios_arm64_probe
+      - name: Build SDL2 for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git sdl2
+          cmake -S sdl2 -B sdl2-build -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake --build sdl2-build --parallel 2
+          cmake --install sdl2-build
+      - name: Build libogg for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.5 https://github.com/xiph/ogg.git ogg
+          cmake -S ogg -B ogg-build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake --build ogg-build --parallel 2
+          cmake --install ogg-build
+          test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
+      - name: Build libvorbis for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.7 https://github.com/xiph/vorbis.git vorbis
+          cmake -S vorbis -B vorbis-build \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
+          cmake --build vorbis-build --parallel 2
+          cmake --install vorbis-build
+          test -f "$RUNNER_TEMP/ios-deps/include/vorbis/codec.h"
+      - name: Cross-compile libtheora for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install autoconf automake libtool pkg-config
+          git clone --depth 1 https://github.com/xiph/theora.git theora
+          cd theora
+          ./autogen.sh
+          sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos --find clang)"
+          export CXX="$(xcrun --sdk iphoneos --find clang++)"
+          export CFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0 -O2 -I$RUNNER_TEMP/ios-deps/include"
+          export CXXFLAGS="$CFLAGS"
+          export LDFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0 -L$RUNNER_TEMP/ios-deps/lib"
+          export PKG_CONFIG_LIBDIR="$RUNNER_TEMP/ios-deps/lib/pkgconfig"
+          ./configure --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" --enable-static --disable-shared --disable-asm --disable-examples --disable-oggtest --disable-vorbistest
+          make -j2
+          make install
+          test -f "$RUNNER_TEMP/ios-deps/include/theora/theora.h"
+      - name: Cross-compile LZO for iPhoneOS arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz -o lzo.tar.gz
+          tar -xzf lzo.tar.gz
+          cd lzo-2.10
+          sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos --find clang)"
+          export CFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0 -O2"
+          export LDFLAGS="-arch arm64 -isysroot $sdk -miphoneos-version-min=17.0"
+          ./configure --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" --disable-shared --enable-static
+          make -j2
+          make install
+          test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
+          test -f "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
+      - name: Patch upstream LuaJIT iOS target detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          forced = 'set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")'
+          assert forced in s
+          s = s.replace(forced, '# Preserve the iPhoneOS SDK selected by the parent toolchain')
+          old = 'set(ENV{MACOSX_DEPLOYMENT_TARGET} ${CMAKE_OSX_DEPLOYMENT_TARGET})'
+          assert old in s
+          s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n        ' + old + '\n    endif()')
+          p.write_text(s)
+          PY
+      - name: Adapt upstream executable install rule for iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xr_3da/CMakeLists.txt")
+          s = p.read_text()
+          old = 'install(TARGETS xr_3da RUNTIME\n    DESTINATION "${CMAKE_INSTALL_BINDIR}"\n)'
+          assert old in s
+          s = s.replace(old, 'install(TARGETS xr_3da\n    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"\n    BUNDLE DESTINATION "."\n)')
+          p.write_text(s)
+          PY
+      - name: Correct OpenXRay ARM64 architecture detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/cmake/XRay.Compiler.GNULike.cmake")
+          s = p.read_text()
+          old = 'if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")'
+          assert old in s
+          s = s.replace(old, 'if (CMAKE_SYSTEM_NAME STREQUAL "iOS" OR CMAKE_OSX_ARCHITECTURES STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")')
+          p.write_text(s)
+          PY
+      - name: Build LuaJIT generator tools for macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          anchor = 'set(MINILUA_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/HostBuildTools/minilua")'
+          assert anchor in s
+          host = s[s.index(anchor):]
+          old = '    COMMAND ${CMAKE_COMMAND}\n        -B'
+          assert host.count(old) == 2
+          host = host.replace(old, '    COMMAND ${CMAKE_COMMAND} -E env --unset=SDKROOT --unset=MACOSX_DEPLOYMENT_TARGET ${CMAKE_COMMAND}\n        -B')
+          host = host.replace('-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}', '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0')
+          old_build = '    COMMAND ${CMAKE_COMMAND} --build ${'
+          assert host.count(old_build) == 2
+          host = host.replace(old_build, '    COMMAND ${CMAKE_COMMAND} -E env --unset=SDKROOT --unset=MACOSX_DEPLOYMENT_TARGET ${CMAKE_COMMAND} --build ${')
+          s = s[:s.index(anchor)] + host
+          p.write_text(s)
+          PY
+      - name: Align LuaJIT JIT utility generation for interpreter mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          old = 'list(APPEND XCFLAGS "-DLUAJIT_DISABLE_JIT")'
+          assert old in s
+          s = s.replace(old, old + '\n    list(APPEND XCFLAGS "-DLUAJIT_DISABLE_JITUTIL")')
+          p.write_text(s)
+          PY
+      - name: Propagate LuaJIT interpreter flags to host buildvm
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/Externals/LuaJIT-proj/CMakeLists.txt")
+          s = p.read_text()
+          old = 'set(HOST_ACFLAGS "${CMAKE_C_FLAGS} ${CCOPTIONS} ${TARGET_ARCH}")'
+          assert old in s
+          new = old + '\nif (LUAJIT_DISABLE_JIT)\n    string(APPEND HOST_ACFLAGS " -DLUAJIT_DISABLE_JIT -DLUAJIT_DISABLE_JITUTIL")\nendif()'
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Disable unsupported external URL shell launch on iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xrGame/login_manager.cpp")
+          s = p.read_text()
+          old = '#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          assert old in s
+          new = '#elif defined(XR_PLATFORM_IOS) || defined(__APPLE__) && defined(TARGET_OS_IPHONE)\n    (void)url; // External URL opening requires an iOS UIApplication bridge.\n#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Disable unsupported multiplayer map shell launch on iOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xrGame/MainMenu.cpp")
+          s = p.read_text()
+          old = '#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          assert old in s
+          new = '#elif defined(XR_PLATFORM_IOS) || defined(__APPLE__) && defined(TARGET_OS_IPHONE)\n    (void)url; // Opening external links needs an iOS platform bridge.\n#else\n    std::string command = "xdg-open " + std::string{url};\n    std::ignore = system(command.c_str());\n#endif'
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Add experimental C ABI for embedded X-Ray runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("upstream/src/xr_3da/entry_point.cpp")
+          s = p.read_text()
+          s = '#include <sys/stat.h>\n#include <string>\n' + s
+          anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
+          assert anchor in s, "Upstream entry point layout changed"
+          bridge = "\n".join([
+              '// Experimental C ABI; UIKit/SDL lifecycle is not yet adapted.',
+              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
+              '{',
+              '    return entry_point(command_line ? command_line : "");',
+              '}',
+              '',
+              '// Resource-aware entry (paths containing spaces need upstream parser adaptation).',
+              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run_with_resources(const char* command_line, const char* resource_root)',
+              '{',
+              '    if (!resource_root || resource_root[0] != 47) return -6;',
+              '    const std::string root(resource_root);',
+              '    if (root.find_first_of(" \\t\\r\\n\\\"") != std::string::npos) return -6;',
+              '    if (root.size() > 1 && root.back() == 47) return -6;',
+              '    struct stat root_info {};',
+              '    if (lstat(root.c_str(), &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;',
+              '    const std::string config = root + "/fsgame.ltx";',
+              '    struct stat info {};',
+              '    if (lstat(config.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) return -7;',
+              '    const std::string args = std::string(command_line ? command_line : "") + " -fsltx " + config;',
+              '    return entry_point(args.c_str());',
+              '}',
+              '',
+              ''
+          ])
+          p.write_text(s.replace(anchor, bridge + anchor, 1))
+          patched = p.read_text()
+          assert patched.count('int st_xray_embedded_run(') == 1
+          assert 'return entry_point(command_line ? command_line : "");' in patched
+          print("Experimental X-Ray C ABI inserted and verified before CMake configuration")
+
+          PY
+      - name: Attempt iPhoneOS arm64 CMake configuration
+        shell: bash
+        run: |
+          set +e
+          echo "Upstream revision: $(git -C upstream rev-parse HEAD)" > ios-configure.log
+          cmake -S upstream -B ios-build \
+            -DLUAJIT_DISABLE_JIT=ON \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DSDL2_DIR="$RUNNER_TEMP/ios-deps/lib/cmake/SDL2" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DVORBIS_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DVORBIS_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbis.a" \
+            -DVORBISFILE_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbisfile.a" \
+            -DTHEORA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DTHEORA_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libtheora.a" \
+            -DLZO_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLZO_LIBRARY="$RUNNER_TEMP/ios-deps/lib/liblzo2.a" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH >> ios-configure.log 2>&1
+          result=$?
+          echo "$result" > ios-configure-exit-code.txt
+          cat ios-configure.log
+          exit 0
+      - name: Attempt native engine compilation when configuration succeeds
+        shell: bash
+        run: |
+          set +e
+          if [ "$(cat ios-configure-exit-code.txt 2>/dev/null)" = 0 ]; then
+            cmake --build ios-build --parallel 2 > ios-build-attempt.log 2>&1
+            result=$?
+            echo "$result" > ios-build-exit-code.txt
+          else
+            echo "CMake configuration failed; engine build skipped." > ios-build-attempt.log
+            echo skipped > ios-build-exit-code.txt
+          fi
+          echo "=== LuaJIT buildvm generator flags ==="
+          grep -n -E 'HOST_ACFLAGS|LUAJIT_DISABLE_JIT|LUAJIT_DISABLE_JITUTIL|CMAKE_C_FLAGS' ios-build/Externals/LuaJIT-proj/HostBuildTools/buildvm/CMakeCache.txt ios-build/Externals/LuaJIT-proj/HostBuildTools/buildvm/CMakeFiles/buildvm.dir/flags.make ios-build/Externals/LuaJIT-proj/CMakeFiles/xrLuaJIT.dir/flags.make 2>/dev/null | head -n 65 || true
+          echo "=== LuaJIT source feature guards ==="
+          sed -n '740,785p' upstream/Externals/LuaJIT/src/lib_jit.c || true
+          echo "=== LuaJIT build diagnostics ==="
+          grep -n -E 'lj_cf_jit_util_traceinfo|LUAJIT_DISABLE_JIT|LJ_HASJIT' upstream/Externals/LuaJIT/src/lib_jit.c ios-build/Externals/LuaJIT-proj/lj_libdef.h ios-build/Externals/LuaJIT-proj/buildvm_arch.h 2>/dev/null | head -n 45 || true
+          echo "=== First compiler errors ==="
+          grep -n -m 12 -B 7 -A 3 'error:' ios-build-attempt.log || true
+          tail -n 120 ios-build-attempt.log
+      - name: Report and annotate errors
+        if: always()
+        shell: bash
+        run: |
+          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
+          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
+          {
+            echo "### OpenXRay iPhoneOS arm64"
+            echo "Configure: $config; compile: $build"
+            echo '~~~text'
+            grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null | head -n 35 || true
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+          (grep -Ei 'fatal error:|error:|CMake Error|FAILED:|undefined symbols|ld: error' ios-configure.log ios-build-attempt.log 2>/dev/null || true) | head -n 10 | while IFS= read -r line; do
+            echo "::error title=OpenXRay iOS diagnostic::$line"
+          done
+          true
+      - name: Upload configuration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-cmake-diagnostics
+          path: |
+            ios-configure.log
+            ios-configure-exit-code.txt
+            ios-build-exit-code.txt
+            ios-build-attempt.log
+            ios-build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn
+      - name: Verify native X-Ray entry point symbol
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
+          binary="upstream/bin/Release/xr_3da.app/xr_3da"
+          /usr/bin/nm -gU "$binary" | grep -F '_main'
+          if ! /usr/bin/nm -gU "$binary" | grep -F '_st_xray_embedded_run'; then
+            echo "::error::Embedded X-Ray C ABI symbol missing from arm64 executable"
+            exit 1
+          fi
+          echo "Entry-point audit complete."
+      - name: Package embedded X-Ray entry-point object for linkage research
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then exit 0; fi
+          mkdir -p embedded-entry
+          find ios-build -type f \( -name 'entry_point.cpp.o' -o -name 'entry_point.cpp.obj' \) -print > embedded-entry/candidates.txt
+          if [ ! -s embedded-entry/candidates.txt ]; then
+            echo "::error::Compiled X-Ray entry_point object not found"
+            exit 1
+          fi
+          while IFS= read -r candidate; do
+            if /usr/bin/nm -gU "$candidate" 2>/dev/null | grep -q '_st_xray_embedded_run'; then
+              cp "$candidate" embedded-entry/entry_point.o
+              break
+            fi
+          done < embedded-entry/candidates.txt
+          if [ ! -f embedded-entry/entry_point.o ]; then
+            echo "::error::No compiled entry-point object defines the embedded C ABI"
+            exit 1
+          fi
+          /usr/bin/file embedded-entry/entry_point.o | tee embedded-entry/architecture.txt
+          if grep -q "LLVM bitcode" embedded-entry/architecture.txt; then
+            echo "::notice::Entry-point object is LLVM bitcode (LTO); linking requires compatible Apple Clang LTO settings."
+          fi
+          /usr/bin/nm -gU embedded-entry/entry_point.o > embedded-entry/exported-symbols.txt
+          /usr/bin/nm -u embedded-entry/entry_point.o > embedded-entry/undefined-symbols.txt
+          # Preserve the actual engine link command and its static library inputs.
+          # The entry-point archive is only a probe; a future embedded target must
+          # link the full dependency closure rather than this object alone.
+          find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-commands.txt
+          # This job uses CMake's default Unix Makefiles generator, not Xcode.
+          # Capture every generated link.txt so target-specific engine link
+          # commands can be located even if the directory name differs.
+          find ios-build -type f -name link.txt -print | sort > embedded-entry/all-link-command-paths.txt
+          while IFS= read -r linkfile; do
+            printf '\n=== %s ===\n' "$linkfile"
+            cat "$linkfile"
+          done < embedded-entry/all-link-command-paths.txt > embedded-entry/all-link-commands.txt
+          echo "CMake link command files: $(wc -l < embedded-entry/all-link-command-paths.txt)"
+          # Record the complete native executable link command, including
+          # third-party libraries and linker flags, without guessing paths.
+          grep -E '/xr_3da/|/xr_3da\\.dir/|/xrEngine/' embedded-entry/all-link-command-paths.txt > embedded-entry/engine-link-candidates.txt || true
+          echo "Engine-related link command paths: $(wc -l < embedded-entry/engine-link-candidates.txt)"
+          while IFS= read -r linkfile; do
+            printf '\n=== %s ===\n' "$linkfile"
+            cat "$linkfile"
+          done < embedded-entry/engine-link-candidates.txt > embedded-entry/engine-link-command-expanded.txt
+          if [ ! -s embedded-entry/engine-link-command-expanded.txt ]; then
+            echo "::error::No full engine link command found."
+            exit 1
+          fi
+          echo "Full engine link command captured ($(wc -c < embedded-entry/engine-link-command-expanded.txt) bytes)."
+          # Expose the actual command and resolve @response-file references
+          # instead of treating a zero-archive count as a missing dependency.
+          echo "=== Engine linker invocation ==="
+          cat embedded-entry/engine-link-command-expanded.txt
+          echo "=== CMake target link metadata ==="
+          find ios-build -type f \( -name flags.make -o -name linkLibs.rsp -o -name objects1.rsp \) -path '*xr_3da*' -print -exec sh -c 'cat "$1"; echo' sh {} \; > embedded-entry/engine-link-target-metadata.txt
+          head -c 12000 embedded-entry/engine-link-target-metadata.txt || true
+          # Parse only xr_3da's executable link command; xrEngine's
+          # archive creation is a separate command, not executable linkage.
+          python3 - <<'PY'
+          from pathlib import Path
+          import shlex
+          # CMake executes link.txt from the target build directory, not CMakeFiles/*.dir.
+          root = Path("ios-build/src/xr_3da")
+          link = root / "CMakeFiles/xr_3da.dir/link.txt"
+          if not link.is_file():
+              raise SystemExit(f"Missing executable link command: {link}")
+          command = link.read_text().strip()
+          tokens = shlex.split(command)
+          expanded = []
+          for token in tokens:
+              if token.startswith("@"):
+                  rsp = root / token[1:]
+                  if not rsp.is_file():
+                      raise SystemExit(f"Missing linker response file: {rsp}")
+                  expanded.extend(shlex.split(rsp.read_text()))
+              else:
+                  expanded.append(token)
+          archives = [t for t in expanded if t.endswith(".a")]
+          libraries = [t for t in expanded if t.endswith((".a", ".dylib", ".tbd")) or t.startswith(("-l", "-framework", "-weak_framework", "@"))]
+          out = Path("embedded-entry")
+          (out / "xr_3da-link-command.txt").write_text(command + chr(10))
+          (out / "xr_3da-link-arguments.txt").write_text(chr(10).join(expanded) + chr(10))
+          (out / "engine-link-static-archives.txt").write_text(chr(10).join(archives) + chr(10))
+          (out / "engine-link-library-inputs.txt").write_text(chr(10).join(libraries) + chr(10))
+          (out / "engine-link-token-count.txt").write_text(str(len(expanded)) + chr(10))
+          print(f"xr_3da executable link: {len(expanded)} tokens, {len(archives)} static archives, {len(libraries)} library flags")
+          if not archives:
+              raise SystemExit("No static engine archives in xr_3da executable link command")
+          # Resolve the actual archive closure relative to the executable's
+          # CMake working directory. Fail if any archive is missing; this
+          # prevents generating a misleading embedding manifest.
+          resolved = []
+          missing = []
+          for item in archives:
+              archive = Path(item)
+              if not archive.is_absolute():
+                  archive = root / archive
+              archive = archive.resolve()
+              if archive.is_file():
+                  resolved.append(str(archive))
+              else:
+                  missing.append(str(archive))
+          (out / "xr_3da-resolved-static-archives.txt").write_text(chr(10).join(resolved) + chr(10))
+          print(f"Resolved engine archives: {len(resolved)}/{len(archives)}")
+          if missing:
+              raise SystemExit("Missing engine archives: " + ", ".join(missing))
+          # A linkable engine archive must preserve the whole native object
+          # closure. Start with a reproducible archive inventory; do not
+          # mistake a single entry-point object for a complete engine.
+          unique = list(dict.fromkeys(resolved))
+          (out / "xr_3da-unique-static-archives.txt").write_text(chr(10).join(unique) + chr(10))
+          sizes = [(Path(p).name, Path(p).stat().st_size) for p in unique]
+          (out / "xr_3da-archive-sizes.tsv").write_text(
+              chr(10).join(f"{name}\\t{size}" for name, size in sizes) + chr(10)
+          )
+          print(f"Unique engine archives: {len(unique)}; total archive bytes: {sum(size for _, size in sizes)}")
+          PY
+          # Real native archive merge probe. This validates that the
+          # OpenXRay dependency closure can be packaged for static linkage;
+          # it does not claim the UIKit lifecycle or SwiftUI integration works.
+          engine_archives=()
+          while IFS= read -r archive; do
+            [ -n "$archive" ] && engine_archives+=("$archive")
+          done < embedded-entry/xr_3da-unique-static-archives.txt
+          # Include the C ABI entry-point object in the full arm64 engine archive.
+          test -s embedded-entry/entry_point.o
+          /usr/bin/libtool -static -o embedded-entry/libOpenXRayCombinedProbe.a embedded-entry/entry_point.o "${engine_archives[@]}"
+          /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-entry-symbols.txt 2>/dev/null
+          if ! grep -q '_st_xray_embedded_run' embedded-entry/combined-entry-symbols.txt; then
+            echo "Missing embedded X-Ray C ABI entry point"
+            exit 1
+          fi
+          rm embedded-entry/combined-entry-symbols.txt
+          /usr/bin/file embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-type.txt
+          /usr/bin/ar -t embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-members.txt
+          echo "Combined archive members: $(wc -l < embedded-entry/combined-archive-members.txt)"
+          /usr/bin/lipo -info embedded-entry/libOpenXRayCombinedProbe.a | tee embedded-entry/combined-archive-architecture.txt
+          if ! grep -q 'arm64' embedded-entry/combined-archive-architecture.txt; then
+            echo "::error::Combined OpenXRay archive does not contain arm64"
+            exit 1
+          fi
+          # Validate that this is an engine archive, not merely a collection
+          # of unrelated dependencies. The entry-point wrapper remains separate.
+          /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-exports.txt 2> embedded-entry/combined-archive-nm-errors.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          symbols = Path("embedded-entry/combined-archive-exports.txt").read_text(errors="replace")
+          families = {
+              "xrCore": ("xrCore", "xrDebug"),
+              "xrEngine": ("CEngine", "CDevice"),
+              "xrGame": ("CLevel", "CActor"),
+          }
+          results = {name: any(token in symbols for token in names) for name, names in families.items()}
+          Path("embedded-entry/combined-archive-engine-symbol-audit.txt").write_text(
+              chr(10).join(f"{name}: {'present' if present else 'not detected'}" for name, present in results.items()) + chr(10)
+          )
+          print("Combined archive engine symbol audit:", results)
+          if not any(results.values()):
+              raise SystemExit("No recognizable OpenXRay engine exports in merged archive")
+          PY
+          rm embedded-entry/combined-archive-exports.txt
+          # Keep diagnostic artifacts lightweight; the merged archive is
+          # generated and inspected here, but not uploaded as a huge CI artifact.
+          /usr/bin/stat -f '%z' embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-archive-size-bytes.txt
+          # Probe an actual iOS arm64 linker invocation against the merged
+          # archive. This intentionally does not claim a runnable UIKit app.
+          # The symbol is pulled from the archive by an undefined reference.
+          # Bound this experimental link probe so it cannot consume the
+          # entire macOS runner budget and cancel the useful engine build.
+          python3 - <<'PY'
+          import pathlib
+          import subprocess
+          sdk = subprocess.check_output(
+              ["xcrun", "--sdk", "iphoneos", "--show-sdk-path"], text=True
+          ).strip()
+          cmd = [
+              "xcrun", "--sdk", "iphoneos", "clang++",
+              "-arch", "arm64", "-target", "arm64-apple-ios17.0",
+              "-isysroot", sdk, "-Wl,-r", "-Wl,-u,_st_xray_embedded_run",
+              "embedded-entry/libOpenXRayCombinedProbe.a",
+              "-o", "embedded-entry/engine-partial-link.o",
+          ]
+          log = pathlib.Path("embedded-entry/engine-partial-link.log")
+          try:
+              with log.open("wb") as output:
+                  result = subprocess.run(
+                      cmd, stdout=output, stderr=subprocess.STDOUT, timeout=180,
+                      check=False,
+                  )
+              status = result.returncode
+          except subprocess.TimeoutExpired:
+              status = 124
+              with log.open("ab") as output:
+                  output.write(b"\\nLink probe timed out after 180 seconds\\n")
+          pathlib.Path("embedded-entry/engine-partial-link-exit-code.txt").write_text(
+              str(status) + chr(10)
+          )
+          print("Partial engine link exit code:", status)
+          PY
+          partial_link_status="$(cat embedded-entry/engine-partial-link-exit-code.txt)"
+          if [ "$partial_link_status" -eq 0 ]; then
+            test -s embedded-entry/engine-partial-link.o
+            /usr/bin/file embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-type.txt
+            /usr/bin/nm -gU embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-symbols.txt
+            if ! grep -q '_st_xray_embedded_run' embedded-entry/engine-partial-link-symbols.txt; then
+              echo "::error::Partial link succeeded but embedded X-Ray entry point is missing"
+              exit 1
+            fi
+            # A relocatable link can still contain undefined references.
+            # Preserve the evidence before deleting the large probe object.
+            /usr/bin/nm -u embedded-entry/engine-partial-link.o > embedded-entry/engine-partial-link-undefined-symbols.txt
+            grep -c ' U ' embedded-entry/engine-partial-link-undefined-symbols.txt > embedded-entry/engine-partial-link-unresolved-count.txt || true
+            echo "Unresolved references after partial link: $(cat embedded-entry/engine-partial-link-unresolved-count.txt)"
+            rm embedded-entry/engine-partial-link-symbols.txt
+            rm embedded-entry/engine-partial-link.o
+          else
+            echo "::error::Partial engine link failed with exit code $partial_link_status"
+            tail -n 35 embedded-entry/engine-partial-link.log
+            exit 1
+          fi
+          # Keep the compiled engine archive as a reusable integration input.
+          # This is NOT a complete, independently linkable iOS game runtime.
+          mkdir -p engine-integration
+          mv embedded-entry/libOpenXRayCombinedProbe.a engine-integration/libOpenXRayCombinedProbe.a
+          /usr/bin/shasum -a 256 engine-integration/libOpenXRayCombinedProbe.a > engine-integration/SHA256SUMS
+          # Require the actual embedded entry symbol before publishing a
+          # candidate for in-process launcher integration.
+          /usr/bin/nm -gU engine-integration/libOpenXRayCombinedProbe.a > engine-integration/exported-symbols.txt
+          if ! grep -q '_st_xray_embedded_run' engine-integration/exported-symbols.txt; then
+            echo "::error::Missing embedded OpenXRay entry point"
+            exit 1
+          fi
+          # Reject archives without the resource-aware ABI required by the launcher.
+          # A legacy-only archive cannot launch imported game assets.
+          python3 scripts/verify_openxray_archive.py --require-resources engine-integration/libOpenXRayCombinedProbe.a
+          /usr/bin/lipo -verify_arch arm64 engine-integration/libOpenXRayCombinedProbe.a
+          /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
+          printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=present\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
+          rm engine-integration/exported-symbols.txt
+          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Resource-aware ABI present, but iOS runtime and paths with spaces are not yet supported.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
+          if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
+            echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
+            exit 1
+          fi
+          grep '^CMAKE_GENERATOR:' ios-build/CMakeCache.txt > embedded-entry/cmake-generator.txt || true
+          # Xcode generators commonly use LinkFileList instead of CMake link.txt.
+          find ios-build -type f \( -name '*.LinkFileList' -o -name '*-LinkFileList' \) -print > embedded-entry/xcode-link-filelists.txt
+          while IFS= read -r list; do
+            printf '\n=== %s ===\n' "$list"
+            cat "$list"
+          done < embedded-entry/xcode-link-filelists.txt > embedded-entry/xcode-link-inputs.txt
+          # CMake's Xcode generator writes the final linker invocation to
+          # build logs; retain it alongside LinkFileList for dependency analysis.
+          if [ -f ios-build-attempt.log ]; then
+            grep -E '(^|[[:space:]])(Ld|Libtool|clang\+\+|/usr/bin/clang\+\+)([[:space:]]|$)' ios-build-attempt.log > embedded-entry/linker-log-excerpts.txt || true
+          fi
+          echo "Xcode LinkFileList files: $(wc -l < embedded-entry/xcode-link-filelists.txt)"
+          echo "Xcode linker inputs (bytes): $(wc -c < embedded-entry/xcode-link-inputs.txt)"
+          find ios-build -type f -name '*.a' -print | sort > embedded-entry/static-library-candidates.txt
+          echo "Static library candidates: $(wc -l < embedded-entry/static-library-candidates.txt)"
+          if [ ! -s embedded-entry/engine-link-commands.txt ]; then
+            echo "::warning::No xr_3da link.txt found; Xcode generator may store link instructions elsewhere."
+          fi
+          printf "Undefined symbols in entry-point object: " | tee embedded-entry/linkage-summary.txt
+          wc -l < embedded-entry/undefined-symbols.txt | tee -a embedded-entry/linkage-summary.txt
+          echo "An entry-point archive alone cannot be linked as a complete X-Ray engine." | tee -a embedded-entry/linkage-summary.txt
+          /usr/bin/libtool -static -o embedded-entry/libXRayEntryPointProbe.a embedded-entry/entry_point.o
+          /usr/bin/ar -t embedded-entry/libXRayEntryPointProbe.a
+          echo "This archive contains only an entry-point object, NOT a linkable full engine."
+      - name: Upload reusable arm64 engine integration archive
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-arm64-integration-archive
+          path: engine-integration/
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+      - name: Upload embedded entry-point linkage diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-embedded-entry-linkage-probe
+          path: embedded-entry/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Inspect engine-to-launcher integration interfaces
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine not built; integration audit skipped."
+            exit 0
+          fi
+          mkdir -p integration-audit
+          {
+            echo "OpenXRay iOS engine integration audit"
+            echo "Engine binary:"
+            /usr/bin/file upstream/bin/Release/xr_3da.app/xr_3da
+            echo
+            echo "Executable entry points:"
+            /usr/bin/nm -gU upstream/bin/Release/xr_3da.app/xr_3da 2>/dev/null | grep -E '(_main$|SDL_main|UIApplicationMain|xrEngine)' | head -n 30 || true
+            echo
+            echo "Build targets and link commands:"
+            find ios-build -name link.txt -path '*xr_3da*' -print -exec sh -c 'head -c 20000 "$1"; echo' sh {} \; || true
+            echo
+            echo "Existing launcher integration:"
+            echo "SwiftUI currently instantiates UnavailableEngine; no native X-Ray runtime linkage."
+            echo "The executable cannot be launched as an iOS child process."
+            echo "Next engineering task: expose an embeddable runtime entry point and bind it to UIKit/SDL lifecycle."
+          } > integration-audit/report.txt
+          cat integration-audit/report.txt | head -n 35
+      - name: Upload engine integration audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-launcher-integration-audit
+          path: integration-audit/report.txt
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Package compiled iOS X-Ray engine bundle
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$(cat ios-build-exit-code.txt 2>/dev/null)" != "0" ]; then
+            echo "Engine compilation unsuccessful; no engine bundle will be published."
+            exit 0
+          fi
+          bundle="upstream/bin/Release/xr_3da.app"
+          test -f "$bundle/xr_3da"
+          mkdir -p engine-package
+          cp -R "$bundle" engine-package/
+          plist="engine-package/xr_3da.app/Info.plist"
+          test -f "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleIdentifier com.stalkermobile.openxray.engine' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.stalkermobile.openxray.engine' "$plist"
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName STALKER X-Ray Test' "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string STALKER X-Ray Test' "$plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist"
+          /usr/bin/file engine-package/xr_3da.app/xr_3da
+          /usr/bin/lipo -info engine-package/xr_3da.app/xr_3da
+          echo "=== App bundle metadata ==="
+          if [ -f engine-package/xr_3da.app/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' engine-package/xr_3da.app/Info.plist
+            /usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' engine-package/xr_3da.app/Info.plist
+          else
+            echo "::warning::Missing Info.plist; compiled bundle is not yet installable."
+          fi
+          echo "=== Code signature ==="
+          /usr/bin/codesign --verify --verbose=2 engine-package/xr_3da.app || true
+          echo "=== Runtime linkage ==="
+          /usr/bin/otool -L engine-package/xr_3da.app/xr_3da | tee engine-package/dylib-dependencies.txt
+          echo "=== Engine artifact manifest ==="
+          /usr/bin/shasum -a 256 engine-package/xr_3da.app/xr_3da | tee engine-package/sha256.txt
+          echo "Compiled engine bundle packaged; this is not a signed or launch-tested IPA."
+      - name: Package unsigned engine test IPA
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f engine-package/xr_3da.app/xr_3da ]; then
+            echo "Engine binary missing; unsigned engine IPA cannot be packaged."
+            exit 0
+          fi
+          mkdir -p ipa-staging/Payload
+          cp -R engine-package/xr_3da.app ipa-staging/Payload/
+          (cd ipa-staging && /usr/bin/zip -qry ../openxray-engine-unsigned-test.ipa Payload)
+          /usr/bin/unzip -t openxray-engine-unsigned-test.ipa | tail -n 2
+          echo "Unsigned engine-only IPA created for packaging diagnostics; not signed, not integrated into launcher, not gameplay-tested."
+      - name: Upload unsigned engine test IPA
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-engine-unsigned-test-ipa
+          path: openxray-engine-unsigned-test.ipa
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload unsigned iOS X-Ray engine bundle
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-unsigned-app
+          path: engine-package/xr_3da.app/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Enforce real iOS engine compilation status
+        if: always()
+        shell: bash
+        run: |
+          config="$(cat ios-configure-exit-code.txt 2>/dev/null || echo unavailable)"
+          build="$(cat ios-build-exit-code.txt 2>/dev/null || echo unavailable)"
+          if [ "$config" != 0 ] || [ "$build" != 0 ]; then
+            echo "::error::OpenXRay iOS engine not compiled (configure=$config, build=$build)."
+            exit 1
+          fi
+
+ engine-diagnostics/ios-arm64-symbols.txt || {
+            echo "::error::iPhoneOS arm64 object is missing its expected defined C entry symbol."
+            exit 1
+          }
       - name: Build SDL2 for iPhoneOS arm64
         shell: bash
         run: |

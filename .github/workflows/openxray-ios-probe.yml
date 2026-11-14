@@ -116,6 +116,33 @@ jobs:
           xcrun nm -g "$RUNNER_TEMP/openxray-ios-link-smoke" | grep -F _st_openxray_crc32
           echo "Upstream OpenXRay object archive linked into an arm64 iPhoneOS executable."
 
+      - name: Link OpenXRay xrCore component with STALKER Mobile native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/stalker-bridge-link-main.cpp" <<'EOF'
+          #include <cstdint>
+          #include "STOpenXRayRuntime.h"
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              if (st_openxray_crc32(data, 9) != 0xcbf43926U) return 1;
+              // CRC is a linked xrCore component; it is not the full game runtime.
+              return st_openxray_runtime_linked() == 0 ? 0 : 2;
+          }
+          EOF
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
+            -std=c++17 -I Sources/Native \
+            "$RUNNER_TEMP/stalker-bridge-link-main.cpp" \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            -o "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke"
+          lipo "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" -verify_arch arm64
+          xcrun nm -g "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" | grep -F _st_openxray_runtime_linked
+          xcrun nm -g "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" | grep -F _st_openxray_crc32
+          echo "OpenXRay xrCore component and STALKER Mobile bridge coexist in one iPhoneOS binary."
+
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)
         uses: actions/upload-artifact@v4
         with:

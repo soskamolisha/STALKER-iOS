@@ -1,0 +1,157 @@
+import SwiftUI
+import UIKit
+
+@main
+struct LauncherOnlyApp: App {
+    var body: some Scene {
+        WindowGroup { LauncherOnlyView().preferredColorScheme(.dark) }
+    }
+}
+
+private enum Edition: String, CaseIterable, Identifiable {
+    case shadow, clearSky, pripyat
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .shadow: return "Тень Чернобыля"
+        case .clearSky: return "Чистое небо"
+        case .pripyat: return "Зов Припяти"
+        }
+    }
+}
+
+struct LauncherOnlyView: View {
+    @State private var section = "Главная"
+    @State private var notice = false
+    @State private var settings = false
+    private let menu: [(String, String)] = [
+        ("Главная", "house.fill"), ("Игры", "square.grid.2x2"),
+        ("Импорт ресурсов", "square.and.arrow.down"), ("Настройки", "gearshape"),
+        ("Сохранения", "externaldrive"), ("О проекте", "info.circle")
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                LinearGradient(colors: [.black, Color(red: 0.14, green: 0.16, blue: 0.12)],
+                               startPoint: .bottom, endPoint: .top).ignoresSafeArea()
+                wheel.opacity(0.30).ignoresSafeArea()
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(menu, id: \.0) { item in
+                            Button {
+                                section = item.0
+                                if item.0 == "Настройки" { settings = true }
+                                else if item.0 != "Главная" && item.0 != "Игры" { notice = true }
+                            } label: {
+                                Label(item.0, systemImage: item.1)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(10)
+                                    .foregroundStyle(section == item.0 ? .yellow : .white)
+                                    .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
+                            }.buttonStyle(.plain)
+                        }
+                        Spacer()
+                        Image(systemName: "radiation")
+                            .font(.system(size: 70)).foregroundStyle(.yellow.opacity(0.4))
+                    }
+                    .frame(width: min(165, geo.size.width * 0.22))
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("S.T.A.L.K.E.R. MOBILE")
+                                    .font(.system(size: 23, weight: .black, design: .monospaced))
+                                    .foregroundStyle(.yellow)
+                                Text("ТРИЛОГИЯ · ЛАУНЧЕР")
+                                    .font(.caption).foregroundStyle(.white.opacity(0.8))
+                            }
+                            Spacer()
+                            Text("X-RAY OFF").font(.caption.bold()).foregroundStyle(.orange)
+                        }
+                        HStack(alignment: .top, spacing: 10) {
+                            ForEach(Edition.allCases) { game in
+                                VStack(alignment: .leading, spacing: 9) {
+                                    GeometryReader { area in
+                                        if let url = Bundle.main.url(forResource: "card_\(game.rawValue)", withExtension: "jpg"),
+                                           let image = UIImage(contentsOfFile: url.path) {
+                                            Image(uiImage: image).resizable().scaledToFill()
+                                                .frame(width: area.size.width, height: area.size.height).clipped()
+                                        } else {
+                                            ZStack {
+                                                Color.black
+                                                Image(systemName: "radiation").foregroundStyle(.yellow)
+                                            }
+                                        }
+                                    }
+                                    .frame(height: 205)
+                                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                                    Text(game.title).font(.headline).foregroundStyle(.yellow)
+                                        .lineLimit(1).minimumScaleFactor(0.65)
+                                    Label("Ресурсы не добавлены", systemImage: "folder")
+                                        .font(.caption2).foregroundStyle(.gray)
+                                    Button("Выбрать игру") { notice = true }
+                                        .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .padding(9).frame(maxWidth: .infinity)
+                                .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.4)))
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        Text("Только интерфейс · игровой движок отключён")
+                            .font(.caption).foregroundStyle(.white.opacity(0.7))
+                    }
+                }.padding(16)
+            }
+        }
+        .alert("STALKER Mobile", isPresented: $notice) {
+            Button("Понятно", role: .cancel) {}
+        } message: {
+            Text("Это демонстрационный лаунчер. Движок X-Ray и запуск игр отключены.")
+        }
+        .sheet(isPresented: $settings) {
+            NavigationStack {
+                Form {
+                    LabeledContent("Версия", value: "Launcher Only")
+                    LabeledContent("Движок X-Ray", value: "Отключён")
+                    LabeledContent("Карточки", value: "3")
+                }
+                .navigationTitle("Настройки")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Готово") { settings = false }
+                    }
+                }
+            }
+        }
+    }
+
+    private var wheel: some View {
+        GeometryReader { geo in
+            Canvas { ctx, size in
+                let center = CGPoint(x: size.width * 0.75, y: size.height * 0.42)
+                let radius = min(size.width * 0.19, size.height * 0.34)
+                let ink = Color.black.opacity(0.9)
+                ctx.stroke(Path(ellipseIn: CGRect(x: center.x-radius, y: center.y-radius,
+                                                 width: radius*2, height: radius*2)),
+                           with: .color(ink), lineWidth: 5)
+                for index in 0..<16 {
+                    let angle = Double(index) * .pi / 8
+                    var spoke = Path()
+                    spoke.move(to: center)
+                    spoke.addLine(to: CGPoint(x: center.x + radius*cos(angle),
+                                              y: center.y + radius*sin(angle)))
+                    ctx.stroke(spoke, with: .color(ink), lineWidth: 3)
+                }
+                var support = Path()
+                support.move(to: center)
+                support.addLine(to: CGPoint(x: center.x-radius*0.6, y: size.height))
+                support.move(to: center)
+                support.addLine(to: CGPoint(x: center.x+radius*0.6, y: size.height))
+                ctx.stroke(support, with: .color(ink), lineWidth: 7)
+            }
+        }
+    }
+}

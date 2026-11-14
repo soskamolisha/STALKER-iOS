@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
           /tmp/stalker-xray-bootstrap-tests
-          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Sources/Native/XRayChunkIndex.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
+          c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
           /tmp/stalker-native-resource-probe-tests
           # Verify the native controls and geometry bridge on every push,
           # without invoking a paid macOS/iPhoneOS runner.
@@ -201,7 +201,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' || github.event.head_commit.message == 'Report imported X-Ray archive inventory' || github.event.head_commit.message == 'Fix Swift archive inventory diagnostic string' || github.event.head_commit.message == 'Link native X-Ray resource bootstrap into launcher' || github.event.head_commit.message == 'Wire X-Ray archive chunk inspector into iOS launcher' || github.event.head_commit.message == 'Build X-Ray chunk metadata diagnostics on iPhone' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' || github.event.head_commit.message == 'Report imported X-Ray archive inventory' || github.event.head_commit.message == 'Fix Swift archive inventory diagnostic string' || github.event.head_commit.message == 'Link native X-Ray resource bootstrap into launcher' || github.event.head_commit.message == 'Wire X-Ray archive chunk inspector into iOS launcher' || github.event.head_commit.message == 'Build X-Ray chunk metadata diagnostics on iPhone' || github.event.head_commit.message == 'Link bounded X-Ray chunk payload reader into launcher' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -248,6 +248,7 @@ jobs:
                 - path: ../Sources/Native/XRayBootstrap.cpp
                 - path: ../Sources/Native/XRayLevelCatalog.cpp
                 - path: ../Sources/Native/XRayChunkIndex.cpp
+                - path: ../Sources/Native/XRayChunkPayload.cpp
                 - path: ../openxray-upstream/src/xrCore/crc32.cpp
                 - path: ../Tests/OpenXRayCRCProbe.cpp
                 - path: ../Tests/OpenXRayMathProbe.cpp
@@ -429,6 +430,7 @@ jobs:
           find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_shadow_resources
           find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunks
           find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunk_info
+          find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_xray_probe_first_archive_chunk_read
           find "$OBJDIR" -name '*.o' -print0 | xargs -0 xcrun nm -g | grep -F _st_openxray_runtime_linked
           test ! -e "$APP/_CodeSignature"
           test ! -e "$APP/embedded.mobileprovision"

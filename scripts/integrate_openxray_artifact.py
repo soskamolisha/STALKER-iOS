@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import stat
 import zipfile
 
 
@@ -30,10 +31,16 @@ def main():
         if len(artifact.infolist()) > 10000:
             parser.error("artifact contains too many entries")
         candidates = []
+        total_uncompressed = 0
         for member in artifact.infolist():
             # Bound uncompressed size to avoid archive extraction bombs.
-            if member.file_size > 4 * 1024 * 1024 * 1024:
-                parser.error("archive member exceeds 4 GiB safety limit")
+            total_uncompressed += member.file_size
+            if total_uncompressed > 4 * 1024 * 1024 * 1024:
+                parser.error("artifact exceeds 4 GiB total uncompressed safety limit")
+            # A ZIP can label a Unix symlink as a .a file; never treat it as an engine archive.
+            mode = member.external_attr >> 16
+            if member.create_system == 3 and stat.S_ISLNK(mode):
+                parser.error("artifact contains a symbolic link")
             name = Path(member.filename)
             if member.is_dir():
                 continue

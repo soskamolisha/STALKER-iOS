@@ -118,7 +118,7 @@ jobs:
           retention-days: 14
   xray-ios-link-smoke:
     # Separate experimental iOS app; the production launcher remains unchanged.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Link X-Ray native bridge into experimental iOS app' || github.event.head_commit.message == 'Fix UIKit linkage for X-Ray iOS smoke app' || github.event.head_commit.message == 'Verify X-Ray engine entry safety in iOS smoke app' }}
     runs-on: macos-latest
     timeout-minutes: 18
     steps:
@@ -141,12 +141,12 @@ jobs:
               st_input_set(input, 4, 1);
               const BOOL inputOK = (st_input_snapshot(input) == (1u << 4));
               st_input_destroy(input);
-              const BOOL runtimeAbsent = (st_openxray_runtime_linked() == 0);
+              const BOOL runtimeAbsent = (st_openxray_runtime_linked() == 0);\n              const BOOL resourceEntryAbsent = (st_openxray_runtime_resources_linked() == 0);\n              const BOOL absentEntryRejectsLaunch = (st_openxray_runtime_run("-soc -nointro -nosplash") == -1);
               self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
               UIViewController *controller = [UIViewController new];
               controller.view.backgroundColor = UIColor.blackColor;
               UILabel *label = [UILabel new];
-              label.text = inputOK && runtimeAbsent ? @"X-Ray native bridge linked; gameplay unavailable" : @"Native bridge smoke test failed";
+              label.text = inputOK && runtimeAbsent && resourceEntryAbsent && absentEntryRejectsLaunch ? @"X-Ray bridge OK; engine entry unavailable; gameplay disabled" : @"Native bridge smoke test failed";
               label.textColor = UIColor.whiteColor;
               label.numberOfLines = 0;
               label.textAlignment = NSTextAlignmentCenter;

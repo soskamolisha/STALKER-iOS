@@ -23,6 +23,7 @@ enum EngineStartError: LocalizedError {
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
         case .nativeEntryFailed(let code):
             switch code {
+            case -7: return "Файл fsgame.ltx отсутствует, пустой или недоступен (-7)"
             case -6: return "Папка игровых ресурсов не существует или недоступна (-6)"
             case -5: return "Движок не поддерживает запуск с папкой игровых ресурсов (-5)"
             case -4: return "Движок вызвал исключение C++ во время запуска (-4)"

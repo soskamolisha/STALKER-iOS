@@ -196,7 +196,7 @@ jobs:
               label.textAlignment = NSTextAlignmentCenter;
               label.numberOfLines = 0;
               label.textColor = UIColor.whiteColor;
-              label.text = crcOK && runtimeMissing ? @"OpenXRay xrCore CRC32: PASS\\nFull runtime: NOT LINKED" : @"OpenXRay component: FAIL";
+              label.text = crcOK && runtimeMissing ? @"OpenXRay xrCore CRC32: PASS\nFull runtime: NOT LINKED" : @"OpenXRay component: FAIL";
               [controller.view addSubview:label];
               self.window.rootViewController = controller;
               [self.window makeKeyAndVisible];

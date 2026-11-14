@@ -64,30 +64,20 @@ struct LauncherOnlyView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             VStack(alignment: .leading) {
-                                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text("S.T.A.L.K.E.R.")
-                                        .tracking(1.2)
-                                        .foregroundStyle(
-                                            LinearGradient(colors: [
-                                                Color(red: 0.94, green: 0.91, blue: 0.78),
-                                                Color(red: 0.59, green: 0.61, blue: 0.55),
-                                                Color(red: 0.88, green: 0.57, blue: 0.22)
-                                            ], startPoint: .top, endPoint: .bottom)
-                                        )
-                                    Text("MOBILE")
-                                        .tracking(2)
-                                        .foregroundStyle(
-                                            LinearGradient(colors: [
-                                                Color(red: 0.98, green: 0.72, blue: 0.33),
-                                                Color(red: 0.57, green: 0.28, blue: 0.11)
-                                            ], startPoint: .top, endPoint: .bottom)
-                                        )
-                                }
+                                Text("S.T.A.L.K.E.R. MOBILE")
+                                    .tracking(1.2)
+                                    .foregroundStyle(
+                                        LinearGradient(colors: [
+                                            Color(red: 0.94, green: 0.95, blue: 0.94),
+                                            Color(red: 0.70, green: 0.74, blue: 0.76),
+                                            Color(red: 0.44, green: 0.50, blue: 0.54)
+                                        ], startPoint: .top, endPoint: .bottom)
+                                    )
                                 .font(.system(size: 21, weight: .black, design: .monospaced))
                                 .minimumScaleFactor(0.65)
                                 .lineLimit(1)
                                 .shadow(color: .black, radius: 2, x: 2, y: 3)
-                                .shadow(color: .orange.opacity(0.35), radius: 8, x: 0, y: 0)
+                                .shadow(color: .white.opacity(0.16), radius: 5, x: 0, y: 0)
                                 Text("ТРИЛОГИЯ · ЛАУНЧЕР")
                                     .font(.caption).foregroundStyle(.white.opacity(0.8))
                             }

@@ -233,7 +233,12 @@ jobs:
             <key>UILaunchScreen</key><dict/>
           </dict></plist>
           EOF
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$RUNNER_TEMP/STOpenXRayProbe.app/Info.plist" | grep -Fx STOpenXRayProbe
+          test ! -e "$RUNNER_TEMP/STOpenXRayProbe.app/_CodeSignature"
+          test ! -e "$RUNNER_TEMP/STOpenXRayProbe.app/embedded.mobileprovision"
           (cd "$RUNNER_TEMP" && mkdir -p Payload && cp -R STOpenXRayProbe.app Payload/ && zip -qr STOpenXRayProbe-unsigned.ipa Payload)
+          unzip -t "$RUNNER_TEMP/STOpenXRayProbe-unsigned.ipa" | tail -n 1
+          unzip -Z1 "$RUNNER_TEMP/STOpenXRayProbe-unsigned.ipa" | grep -Fx Payload/STOpenXRayProbe.app/STOpenXRayProbe
       - name: Upload unsigned OpenXRay UIKit component probe IPA
         uses: actions/upload-artifact@v4
         with:

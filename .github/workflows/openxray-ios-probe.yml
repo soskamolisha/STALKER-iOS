@@ -100,7 +100,12 @@ jobs:
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/openxray-ios-link-main.cpp" <<'EOF'
-          extern "C" int main() { return 0; }
+          #include <cstdint>
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              return st_openxray_crc32(data, 9) == 0xcbf43926U ? 0 : 1;
+          }
           EOF
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
           xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
@@ -108,7 +113,7 @@ jobs:
             -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
             -o "$RUNNER_TEMP/openxray-ios-link-smoke"
           lipo "$RUNNER_TEMP/openxray-ios-link-smoke" -verify_arch arm64
-          xcrun nm -g "$RUNNER_TEMP/openxray-ios-link-smoke" | grep -E 'crc32|fast_lc16' || true
+          xcrun nm -g "$RUNNER_TEMP/openxray-ios-link-smoke" | grep -F _st_openxray_crc32
           echo "Upstream OpenXRay object archive linked into an arm64 iPhoneOS executable."
 
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)

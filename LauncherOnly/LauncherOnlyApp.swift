@@ -103,33 +103,32 @@ struct LauncherOnlyView: View {
                             Spacer()
                             Text("X-RAY OFF").font(.caption.bold()).foregroundStyle(.orange)
                         }
-                        HStack(alignment: .top, spacing: largeCards ? 6 : 10) {
+                        HStack(alignment: .top, spacing: 5) {
                             ForEach(Edition.allCases) { game in
-                                VStack(alignment: .leading, spacing: 9) {
-                                    GeometryReader { area in
-                                        if let url = Bundle.main.url(forResource: "card_\(game.rawValue)", withExtension: "jpg"),
-                                           let image = UIImage(contentsOfFile: url.path) {
-                                            Image(uiImage: image)
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(width: area.size.width, height: area.size.height)
-                                                .background(Color.black.opacity(0.55))
-                                        } else {
-                                            ZStack {
-                                                Color.black
-                                                Image(systemName: "radiation").foregroundStyle(.yellow)
-                                            }
-                                        }
+                                VStack(spacing: 6) {
+                                    if let url = Bundle.main.url(forResource: "card_\(game.rawValue)", withExtension: "jpg"),
+                                       let image = UIImage(contentsOfFile: url.path) {
+                                        Image(uiImage: image)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fit)
+                                            .frame(maxWidth: .infinity)
+                                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                                    } else {
+                                        Image(systemName: "radiation")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(height: 180)
+                                            .foregroundStyle(.yellow)
                                     }
-                                    .frame(height: largeCards ? 180 : 150)
-                                    .clipShape(RoundedRectangle(cornerRadius: 9))
                                     Button("Выбрать игру") { selectedGame = game }
-                                        .font(.caption.bold()).buttonStyle(.borderedProminent).tint(.yellow)
-                                        .frame(maxWidth: .infinity)
+                                        .font(.caption.bold())
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.yellow)
                                 }
-                                .padding(9).frame(maxWidth: .infinity)
-                                .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.yellow.opacity(0.4)))
+                                .frame(maxWidth: .infinity, alignment: .top)
+                                .padding(5)
+                                .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 9))
+                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(.yellow.opacity(0.4), lineWidth: 0.8))
                             }
                         }
                         Spacer(minLength: 0)

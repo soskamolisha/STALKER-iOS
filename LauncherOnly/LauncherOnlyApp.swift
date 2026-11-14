@@ -9,7 +9,7 @@ struct LauncherOnlyApp: App {
 }
 
 private enum Edition: String, CaseIterable, Identifiable {
-    case shadow, clearSky, pripyat
+    case shadow, pripyat, clearSky
     var id: String { rawValue }
     var title: String {
         switch self {

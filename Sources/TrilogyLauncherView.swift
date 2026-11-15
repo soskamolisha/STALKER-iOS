@@ -94,10 +94,32 @@ struct TrilogyLauncherView: View {
                     }
                 }
             }
+            var archiveDetails = ""
+            if packed && st_xray_archive_count(handle) > 0 {
+                var nameBuffer = [CChar](repeating: 0, count: 256)
+                let nameStatus = nameBuffer.withUnsafeMutableBufferPointer { pointer in
+                    st_xray_archive_name(handle, 0, pointer.baseAddress, UInt32(pointer.count))
+                }
+                if nameStatus == 0 {
+                    let name = String(cString: nameBuffer)
+                    var chunkID: UInt32 = 0
+                    var offset: UInt64 = 0
+                    var payloadSize: UInt32 = 0
+                    var compressed: Int32 = 0
+                    let chunkStatus = st_xray_archive_chunk_info(
+                        handle, 0, 0, &chunkID, &offset, &payloadSize, &compressed
+                    )
+                    if chunkStatus == 0 {
+                        archiveDetails = " [\(name): chunk \(chunkID), \(payloadSize) bytes, \(compressed == 1 ? "compressed" : "raw")]"
+                    } else {
+                        archiveDetails = " [\(name): chunk header unavailable (\(chunkStatus))]"
+                    }
+                }
+            }
             let levelSummary = levelDetails.isEmpty ? "" : " [\(levelDetails.joined(separator: ", "))]"
             engineDiagnostics[game.rawValue] = russian
-                ? "Ядро: папка \(loose ? "✓" : "—"), архивы \(packed ? "✓" : "—"), уровней \(levels)\(levelSummary)"
-                : "Core: folder \(loose ? "✓" : "—"), archives \(packed ? "✓" : "—"), levels \(levels)\(levelSummary)"
+                ? "Ядро: папка \(loose ? "✓" : "—"), архивы \(packed ? "✓" : "—"), уровней \(levels)\(levelSummary)\(archiveDetails)"
+                : "Core: folder \(loose ? "✓" : "—"), archives \(packed ? "✓" : "—"), levels \(levels)\(levelSummary)\(archiveDetails)"
         } else {
             engineDiagnostics[game.rawValue] = russian
                 ? "Ядро: ресурсы не найдены или не распознаны"

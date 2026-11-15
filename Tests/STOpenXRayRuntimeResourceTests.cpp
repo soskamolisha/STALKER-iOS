@@ -60,6 +60,12 @@ int main() {
     assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
     assert(std::fclose(config) == 0);
     assert(st_openxray_runtime_resources_linked() == 1);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    const std::string archive_path = test_root + "/gamedata.db0";
+    FILE* archive = std::fopen(archive_path.c_str(), "wb");
+    assert(archive != nullptr);
+    assert(std::fputs("mock archive placeholder", archive) >= 0);
+    assert(std::fclose(archive) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == 0);
     assert(st_openxray_runtime_preflight("relative/game") == -6);
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
@@ -89,5 +95,6 @@ int main() {
     assert(st_openxray_runtime_run_with_resources("-throw", expected_root) == -4);
     assert(st_openxray_runtime_run_with_resources("", expected_root) == 11);
     assert(std::remove(config_path.c_str()) == 0);
+    assert(std::remove(archive_path.c_str()) == 0);
     assert(rmdir(expected_root) == 0);
 }

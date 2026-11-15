@@ -29,6 +29,12 @@ private struct STLauncherArchiveHost: View {
             .padding(.trailing, 16)
             .accessibilityIdentifier("archiveImportButton")
         }
+        .onAppear {
+            // Make the destination visible in Files before the first import.
+            if let folder = try? STArchiveStore.destinationRoot() {
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            }
+        }
         .sheet(isPresented: $showingArchiveImport) {
             STArchiveImportView()
                 .preferredColorScheme(.dark)

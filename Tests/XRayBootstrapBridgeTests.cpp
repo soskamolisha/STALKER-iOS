@@ -45,6 +45,34 @@ int main() {
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
     assert(st_xray_memory_cform_info(nullptr, 0,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -1);
+    // A complete triangle references three vertices by zero-based index.
+    // Reject out-of-range references without changing the previous result.
+    std::vector<unsigned char> triangleCollision(collision, collision + sizeof(collision));
+    triangleCollision[8] = 1; // one 16-byte triangle
+    triangleCollision.insert(triangleCollision.end(), 16, 0);
+    assert(st_xray_memory_cform_info(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
+    assert(memoryVertices == 1 && memoryFaces == 1);
+    const uint32_t faceStart = 36 + 12;
+    triangleCollision[faceStart] = 1; // vertex index 1 is out of range
+    memoryVertices = 99;
+    memoryFaces = 99;
+    assert(st_xray_memory_cform_info(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+    assert(memoryVertices == 99 && memoryFaces == 99);
+    triangleCollision[faceStart] = 0;
+    triangleCollision[faceStart + 8] = 1; // third corner also checked
+    assert(st_xray_memory_cform_info(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+    triangleCollision[faceStart + 8] = 0;
+    assert(st_xray_memory_cform_info(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
+    assert(memoryVertices == 1 && memoryFaces == 1);
+
 
     assert(st_xray_initialize(nullptr, 0) == -1);
     STXRayHandle handle = st_xray_create();

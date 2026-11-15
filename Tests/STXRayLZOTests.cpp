@@ -38,5 +38,18 @@ int main() {
     damaged[0] ^= 0xff;
     assert(st_xray_lzo_decompress(damaged.data(), static_cast<uint32_t>(damaged.size()),
                                   decoded, sizeof(decoded), originalSize) != 0);
+    // A decoder must not write past the expected directory size, even if
+    // the caller provides a larger destination buffer.
+    std::vector<unsigned char> guarded(originalSize + 32, 0xa5);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  guarded.data(), static_cast<uint32_t>(guarded.size()),
+                                  originalSize) == 0);
+    for (size_t i = originalSize; i < guarded.size(); ++i)
+        assert(guarded[i] == 0xa5);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  guarded.data(), static_cast<uint32_t>(guarded.size()),
+                                  64u * 1024u * 1024u + 1u) == -3);
     return 0;
 }

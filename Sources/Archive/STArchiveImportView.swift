@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 /// after verifying the existing screen structure.
 struct STArchiveImportView: View {
     @State private var showingImporter = false
+    @State private var isImporting = false
+    @State private var importStatus: String?
     @State private var report: STArchiveInventory.Report?
     @State private var selectedFolder: String?
     @State private var errorMessage: String?
@@ -16,7 +18,10 @@ struct STArchiveImportView: View {
                 Text("Select a folder containing your legally obtained gamedata.db0, gamedata.db1, etc. This checks filenames and sizes only; it does not start X-Ray.")
                     .font(.subheadline)
                 Button("Choose game folder") { showingImporter = true }
+                    .disabled(isImporting)
                     .buttonStyle(.borderedProminent)
+                if isImporting { ProgressView("Copying game archives…") }
+                if let importStatus { Text(importStatus).font(.subheadline) }
                 if let selectedFolder {
                     Text("Selected: \(selectedFolder)").font(.caption)
                 }
@@ -56,6 +61,23 @@ struct STArchiveImportView: View {
                     report = try STArchiveInventory.scan(directory: folder)
                     selectedFolder = folder.lastPathComponent
                     errorMessage = nil
+                    isImporting = true
+                    importStatus = "Importing into application storage…"
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let result = Result { try STArchiveStore.importArchives(from: folder) }
+                        DispatchQueue.main.async {
+                            isImporting = false
+                            switch result {
+                            case .success(let imported):
+                                report = imported
+                                importStatus = "Imported \(imported.archives.count) archive(s). Contents not yet validated."
+                                errorMessage = nil
+                            case .failure(let error):
+                                importStatus = nil
+                                errorMessage = "Import failed: \(error.localizedDescription)"
+                            }
+                        }
+                    }
                 } catch {
                     report = nil
                     errorMessage = "Cannot read selected folder: \(error.localizedDescription)"

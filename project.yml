@@ -43,7 +43,11 @@ targets:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - path: Tests
+      # Only XCTest Swift sources belong in the iOS unit-test bundle.
+      # Standalone C++ native probes are compiled by their dedicated workflows.
+      - path: Tests/STArchiveInventoryTests.swift
+      - path: Tests/STArchiveStoreTests.swift
+      - path: Tests/XRayParserTestMain.swift
     dependencies:
       - target: STALKERiOSStarter
     settings:

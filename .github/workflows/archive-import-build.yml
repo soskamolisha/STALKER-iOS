@@ -53,7 +53,7 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -project STALKERiOSStarter.xcodeproj \
-            -scheme STArchiveTests \
+            -scheme STALKERiOSStarter \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \

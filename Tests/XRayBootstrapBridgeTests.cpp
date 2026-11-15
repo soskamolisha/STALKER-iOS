@@ -712,7 +712,9 @@ int main() {
         assert(st_xray_archive_directory_auto_decrypt(
             handle, 0, decoded, 4, &auto_size, &key_used) == -6);
         assert(auto_size == sizeof(directory_record) && key_used == -2);
-        assert(key_used == -2 && auto_size == 0);
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, auto_size, &auto_size, &key_used) == 0);
+        assert(auto_size == sizeof(directory_record) && key_used == -1);
         // The production directory parser now supports compressed catalogs.
         assert(st_xray_archive_directory_count(handle, 0) == 1);
         char compressedName[32] {};

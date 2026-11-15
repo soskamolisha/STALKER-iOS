@@ -6,6 +6,7 @@ struct TrilogyLauncherView: View {
     @AppStorage("stalker.language") private var language = "ru"
     @State private var selectedGame: GameEdition?
     @State private var showImporter = false
+    @State private var showImportEditionPicker = false
     @StateObject private var resources = GameResourceStore()
     @State private var importError: String?
     @State private var isCopying = false
@@ -492,8 +493,7 @@ struct TrilogyLauncherView: View {
                                 .font(.caption.bold()).tracking(1).foregroundStyle(.white)
                         }
                         Button {
-                            selectedGame = .shadow
-                            showImporter = true
+                            showImportEditionPicker = true
                         } label: {
                             Label(russian ? "Импорт всей папки игры" : "Import entire game folder", systemImage: "folder.badge.plus")
                         }
@@ -589,6 +589,19 @@ struct TrilogyLauncherView: View {
             .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("OK", role: .cancel) { importError = nil }
             } message: { Text(importError ?? "") }
+            .confirmationDialog(
+                russian ? "Для какой игры импортировать папку?" : "Which game are you importing?",
+                isPresented: $showImportEditionPicker,
+                titleVisibility: .visible
+            ) {
+                ForEach(GameEdition.allCases) { game in
+                    Button(russian ? game.russianName : game.englishName) {
+                        selectedGame = game
+                        showImporter = true
+                    }
+                }
+                Button(russian ? "Отмена" : "Cancel", role: .cancel) {}
+            }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
                 guard let selectedGame else { return }
                 do {

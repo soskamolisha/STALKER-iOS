@@ -97,7 +97,7 @@ jobs:
           /tmp/stalker-mesh-bridge-tests
   xray-ios-native-probe:
     # Experimental arm64 iPhoneOS compilation; does not alter the working launcher IPA.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Probe X-Ray native bridge on iPhoneOS' || github.event.head_commit.message == 'Compile miniLZO decoder for iPhoneOS ARM64' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Probe X-Ray native bridge on iPhoneOS' || github.event.head_commit.message == 'Compile miniLZO decoder for iPhoneOS ARM64' || github.event.head_commit.message == 'Compile full resource bridge for iPhoneOS ARM64' }}
     runs-on: macos-latest
     timeout-minutes: 12
     steps:
@@ -122,6 +122,12 @@ jobs:
           "$CXX" -std=c++17 -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 \
             -Wall -Wextra -Werror -I Sources/Native \
             -c Sources/Native/STXRayLZO.cpp -o build/xray-ios-probe/STXRayLZO.o
+          # Compile the archive/decompression bridge with its native dependencies.
+          for source in XRayBootstrap XRayLevelCatalog XRayLevelFiles XRayChunkIndex XRayLevelInspection XRayCFormHeader STXRayBootstrap STXRayCrypto; do
+            "$CXX" -std=c++17 -arch arm64 -isysroot "$SDK" -miphoneos-version-min=17.0 \
+              -Wall -Wextra -Werror -I Sources/Native/Upstream \
+              -c "Sources/Native/$source.cpp" -o "build/xray-ios-probe/$source.o"
+          done
           xcrun --sdk iphoneos ar rcs build/xray-ios-probe/libSTXRayBridgeProbe.a build/xray-ios-probe/*.o
           xcrun lipo -info build/xray-ios-probe/libSTXRayBridgeProbe.a
           echo "Native bridge compiles for iPhoneOS ARM64; full engine and renderer are NOT linked."

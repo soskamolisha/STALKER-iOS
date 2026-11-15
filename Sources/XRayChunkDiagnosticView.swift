@@ -47,6 +47,17 @@ struct XRayChunkDiagnosticView: View {
                     message = "File exceeds 4 MB diagnostic limit."
                     return
                 }
+                // ZIP files and .db archives are not generic X-Ray chunk streams.
+                let lowerName = url.lastPathComponent.lowercased()
+                if lowerName.hasSuffix(".zip") || data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
+                    message = "ZIP archive detected. This diagnostic does not unpack ZIP files."
+                    return
+                }
+                if lowerName.hasSuffix(".db0") || lowerName.hasSuffix(".db1") ||
+                   lowerName.hasSuffix(".db2") || lowerName.hasSuffix(".db3") {
+                    message = "X-Ray .db archive detected. Its directory format is not supported by this chunk diagnostic."
+                    return
+                }
                 chunks = try XRayChunkDiagnostics.scan(data)
                 message = "Found \(chunks.count) candidate chunks. No archive format validation performed."
             } catch {

@@ -3,7 +3,6 @@
 // This is NOT an X-Ray archive decoder or an implementation of xrCore.
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 
 namespace stalker_port {
 class ByteReader {
@@ -20,6 +19,23 @@ public:
               (static_cast<std::uint32_t>(p[2]) << 16) |
               (static_cast<std::uint32_t>(p[3]) << 24);
         position_ += 4;
+        return true;
+    }
+
+    bool read_u16_le(std::uint16_t& out) {
+        if (position_ > size_ || size_ - position_ < 2 || data_ == nullptr) return false;
+        const auto* p = data_ + position_;
+        out = static_cast<std::uint16_t>(p[0]) |
+              static_cast<std::uint16_t>(static_cast<std::uint16_t>(p[1]) << 8);
+        position_ += 2;
+        return true;
+    }
+
+    bool read_bytes(std::uint8_t* out, std::size_t count) {
+        if (position_ > size_ || count > size_ - position_ ||
+            (count && (out == nullptr || data_ == nullptr))) return false;
+        for (std::size_t i = 0; i < count; ++i) out[i] = data_[position_ + i];
+        position_ += count;
         return true;
     }
 

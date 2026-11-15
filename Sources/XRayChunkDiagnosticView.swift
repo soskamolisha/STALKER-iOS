@@ -35,9 +35,11 @@ struct XRayChunkDiagnosticView: View {
                 defer { try? handle.close() }
                 if [".db0", ".db1", ".db2", ".db3"].contains(where: lowerName.hasSuffix) {
                     // Read a bounded sample, never load the complete game archive.
+                    let fileSize = try handle.seekToEnd()
+                    try handle.seek(toOffset: 0)
                     let prefix = try handle.read(upToCount: 32) ?? Data()
                     let hex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
-                    message = "X-Ray .db candidate. First \(prefix.count) bytes: \(hex). Directory decoding is not implemented."
+                    message = "X-Ray .db candidate (\(fileSize) bytes). First \(prefix.count) bytes: \(hex). Directory decoding is not implemented."
                     return
                 }
                 // FileHandle may return fewer bytes than requested before EOF.

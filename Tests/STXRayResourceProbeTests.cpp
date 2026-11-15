@@ -20,6 +20,7 @@ extern "C" uint32_t st_openxray_crc32(const void* data, uint32_t size) {
 extern "C" int32_t st_xray_probe_first_archive_directory(const char*, uint32_t*, uint32_t*, int32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_read(const char*, void*, uint32_t, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_crc32(const char*, uint32_t*);
+extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char*, uint32_t*);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -60,6 +61,22 @@ int main() {
     assert(crc == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
+    // A single well-formed directory entry with a safe relative filename.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char directoryRecord[] = {
+          1,0,0,0, 22,0,0,0,
+          20,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          't','e','s','t', 0,0,0,0
+      };
+      out.write(reinterpret_cast<const char*>(directoryRecord), sizeof(directoryRecord)); }
+    uint32_t directoryEntries = 99;
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == 0);
+    assert(directoryEntries == 1);
+    // Malformed short directory records must not be accepted as file names.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char malformedDirectory[] = {1,0,0,0,3,0,0,0,'a','b','c'};
+      out.write(reinterpret_cast<const char*>(malformedDirectory), sizeof(malformedDirectory)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
     // Two adjacent chunks must retain their own offsets and payload boundaries.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoChunks[] = {

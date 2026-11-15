@@ -55,32 +55,27 @@ struct STArchiveImportView: View {
                     errorMessage = "No folder selected"
                     return
                 }
-                let granted = folder.startAccessingSecurityScopedResource()
-                defer { if granted { folder.stopAccessingSecurityScopedResource() } }
-                do {
-                    report = try STArchiveInventory.scan(directory: folder)
-                    selectedFolder = folder.lastPathComponent
-                    errorMessage = nil
-                    isImporting = true
-                    importStatus = "Importing into application storage…"
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        let result = Result { try STArchiveStore.importArchives(from: folder) }
-                        DispatchQueue.main.async {
-                            isImporting = false
-                            switch result {
-                            case .success(let imported):
-                                report = imported
-                                importStatus = "Imported \(imported.archives.count) archive(s). Contents not yet validated."
-                                errorMessage = nil
-                            case .failure(let error):
-                                importStatus = nil
-                                errorMessage = "Import failed: \(error.localizedDescription)"
-                            }
+                selectedFolder = folder.lastPathComponent
+                report = nil
+                errorMessage = nil
+                isImporting = true
+                importStatus = "Copying selected archives into application storage…"
+                DispatchQueue.global(qos: .userInitiated).async {
+                    // STArchiveStore owns security-scoped access for the entire copy.
+                    let result = Result { try STArchiveStore.importArchives(from: folder) }
+                    DispatchQueue.main.async {
+                        isImporting = false
+                        switch result {
+                        case .success(let imported):
+                            report = imported
+                            importStatus = "Imported \(imported.archives.count) archive(s). Contents not yet validated."
+                            errorMessage = nil
+                        case .failure(let error):
+                            report = nil
+                            importStatus = nil
+                            errorMessage = "Import failed: \(error.localizedDescription)"
                         }
                     }
-                } catch {
-                    report = nil
-                    errorMessage = "Cannot read selected folder: \(error.localizedDescription)"
                 }
             }
         }

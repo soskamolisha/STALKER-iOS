@@ -54,6 +54,14 @@ int main() {
     assert(st_xray_archive_find_file(handle, 0, "a:b") == -1);
     assert(st_xray_archive_find_file(handle, 0, "a\\\\b") == -1);
     assert(st_xray_archive_find_file(handle, 0, "a/../b") == -1);
+    uint32_t rejectedArchive = 99, rejectedEntry = 99;
+    assert(st_xray_find_resource(handle, "../escape", &rejectedArchive, &rejectedEntry) == -1);
+    assert(rejectedArchive == 0 && rejectedEntry == 0);
+    assert(st_xray_find_resource(handle, "/absolute", &rejectedArchive, &rejectedEntry) == -1);
+    assert(st_xray_find_resource(handle, "a//b", &rejectedArchive, &rejectedEntry) == -1);
+    assert(st_xray_find_resource(handle, "a/./b", &rejectedArchive, &rejectedEntry) == -1);
+    assert(st_xray_find_resource(handle, "a/../b", &rejectedArchive, &rejectedEntry) == -1);
+    assert(st_xray_find_resource(handle, "a:b", &rejectedArchive, &rejectedEntry) == -1);
     assert(st_xray_archive_find_file(handle, 0, "../escape") == -1);
     assert(st_xray_archive_find_file(handle, 0, "/absolute") == -1);
     assert(st_xray_archive_find_file(handle, 0, "levels//bad") == -1);

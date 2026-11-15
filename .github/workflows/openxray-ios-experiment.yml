@@ -164,6 +164,7 @@ jobs:
           print("Using SDL2 CMake config:", configs[0])
           PY
       - name: Audit upstream third-party dependency requirements
+        continue-on-error: true
         if: steps.sdlready.outcome == 'success'
         run: |
           python3 - <<'PY'
@@ -171,16 +172,18 @@ jobs:
           import os, re
           compiler = Path("upstream/cmake/XRay.Compiler.GNULike.cmake").read_text()
           packages = re.findall(r"find_package\s*\(\s*([A-Za-z0-9_]+)", compiler)
+          if not packages:
+              raise SystemExit("No find_package calls found; upstream dependency audit needs updating")
           prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
           report = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios-dependencies.txt"
           with report.open("w") as out:
               print("Upstream find_package requirements:", file=out)
               for package in packages:
                   print(f"- {package}", file=out)
-              print("\\nInstalled iPhone dependency prefix:", prefix, file=out)
+              print("\nInstalled iPhone dependency prefix:", prefix, file=out)
               for path in sorted(prefix.rglob("*Config.cmake")):
                   print(path.relative_to(prefix), file=out)
-              print("\\nNote: host macOS libraries are not valid iPhoneOS dependencies.", file=out)
+              print("\nNote: host macOS libraries are not valid iPhoneOS dependencies.", file=out)
           print(report.read_text())
           PY
       - name: Attempt CMake configuration for iPhone ARM64

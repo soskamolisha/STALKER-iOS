@@ -786,6 +786,20 @@ int main() {
         assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
             expandedChunk, sizeof(expandedChunk), sizeof(originalChunk), &expandedSize) == 0);
         assert(expandedSize == sizeof(originalChunk));
+        expandedChunk[0] = 0xEE;
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk) - 1, sizeof(originalChunk), &expandedSize) == -3);
+        assert(expandedSize == 0 && expandedChunk[0] == 0xEE);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            nullptr, sizeof(originalChunk), sizeof(originalChunk), &expandedSize) == -1);
+        assert(expandedSize == 0);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), 64u * 1024u * 1024u + 1u,
+            &expandedSize) == -3);
+        assert(expandedSize == 0);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), sizeof(originalChunk), &expandedSize) == 0);
+
         assert(std::memcmp(expandedChunk, originalChunk, expandedSize) == 0);
         expandedChunk[0] = 0xEE;
         assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,

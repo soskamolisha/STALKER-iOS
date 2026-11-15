@@ -132,6 +132,12 @@ int32_t st_xray_memory_chunk_info(const void* bytes, uint32_t size,
 int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
                                   uint32_t* vertices, uint32_t* triangles,
                                   float* minimum_xyz, float* maximum_xyz);
+// Convert a validated in-memory CForm collision mesh to renderer-ready XYZ
+// floats and uint32 triangle indices. Capacities are vertex/triangle counts.
+int32_t st_xray_memory_cform_mesh(const void* bytes, uint32_t size,
+                                   float* xyz, uint32_t vertex_capacity,
+                                   uint32_t* indices, uint32_t triangle_capacity,
+                                   uint32_t* vertex_count, uint32_t* triangle_count);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

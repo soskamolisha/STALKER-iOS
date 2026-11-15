@@ -212,6 +212,16 @@ int main() {
 
     const uint32_t faceStart = 36 + 12;
     triangleCollision[faceStart] = 1; // vertex index 1 is out of range
+    // Malformed indices must not partially overwrite a caller's GPU staging buffers.
+    meshXYZ[0] = 73.0f;
+    meshIndices[0] = 81;
+    meshVertices = 99;
+    meshTriangles = 99;
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
+        meshIndices, 1, &meshVertices, &meshTriangles) == -3);
+    assert(meshVertices == 0 && meshTriangles == 0);
+    assert(meshXYZ[0] == 73.0f && meshIndices[0] == 81);
     memoryVertices = 99;
     memoryFaces = 99;
     assert(st_xray_memory_cform_info(triangleCollision.data(),

@@ -12,6 +12,7 @@ struct STArchiveImportView: View {
     @State private var report: STArchiveInventory.Report?
     @State private var selectedFolder: String?
     @State private var errorMessage: String?
+    @State private var storedArchiveStatus: String = "Проверка ранее загруженных файлов…"
 
     var body: some View {
         ScrollView {
@@ -19,6 +20,7 @@ struct STArchiveImportView: View {
                 Text("Game archive diagnostics").font(.title2.bold())
                 Text("Select a folder containing your legally obtained gamedata.db0, gamedata.db1, etc. This checks filenames and sizes only; it does not start X-Ray.")
                     .font(.subheadline)
+                Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 Button("Choose game folder") { showingImporter = true }
                     .disabled(isImporting)
                     .buttonStyle(.borderedProminent)
@@ -48,6 +50,7 @@ struct STArchiveImportView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
         }
+        .onAppear { refreshStoredArchives() }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             switch result {
             case .failure(let error):
@@ -73,6 +76,22 @@ struct STArchiveImportView: View {
         }
     }
 
+    private func refreshStoredArchives() {
+        do {
+            let destination = try STArchiveStore.destinationRoot()
+            guard FileManager.default.fileExists(atPath: destination.path) else {
+                storedArchiveStatus = "Файлы игры ещё не импортированы"
+                return
+            }
+            let saved = try STArchiveInventory.scan(directory: destination)
+            storedArchiveStatus = saved.hasBaseArchive
+                ? "В приложении сохранено архивов: \(saved.archives.count) (содержимое не проверено)"
+                : "В сохранённой папке отсутствует gamedata.db0"
+        } catch {
+            storedArchiveStatus = "Не удалось проверить сохранённые файлы: \(error.localizedDescription)"
+        }
+    }
+
     private func beginImport(_ folder: URL) {
                 selectedFolder = folder.lastPathComponent
                 report = nil
@@ -89,6 +108,7 @@ struct STArchiveImportView: View {
                             report = imported
                             importStatus = "Imported \(imported.archives.count) archive(s). Contents not yet validated."
                             errorMessage = nil
+                            refreshStoredArchives()
                         case .failure(let error):
                             report = nil
                             importStatus = nil

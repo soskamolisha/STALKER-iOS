@@ -11,11 +11,11 @@ enum STArchiveStore {
         case sourceChanged
         var errorDescription: String? {
             switch self {
-            case .incompleteArchiveSet: return "Archive set has missing, duplicate, or empty files"
-            case .noBaseArchive: return "gamedata.db0 was not found in the selected folder"
-            case .invalidDestination: return "The destination folder is not safe"
-            case .insufficientSpace: return "Not enough free space for game archives"
-            case .sourceChanged: return "A source archive changed while copying; import was cancelled"
+            case .incompleteArchiveSet: return "Набор архивов неполный: есть пропущенные, повторяющиеся, пустые или неподходящие файлы"
+            case .noBaseArchive: return "В выбранной папке не найден gamedata.db0"
+            case .invalidDestination: return "Небезопасная папка или файл для импорта"
+            case .insufficientSpace: return "Недостаточно свободного места для игровых архивов"
+            case .sourceChanged: return "Исходный архив изменился во время копирования; импорт остановлен"
             }
         }
     }

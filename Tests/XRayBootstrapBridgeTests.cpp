@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <cstdint>
 #include <sys/stat.h>
 #include <cstring>
 #include <unistd.h>

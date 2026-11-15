@@ -291,15 +291,6 @@ struct TrilogyLauncherView: View {
 
     @ViewBuilder
     private func gameArtwork(for game: GameEdition) -> some View {
-    }
-
-    private var launcherContent: some View {
-        HStack(alignment: .top, spacing: 12) {
-            sidebar
-            HStack(alignment: .top, spacing: 12) {
-                        ForEach(GameEdition.allCases) { game in
-                            VStack(alignment: .leading, spacing: 10) {
-                                ZStack(alignment: .bottomLeading) {
                                     Group {
                                         if let localURL = (Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg", subdirectory: "Resources")
                                             ?? Bundle.main.url(forResource: game.bundledArtworkName, withExtension: "jpg")),
@@ -321,6 +312,16 @@ struct TrilogyLauncherView: View {
                                             }
                                         }
                                     }
+    }
+
+    private var launcherContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            sidebar
+            HStack(alignment: .top, spacing: 12) {
+                        ForEach(GameEdition.allCases) { game in
+                            VStack(alignment: .leading, spacing: 10) {
+                                ZStack(alignment: .bottomLeading) {
+                                    gameArtwork(for: game)
                                     .frame(maxWidth: .infinity).frame(height: 245).clipped()
                                     LinearGradient(colors: [.clear, .black.opacity(0.9)],
                                                    startPoint: .top, endPoint: .bottom)

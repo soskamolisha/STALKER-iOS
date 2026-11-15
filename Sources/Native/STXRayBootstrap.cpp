@@ -918,6 +918,7 @@ int32_t st_xray_packed_level_chunk_decode(STXRayHandle handle, const char* level
                                            uint32_t* actual_size) {
     if (!actual_size) return -1;
     *actual_size = 0;
+    if (expected_size > 64u * 1024u * 1024u) return -3;
     uint32_t chunk_id = 0, offset = 0, stored_size = 0;
     int32_t compressed = 0;
     const int32_t info = st_xray_packed_level_chunk_info(

@@ -665,6 +665,71 @@ int main() {
     assert(st_xray_level_collision_info(handle, 0, &vertices, &triangles, minimum, maximum) == 0);
     assert(vertices == 1 && triangles == 0 && minimum[0] == 0.0f && maximum[0] == 1.0f);
     assert(st_xray_level_collision_info(handle, 1, &vertices, &triangles, minimum, maximum) == -1);
+    // End-to-end packed level fixture: both geometry and collision data
+    // are loaded from gamedata.db0 and inspected through the public bridge.
+    {
+        const unsigned char packedGeometry[] = {7,0,0,0, 2,0,0,0, 0xAA,0xBB};
+        const unsigned char packedCollision[] = {
+            4,0,0,0, 1,0,0,0, 0,0,0,0,
+            0,0,0,0, 0,0,0,0, 0,0,0,0,
+            0,0,128,63, 0,0,128,63, 0,0,128,63,
+            0,0,0,0, 0,0,0,0, 0,0,0,0
+        };
+        const std::string names[] = {"levels/zaton/level", "levels/zaton/level.cform"};
+        std::vector<unsigned char> directory;
+        auto append16 = [&](uint16_t value) {
+            directory.push_back(static_cast<unsigned char>(value));
+            directory.push_back(static_cast<unsigned char>(value >> 8));
+        };
+        auto append32 = [&](uint32_t value) {
+            for (int shift = 0; shift < 32; shift += 8)
+                directory.push_back(static_cast<unsigned char>(value >> shift));
+        };
+        const uint32_t directoryBytes = static_cast<uint32_t>(
+            2 * (2 + 16) + names[0].size() + names[1].size());
+        uint32_t fileOffset = 8 + directoryBytes;
+        const uint32_t sizes[] = {sizeof(packedGeometry), sizeof(packedCollision)};
+        for (int index = 0; index < 2; ++index) {
+            append16(static_cast<uint16_t>(16 + names[index].size()));
+            append32(sizes[index]);
+            append32(sizes[index]);
+            append32(0);
+            directory.insert(directory.end(), names[index].begin(), names[index].end());
+            append32(fileOffset);
+            fileOffset += sizes[index];
+        }
+        assert(directory.size() == directoryBytes);
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char directoryHeader[] = {
+            1,0,0,0,
+            static_cast<unsigned char>(directoryBytes),
+            static_cast<unsigned char>(directoryBytes >> 8),0,0
+        };
+        file.write(reinterpret_cast<const char*>(directoryHeader), sizeof(directoryHeader));
+        file.write(reinterpret_cast<const char*>(directory.data()), directory.size());
+        file.write(reinterpret_cast<const char*>(packedGeometry), sizeof(packedGeometry));
+        file.write(reinterpret_cast<const char*>(packedCollision), sizeof(packedCollision));
+        file.close();
+        uint32_t geometryBytes = 0, collisionBytes = 0;
+        assert(st_xray_packed_level_info(handle, "zaton", &geometryBytes, &collisionBytes) == 0);
+        assert(geometryBytes == sizeof(packedGeometry));
+        assert(collisionBytes == sizeof(packedCollision));
+        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 1);
+        uint32_t packedVertices = 0, packedTriangles = 0;
+        float packedMinimum[3] {}, packedMaximum[3] {};
+        assert(st_xray_packed_level_collision_info(handle, "zaton",
+            &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == 0);
+        assert(packedVertices == 1 && packedTriangles == 0 && packedMaximum[0] == 1.0f);
+        unsigned char loadedGeometry[sizeof(packedGeometry)] {};
+        uint32_t loadedSize = 0;
+        assert(st_xray_load_packed_level_file(handle, "zaton", 0,
+            loadedGeometry, sizeof(loadedGeometry), &loadedSize) == 0);
+        assert(loadedSize == sizeof(packedGeometry));
+        assert(std::memcmp(loadedGeometry, packedGeometry, loadedSize) == 0);
+        assert(st_xray_load_packed_level_file(handle, "zaton", 0,
+            loadedGeometry, 1, &loadedSize) == -3);
+        assert(loadedSize == sizeof(packedGeometry));
+    }
     st_xray_shutdown(handle);
     assert(st_xray_level_count(handle) == 0);
     assert(std::remove(cform.c_str()) == 0);

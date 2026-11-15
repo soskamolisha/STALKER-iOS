@@ -678,6 +678,47 @@ int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_in
     return st_xray_lzo_decompress(compressed_bytes.data(), compressed_size,
                                   destination, destination_capacity, real_size);
 }
+int32_t st_xray_packed_resource_info(STXRayHandle handle, const char* relative_path,
+                                     uint32_t* decoded_size, uint32_t* stored_size) {
+    if (!decoded_size || !stored_size) return -1;
+    *decoded_size = 0;
+    *stored_size = 0;
+    if (!handle || !relative_path) return -1;
+    uint32_t archive = 0, entry = 0;
+    const int32_t found = st_xray_find_resource(handle, relative_path, &archive, &entry);
+    if (found != 0) return found;
+    char name[4097] {};
+    uint32_t crc = 0, offset = 0;
+    return st_xray_archive_directory_entry(
+        handle, archive, entry, name, sizeof(name),
+        decoded_size, stored_size, &crc, &offset);
+}
+int32_t st_xray_packed_level_info(STXRayHandle handle, const char* level_name,
+                                  uint32_t* geometry_size, uint32_t* collision_size) {
+    if (!geometry_size || !collision_size) return -1;
+    *geometry_size = 0;
+    *collision_size = 0;
+    if (!handle || !level_name) return -1;
+    const size_t length = strnlen(level_name, 256);
+    if (length == 0 || length > 128 || (length == 1 && level_name[0] == '.') ||
+        (length == 2 && level_name[0] == '.' && level_name[1] == '.'))
+        return -1;
+    for (size_t i = 0; i < length; ++i) {
+        const unsigned char ch = static_cast<unsigned char>(level_name[i]);
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+              (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' || ch == '.'))
+            return -1;
+    }
+    const std::string base = std::string("levels/") + level_name + "/";
+    uint32_t stored = 0;
+    const int32_t geometry = st_xray_packed_resource_info(
+        handle, (base + "level").c_str(), geometry_size, &stored);
+    if (geometry != 0 && geometry != -2) return geometry;
+    const int32_t collision = st_xray_packed_resource_info(
+        handle, (base + "level.cform").c_str(), collision_size, &stored);
+    if (collision != 0 && collision != -2) return collision;
+    return geometry == 0 || collision == 0 ? 0 : -2;
+}
 int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_path,
                                      void* destination, uint32_t capacity,
                                      uint32_t* actual_size) {

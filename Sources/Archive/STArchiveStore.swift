@@ -42,8 +42,8 @@ enum STArchiveStore {
             let (sum, overflow) = partial.addingReportingOverflow(archive.bytes)
             return overflow ? UInt64.max : sum
         }
-        if let values = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
-           let available = values.volumeAvailableCapacityForImportantUsage,
+        if let values = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityKey]),
+           let available = values.volumeAvailableCapacity,
            available >= 0, requiredBytes > UInt64(available) {
             throw ImportError.insufficientSpace
         }

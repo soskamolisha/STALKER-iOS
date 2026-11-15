@@ -1,5 +1,6 @@
 #include "../Sources/Native/STOpenXRayRuntime.h"
 #include <cassert>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -8,6 +9,10 @@
 
 // Launch preflight without a linked OpenXRay engine: never claim gameplay started.
 int main() {
+    assert(std::strstr(st_openxray_runtime_status_message(-5), "not linked") != nullptr);
+    assert(std::strstr(st_openxray_runtime_status_message(-7), "fsgame.ltx") != nullptr);
+    assert(std::strstr(st_openxray_runtime_status_message(0), "not yet verified") != nullptr);
+    assert(st_openxray_runtime_status_message(12345) != nullptr);
     assert(st_openxray_runtime_linked() == 0);
     assert(st_openxray_runtime_resources_linked() == 0);
     assert(st_openxray_runtime_run(nullptr) == -2);

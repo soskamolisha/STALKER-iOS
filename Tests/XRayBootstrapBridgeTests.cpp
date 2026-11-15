@@ -144,6 +144,16 @@ int main() {
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
     assert(st_xray_memory_cform_info(nullptr, 0,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -1);
+    // CForm metadata requires all four outputs; invalid calls must be safe.
+    assert(st_xray_memory_cform_info(collision, sizeof(collision),
+        nullptr, &memoryFaces, memoryMin, memoryMax) == -1);
+    assert(st_xray_memory_cform_info(collision, sizeof(collision),
+        &memoryVertices, nullptr, memoryMin, memoryMax) == -1);
+    assert(st_xray_memory_cform_info(collision, sizeof(collision),
+        &memoryVertices, &memoryFaces, nullptr, memoryMax) == -1);
+    assert(st_xray_memory_cform_info(collision, sizeof(collision),
+        &memoryVertices, &memoryFaces, memoryMin, nullptr) == -1);
+
     // A complete triangle references three vertices by zero-based index.
     // Reject out-of-range references without changing the previous result.
     std::vector<unsigned char> triangleCollision(collision, collision + sizeof(collision));

@@ -215,6 +215,13 @@ extern "C" int32_t st_xray_probe_first_archive_directory_name(const char* utf8_p
                                                                   uint32_t capacity) {
     if (!utf8_path || !destination || capacity == 0) return -1;
     destination[0] = 0;
+    // Validate the entire directory before returning even its first name.
+    // Otherwise a valid first entry could conceal a corrupt later record.
+    uint32_t validatedCount = 0;
+    const int32_t validation = st_xray_probe_first_archive_directory_entries(
+        utf8_path, &validatedCount);
+    if (validation != 0) return validation;
+    if (wanted_index >= validatedCount) return -2;
     std::vector<std::uint8_t> data(65536);
     uint32_t size = 0;
     const int32_t result = st_xray_probe_first_archive_directory_read(

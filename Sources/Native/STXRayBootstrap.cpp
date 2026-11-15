@@ -827,7 +827,6 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
                                   float* minimum_xyz, float* maximum_xyz) {
     if (!bytes || !vertices || !triangles || !minimum_xyz || !maximum_xyz) return -1;
     if (size < 36 || size > 64u * 1024u * 1024u) return -3;
-    // Reject truncated and noncanonical CForm payloads before mesh conversion.
 
     const auto* p = static_cast<const unsigned char*>(bytes);
     const uint32_t version = memory_le32(p);
@@ -837,7 +836,7 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
     const uint32_t face_count = memory_le32(p + 8);
     const uint64_t required = 36ull + uint64_t(vertex_count) * 12ull +
                               uint64_t(face_count) * 16ull;
-    if (required != size) return -3;
+    if (required > size) return -3;
     float low[3] {}, high[3] {};
     for (int axis = 0; axis < 3; ++axis) {
         const uint32_t a = memory_le32(p + 12 + axis * 4);

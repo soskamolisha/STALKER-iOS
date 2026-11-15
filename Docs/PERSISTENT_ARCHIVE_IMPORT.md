@@ -12,3 +12,9 @@
 - Tests exist but have not yet been run in iOS CI.
 
 Future work: free-space preflight, stream hashing, cancellation/progress, secure file coordination, and explicit UI confirmation before replacing existing game data. The OpenXRay runtime is still not present.
+
+## User confirmation (v14)
+
+The standalone `STArchiveImportView` now asks for explicit confirmation before beginning an import, including a warning that the previous imported archive set will be replaced. Import runs off the main thread, and the store performs a free-space preflight. The UI currently displays an indeterminate progress indicator, **not** byte-level progress. No successful device build or end-to-end import has been verified for this change.
+
+Remaining blockers: identify the actual launcher entry view and connect this screen; verify XcodeGen and GitHub Actions build; add cancellation and incremental progress; implement X-Ray archive validation and native runtime separately.

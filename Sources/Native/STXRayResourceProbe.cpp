@@ -172,3 +172,37 @@ extern "C" int32_t st_xray_probe_first_archive_directory_read(const char* utf8_p
     return st_xray_probe_first_archive_chunk_read(
         utf8_path, index, destination, capacity, actual_size);
 }
+
+/* Validate X-Ray directory records in a small uncompressed directory.
+   Each record has a 16-bit length, a 12-byte metadata prefix, a path and
+   a 4-byte trailer. Do not expose untrusted names without validation. */
+extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char* utf8_path,
+                                                                     uint32_t* entry_count) {
+    if (!utf8_path || !entry_count) return -1;
+    *entry_count = 0;
+    std::vector<std::uint8_t> data(65536);
+    uint32_t size = 0;
+    const int32_t result = st_xray_probe_first_archive_directory_read(
+        utf8_path, data.data(), static_cast<uint32_t>(data.size()), &size);
+    if (result != 0) return result;
+    if (size == 0) return -7;
+    uint32_t cursor = 0;
+    while (cursor < size) {
+        if (size - cursor < 2) return -7;
+        const uint32_t length = static_cast<uint32_t>(data[cursor]) |
+                                (static_cast<uint32_t>(data[cursor + 1]) << 8);
+        if (length < 17 || length > 4096 || length > size - cursor - 2) return -7;
+        const uint32_t nameLength = length - 16;
+        const std::uint8_t* name = data.data() + cursor + 14;
+        if (nameLength == 0 || name[0] == '/' || name[0] == '\\\\') return -7;
+        for (uint32_t i = 0; i < nameLength; ++i) {
+            if (name[i] == 0 || name[i] == '\\\\') return -7;
+            if (name[i] == '.' && i + 1 < nameLength && name[i + 1] == '.' &&
+                (i == 0 || name[i - 1] == '/') &&
+                (i + 2 == nameLength || name[i + 2] == '/')) return -7;
+        }
+        cursor += length + 2;
+        ++*entry_count;
+    }
+    return 0;
+}

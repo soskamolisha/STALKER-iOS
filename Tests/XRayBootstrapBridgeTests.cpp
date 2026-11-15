@@ -54,6 +54,20 @@ int main() {
         static_cast<uint32_t>(triangleCollision.size()),
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
     assert(memoryVertices == 1 && memoryFaces == 1);
+    float meshXYZ[3] = {-1.0f,-1.0f,-1.0f};
+    uint32_t meshIndices[3] = {99,99,99};
+    uint32_t meshVertices = 0, meshTriangles = 0;
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
+        meshIndices, 1, &meshVertices, &meshTriangles) == 0);
+    assert(meshVertices == 1 && meshTriangles == 1);
+    assert(meshXYZ[0] == 0.0f && meshIndices[0] == 0 &&
+           meshIndices[1] == 0 && meshIndices[2] == 0);
+    meshXYZ[0] = 123.0f;
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 0,
+        meshIndices, 1, &meshVertices, &meshTriangles) == -3);
+    assert(meshVertices == 0 && meshTriangles == 0 && meshXYZ[0] == 123.0f);
     const uint32_t faceStart = 36 + 12;
     triangleCollision[faceStart] = 1; // vertex index 1 is out of range
     memoryVertices = 99;

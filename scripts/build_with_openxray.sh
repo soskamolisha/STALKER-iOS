@@ -28,13 +28,13 @@ if [[ "$archive" == *[[:space:]]* ]]; then
   exit 1
 fi
 xcodegen generate
-# The archive must be force-loaded because the bridge uses a weak symbol.
+# Force-load the archive and preserve both C entry points for dlsym(RTLD_DEFAULT).
 # The final link may still fail due to missing upstream libraries/frameworks.
 xcodebuild -project STALKERiOSStarter.xcodeproj \
   -scheme STALKERiOSStarter -configuration Debug \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build-openxray CODE_SIGNING_ALLOWED=NO \
-  OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive" build
+  OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive -Wl,-u,_st_xray_embedded_run -Wl,-u,_st_xray_embedded_run_with_resources -Wl,-exported_symbol,_st_xray_embedded_run -Wl,-exported_symbol,_st_xray_embedded_run_with_resources" build
 # A successful link alone is insufficient: the launcher resolves these entry
 # points with dlsym(RTLD_DEFAULT), so they must remain exported by the app.
 app_binary="build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app/STALKERiOSStarter"

@@ -59,12 +59,27 @@ struct XRayChunkDiagnosticView: View {
                     } else {
                         firstWord = "unavailable (fewer than 4 bytes)"
                     }
+                    let firstChunkHeader: String
+                    if prefix.count >= 8 {
+                        let rawID = UInt32(prefix[0]) |
+                            (UInt32(prefix[1]) << 8) |
+                            (UInt32(prefix[2]) << 16) |
+                            (UInt32(prefix[3]) << 24)
+                        let payloadSize = UInt32(prefix[4]) |
+                            (UInt32(prefix[5]) << 8) |
+                            (UInt32(prefix[6]) << 16) |
+                            (UInt32(prefix[7]) << 24)
+                        let fits = UInt64(payloadSize) <= fileSize - 8
+                        firstChunkHeader = "Candidate chunk ID: \(rawID & 0x7FFFFFFF), compressed flag: \((rawID & 0x80000000) != 0), payload bytes: \(payloadSize), within file bounds: \(fits)"
+                    } else {
+                        firstChunkHeader = "Candidate chunk header unavailable (fewer than 8 bytes)"
+                    }
                     let headHex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
                     let tailHex = suffix.map { String(format: "%02X", $0) }.joined(separator: " ")
                     let signature = prefix.starts(with: [0x50, 0x4B, 0x03, 0x04])
                         ? "ZIP signature detected: this is not a raw .db segment."
                         : (fileSize == 0 ? "Empty archive candidate." : "Raw .db segment candidate; format not verified.")
-                    message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nFirst UInt32 (little-endian): \(firstWord)\nHead (offset 0): \(headHex)\nTail (offset \(tailOffset)): \(tailHex)\n\(signature)\nX-Ray .db directory decoding is not implemented."
+                    message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nFirst UInt32 (little-endian): \(firstWord)\nHead (offset 0): \(headHex)\n\(firstChunkHeader)\nTail (offset \(tailOffset)): \(tailHex)\n\(signature)\nX-Ray .db directory decoding is not implemented."
                     return
                 }
                 // ZIP archives are containers, not generic X-Ray chunks.

@@ -36,3 +36,16 @@ targets:
         # lightweight launcher; never treat the archive as a playable engine.
         # A weak entry reference alone will not pull objects from a .a file.
         OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS)"
+
+  STArchiveTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: STALKERiOSStarter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGNING_ALLOWED: "NO"

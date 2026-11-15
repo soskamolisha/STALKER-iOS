@@ -107,6 +107,7 @@ struct TrilogyLauncherView: View {
     @State private var selectedSection = "home"
     @State private var showAbout = false
     @State private var showDiagnostics = false
+    @State private var showArchiveInspector = false
     @State private var showEngineNotice = false
     @State private var nativeRunGame: GameEdition?
     @State private var nativeRunInProgress = false
@@ -490,6 +491,14 @@ struct TrilogyLauncherView: View {
                             Text(russian ? "РАЗДЕЛ: ДИАГНОСТИКА И ТЕСТЫ" : "SECTION: DIAGNOSTICS & TESTS")
                                 .font(.caption.bold()).tracking(1).foregroundStyle(.white)
                         }
+                        Button {
+                            showArchiveInspector = true
+                        } label: {
+                            Label(russian ? "Проверить архив .db" : "Inspect .db archive", systemImage: "doc.text.magnifyingglass")
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.yellow)
+                        .accessibilityHint(russian ? "Диагностика файла без распаковки" : "Read-only file diagnostics")
                         NavigationLink(russian ? "Открыть технический прототип" : "Open technical prototype") {
                             GameShellView()
                         }
@@ -499,6 +508,16 @@ struct TrilogyLauncherView: View {
                             .font(.footnote).foregroundStyle(.gray)
                     }
                     .padding()
+                }
+            }
+            .sheet(isPresented: $showArchiveInspector) {
+                NavigationStack {
+                    XRayChunkDiagnosticView()
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button(russian ? "Готово" : "Done") { showArchiveInspector = false }
+                            }
+                        }
                 }
             }
             .alert(russian ? "Запуск пока недоступен" : "Launch not available", isPresented: $showEngineNotice) {

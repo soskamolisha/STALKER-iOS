@@ -31,6 +31,15 @@ enum STArchiveStore {
         guard report.hasBaseArchive else { throw ImportError.noBaseArchive }
         let destination = try destinationRoot(fileManager: fileManager)
         let parent = destination.deletingLastPathComponent()
+        let requiredBytes = report.archives.reduce(UInt64(0)) { partial, archive in
+            let (sum, overflow) = partial.addingReportingOverflow(archive.bytes)
+            return overflow ? UInt64.max : sum
+        }
+        if let values = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+           let available = values.volumeAvailableCapacityForImportantUsage,
+           available >= 0, requiredBytes > UInt64(available) {
+            throw ImportError.insufficientSpace
+        }
         let staging = parent.appendingPathComponent(".stalker-import-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
         var committed = false

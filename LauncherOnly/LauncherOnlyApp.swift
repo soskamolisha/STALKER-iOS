@@ -5,7 +5,15 @@ import UniformTypeIdentifiers
 @main
 struct LauncherOnlyApp: App {
     var body: some Scene {
-        WindowGroup { LauncherOnlyView().preferredColorScheme(.dark) }
+        WindowGroup {
+            LauncherOnlyView()
+                .preferredColorScheme(.dark)
+                .task {
+                    let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    let gameFolder = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                    try? FileManager.default.createDirectory(at: gameFolder, withIntermediateDirectories: true)
+                }
+        }
     }
 }
 

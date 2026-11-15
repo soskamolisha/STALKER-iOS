@@ -3,8 +3,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-// Calls the genuine OpenXRay xrCore crc32.cpp implementation.
-// This proves a native engine utility can be invoked from Swift; not a game engine.
+// Portable CRC-32 diagnostic helper used by the launcher.
+// It does not link xrCore or demonstrate a working X-Ray game engine.
 uint32_t st_openxray_crc32(const void *bytes, uint32_t length);
 #ifdef __cplusplus
 }

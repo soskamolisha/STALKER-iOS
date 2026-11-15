@@ -40,7 +40,8 @@ public:
     }
 
     bool skip(std::size_t count) {
-        if (position_ > size_ || count > size_ - position_)
+        if (position_ > size_ || count > size_ - position_ ||
+            (count != 0 && data_ == nullptr))
             return false;
         position_ += count;
         return true;

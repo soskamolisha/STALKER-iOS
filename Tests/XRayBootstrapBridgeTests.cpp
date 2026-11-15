@@ -210,6 +210,22 @@ int main() {
     assert(st_xray_packed_level_info(handle, "zaton/level", &geometrySize, &collisionSize) == -1);
     assert(st_xray_packed_level_info(handle, "", &geometrySize, &collisionSize) == -1);
     assert(st_xray_packed_level_info(handle, "zaton", nullptr, &collisionSize) == -1);
+    char levelBuffer[8] = {'U','N','T','O','U','C','H','D'};
+    uint32_t levelBytes = 99;
+    assert(st_xray_load_packed_level_file(
+        handle, "zaton", 0, levelBuffer, sizeof(levelBuffer), &levelBytes) == -2);
+    assert(levelBytes == 0 && std::memcmp(levelBuffer, "UNTOUCHD", 8) == 0);
+    assert(st_xray_load_packed_level_file(
+        handle, "zaton", 1, levelBuffer, sizeof(levelBuffer), &levelBytes) == -2);
+    assert(st_xray_load_packed_level_file(
+        handle, "zaton", 2, levelBuffer, sizeof(levelBuffer), &levelBytes) == -1);
+    assert(st_xray_load_packed_level_file(
+        handle, "../zaton", 0, levelBuffer, sizeof(levelBuffer), &levelBytes) == -1);
+    assert(st_xray_load_packed_level_file(
+        handle, "zaton/level", 0, levelBuffer, sizeof(levelBuffer), &levelBytes) == -1);
+    assert(st_xray_load_packed_level_file(
+        handle, "zaton", 0, levelBuffer, sizeof(levelBuffer), nullptr) == -1);
+
     assert(st_xray_archive_find_file(handle, 0, "test.ltx") == 0);
     assert(st_xray_archive_find_file(handle, 0, "TEST.LTX") == 0);
     assert(st_xray_archive_find_file(handle, 0, "Test.Ltx") == 0);

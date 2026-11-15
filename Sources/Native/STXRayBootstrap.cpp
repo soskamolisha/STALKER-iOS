@@ -233,7 +233,31 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
                 decoded_invalid_directory = true;
             }
         }
-        // -4: no key produced valid LZO; -5: LZO succeeded but records are invalid.
+        // If the supplied buffer is too small, retry in bounded scratch space.
+        // This distinguishes a valid larger directory from invalid LZO bytes.
+        if (!decoded_invalid_directory && capacity < 64u * 1024u * 1024u) {
+            uint32_t trial = capacity;
+            while (trial < 64u * 1024u * 1024u) {
+                trial = trial > 32u * 1024u * 1024u ? 64u * 1024u * 1024u : trial * 2u;
+                std::vector<unsigned char> scratch(trial);
+                for (int32_t key = -1; key <= 1; ++key) {
+                    std::vector<unsigned char> bytes = original;
+                    if (key >= 0 && st_xray_directory_decrypt(bytes.data(), chunk_size, key) != 0)
+                        return -3;
+                    lzo_uint decoded = trial;
+                    if (lzo1x_decompress_safe(bytes.data(), chunk_size, scratch.data(),
+                                            &decoded, nullptr) == LZO_E_OK && decoded != 0 &&
+                        decoded <= trial) {
+                        if (st_xray_validate_directory_records(
+                                scratch.data(), static_cast<uint32_t>(decoded)) >= 0)
+                            return -6; // valid directory; caller must supply more capacity
+                        decoded_invalid_directory = true;
+                    }
+                }
+                if (decoded_invalid_directory) break;
+            }
+        }
+        // -4: invalid LZO; -5: invalid records; -6: insufficient output capacity.
         return decoded_invalid_directory ? -5 : -4;
     }
     return -2;

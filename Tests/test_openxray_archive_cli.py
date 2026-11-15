@@ -41,10 +41,11 @@ sys.exit(9)
 
     only_legacy = f"0000000000000100 T {legacy}"
     both = only_legacy + f"\n0000000000000200 T {resources}"
-    assert verify(only_legacy).returncode == 0
+    assert verify(only_legacy).returncode != 0
     rejected = verify(only_legacy, strict=True)
     assert rejected.returncode != 0
     assert "Missing st_xray_embedded_run_with_resources" in rejected.stderr
+    assert verify(both).returncode == 0
     assert verify(both, strict=True).returncode == 0
     assert verify(f"                 U {legacy}\n0000000000000200 T {resources}", strict=True).returncode != 0
     assert verify(f"{only_legacy}\n                 U {resources}", strict=True).returncode != 0

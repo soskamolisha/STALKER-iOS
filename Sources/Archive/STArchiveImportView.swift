@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 /// Standalone import diagnostics screen. Embed in the launcher navigation
 /// after verifying the existing screen structure.
 struct STArchiveImportView: View {
+    @Environment(\.dismiss) private var dismiss
     @State private var showingImporter = false
     @State private var isImporting = false
     @State private var pendingFolder: URL?
@@ -17,7 +18,13 @@ struct STArchiveImportView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Импорт файлов игры").font(.title2.bold())
+                HStack {
+                    Text("Импорт файлов игры").font(.title2.bold())
+                    Spacer()
+                    Button("Закрыть") { dismiss() }
+                        .disabled(isImporting)
+                        .buttonStyle(.bordered)
+                }
                 Text("Выбери папку с оригинальными gamedata.db0, gamedata.db1 и другими архивами. Проверяются имена и размеры, но не содержимое. Движок X-Ray пока не запускается.")
                     .font(.subheadline)
                 Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)

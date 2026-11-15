@@ -153,6 +153,19 @@ int main() {
     char extracted[4] = {};
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
+    assert(st_xray_archive_find_file(handle, 0, "test.ltx") == 0);
+    assert(st_xray_archive_find_file(handle, 0, "missing.ltx") == -2);
+    uint32_t resourceArchive = 99, resourceEntry = 99;
+    assert(st_xray_find_resource(handle, "test.ltx", &resourceArchive, &resourceEntry) == 0);
+    assert(resourceArchive == 0 && resourceEntry == 0);
+    char loadedResource[4] {};
+    uint32_t loadedSize = 0;
+    assert(st_xray_load_packed_resource(
+        handle, "test.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
+    assert(loadedSize == 4 && std::memcmp(loadedResource, "DATA", 4) == 0);
+    assert(st_xray_load_packed_resource(
+        handle, "test.ltx", loadedResource, 3, &loadedSize) == -3);
+    assert(loadedSize == 4);
     assert(st_xray_archive_file_read(handle, 0, 0, 2, extracted, 3) == -3);
     // A corrupt directory record must not redirect file reads into metadata.
     {

@@ -791,6 +791,27 @@ int main() {
         assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
             expandedChunk, sizeof(expandedChunk), sizeof(originalChunk) - 1, &expandedSize) != 0);
         assert(expandedChunk[0] == 0xEE);
+        // Truncate the compressed chunk body in the archive and verify
+        // decompression failure cannot overwrite the caller's buffer.
+        {
+            std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);
+            corrupt.seekp(8 + directoryBytes + sizeof(packedGeometry) + 8);
+            std::vector<unsigned char> broken(compressedChunkSize, 0);
+            corrupt.write(reinterpret_cast<const char*>(broken.data()), broken.size());
+        }
+        expandedChunk[0] = 0xEE;
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), sizeof(originalChunk), &expandedSize) != 0);
+        assert(expandedChunk[0] == 0xEE && expandedSize == 0);
+        {
+            std::fstream restore(archive, std::ios::binary | std::ios::in | std::ios::out);
+            restore.seekp(8 + directoryBytes + sizeof(packedGeometry) + 8);
+            restore.write(reinterpret_cast<const char*>(compressedChunk), compressedChunkSize);
+        }
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), sizeof(originalChunk), &expandedSize) == 0);
+        assert(std::memcmp(expandedChunk, originalChunk, expandedSize) == 0);
+
         assert(packedChunkID == 7 && packedChunkOffset == 8 &&
                packedChunkSize == 2 && packedChunkCompressed == 0);
         assert(st_xray_packed_level_chunk_info(handle, "zaton", 2,

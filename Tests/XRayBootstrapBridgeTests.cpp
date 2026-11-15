@@ -41,6 +41,19 @@ int main() {
     assert(st_xray_state(handle) == 2);
     assert(st_xray_has_packed_data(handle) == 1);
     assert(st_xray_archive_count(handle) == 2);
+    // Asset resolver must reject unsafe paths before touching archive data.
+    uint32_t foundArchive = 99, foundEntry = 99, requiredSize = 99;
+    assert(st_xray_archive_find_file(handle, 0, "../escape") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "/absolute") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "levels//bad") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "levels/./bad") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "levels/../bad") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "C:/game") == -1);
+    assert(st_xray_find_resource(handle, "../escape", &foundArchive, &foundEntry) == -1);
+    assert(st_xray_find_resource(handle, "levels/../bad", &foundArchive, &foundEntry) == -1);
+    assert(st_xray_find_resource(handle, "levels/file", nullptr, &foundEntry) == -1);
+    assert(st_xray_load_packed_resource(handle, "../escape", nullptr, 0, &requiredSize) == -1);
+    assert(st_xray_load_packed_resource(handle, "levels/file", nullptr, 0, nullptr) == -1);
     assert(st_xray_archive_bytes(handle) == 15);
     char archiveName[32] = {};
     assert(st_xray_archive_name(handle, 0, archiveName, sizeof(archiveName)) == 0);

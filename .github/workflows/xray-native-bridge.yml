@@ -31,6 +31,15 @@ jobs:
             Sources/Native/STOpenXRayRuntime.cpp \
             Tests/Native/OpenXRayMockEngine.cpp \
             -o /tmp/stalker-xray-mock-engine
+      - name: Compile strongly linked static engine adapter test
+        run: |
+          set -eux
+          c++ -std=c++17 -Wall -Wextra -Werror -DST_XRAY_STATIC_ENGINE_ADAPTER \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/Native/OpenXRayMockEngine.cpp \
+            -o /tmp/stalker-xray-static-adapter
+      - name: Execute strongly linked adapter integration test
+        run: /tmp/stalker-xray-static-adapter
       - name: Execute linked mock-engine integration test
         run: /tmp/stalker-xray-mock-engine
       - name: Execute resource validation and missing-engine tests

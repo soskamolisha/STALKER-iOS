@@ -1,0 +1,31 @@
+name: Archive Import iOS Build
+
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/**'
+      - 'project.yml'
+      - '.github/workflows/archive-import-build.yml'
+  workflow_dispatch:
+
+jobs:
+  compile-ios:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build for iOS Simulator (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

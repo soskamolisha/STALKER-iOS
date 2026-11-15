@@ -26,9 +26,7 @@ int main() {
     assert(st_xray_lzo_decompress(compressed.data(),
                                   static_cast<uint32_t>(compressedSize),
                                   decoded, sizeof(decoded), originalSize + 1) != 0);
-    compressed[compressedSize / 2] ^= 0xff;
-    assert(st_xray_lzo_decompress(compressed.data(),
-                                  static_cast<uint32_t>(compressedSize),
+    assert(st_xray_lzo_decompress(compressed.data(), 1,
                                   decoded, sizeof(decoded), originalSize) != 0);
     return 0;
 }

@@ -51,7 +51,10 @@ struct XRayChunkDiagnosticView: View {
                     let suffix = try handle.read(upToCount: 32) ?? Data()
                     let headHex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
                     let tailHex = suffix.map { String(format: "%02X", $0) }.joined(separator: " ")
-                    message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nHead (offset 0): \(headHex)\nTail (offset \(tailOffset)): \(tailHex)\nX-Ray .db directory decoding is not implemented."
+                    let signature = prefix.starts(with: [0x50, 0x4B, 0x03, 0x04])
+                        ? "ZIP signature detected: this is not a raw .db segment."
+                        : (fileSize == 0 ? "Empty archive candidate." : "Raw .db segment candidate; format not verified.")
+                    message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nHead (offset 0): \(headHex)\nTail (offset \(tailOffset)): \(tailHex)\n\(signature)\nX-Ray .db directory decoding is not implemented."
                     return
                 }
                 // ZIP archives are containers, not generic X-Ray chunks.

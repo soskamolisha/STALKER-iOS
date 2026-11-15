@@ -99,6 +99,12 @@ int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_na
 // Load and validate a packed level's geometry chunk table (max 64 MiB).
 // Returns the chunk count, or a negative loader/parser error.
 int32_t st_xray_packed_level_chunk_count(STXRayHandle handle, const char* level_name);
+// Return metadata for one geometry chunk from a packed level.
+// Offset is relative to decoded level bytes, not the archive file.
+int32_t st_xray_packed_level_chunk_info(STXRayHandle handle, const char* level_name,
+                                         uint32_t index, uint32_t* chunk_id,
+                                         uint32_t* payload_offset, uint32_t* payload_size,
+                                         int32_t* compressed);
 // Load and validate a packed collision mesh header and payload bounds.
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,

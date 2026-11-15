@@ -61,6 +61,14 @@ int main() {
     assert(std::fclose(config) == 0);
     assert(st_openxray_runtime_resources_linked() == 1);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
+    // A ZIP upload or backup is not a directly readable X-Ray archive.
+    const std::string zip_path = test_root + "/gamedata.db0.zip";
+    FILE* zip = std::fopen(zip_path.c_str(), "wb");
+    assert(zip != nullptr);
+    assert(std::fputs("zip placeholder", zip) >= 0);
+    assert(std::fclose(zip) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(std::remove(zip_path.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");
     assert(archive != nullptr);

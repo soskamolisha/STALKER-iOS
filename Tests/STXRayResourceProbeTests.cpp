@@ -136,6 +136,16 @@ int main() {
     assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
     assert(directoryEntries == 0);
 
+    // A path with an empty segment must be rejected.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char emptySegment[] = {
+          1,0,0,0, 26,0,0,0,
+          24,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          'd','i','r','/','/','f','i','l', 0,0,0,0
+      };
+      out.write(reinterpret_cast<const char*>(emptySegment), sizeof(emptySegment)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
+    assert(directoryEntries == 0);
     // Two adjacent chunks must retain their own offsets and payload boundaries.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoChunks[] = {

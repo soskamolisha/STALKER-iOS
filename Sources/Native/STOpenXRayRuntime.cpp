@@ -63,8 +63,6 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     struct stat root_info;
     if (lstat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;
     // Never silently call the old entry: it cannot receive the imported root.
-    const auto run = embedded_run_with_resources();
-    if (!run) return -5;
     const std::string config_path = std::string(resource_root) + "/fsgame.ltx";
     struct stat config_info {};
     if (lstat(config_path.c_str(), &config_info) != 0 ||
@@ -91,6 +89,9 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
         closedir(dir);
     }
     if (!has_game_data) return -8;
+    // Check resource validity before reporting a missing engine, so the
+    // on-device diagnostics can identify incomplete imports independently.
+    if (!embedded_run_with_resources()) return -5;
     return 0;
 }
 

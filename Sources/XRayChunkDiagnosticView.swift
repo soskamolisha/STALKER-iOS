@@ -32,8 +32,18 @@ struct XRayChunkDiagnosticView: View {
                 defer { if securityScoped { url.stopAccessingSecurityScopedResource() } }
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { try? handle.close() }
-                let data = try handle.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()
-                guard data.count <= 4 * 1024 * 1024 else {
+                // FileHandle may return fewer bytes than requested before EOF.
+                // Read until EOF or the hard limit, whichever comes first.
+                let limit = 4 * 1024 * 1024
+                var data = Data()
+                while data.count <= limit {
+                    let requested = min(64 * 1024, limit + 1 - data.count)
+                    guard let block = try handle.read(upToCount: requested), !block.isEmpty else {
+                        break
+                    }
+                    data.append(block)
+                }
+                guard data.count <= limit else {
                     message = "File exceeds 4 MB diagnostic limit."
                     return
                 }

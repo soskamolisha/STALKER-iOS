@@ -169,6 +169,17 @@ struct LauncherOnlyView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 9).stroke(.yellow.opacity(0.4), lineWidth: 0.8))
                             }
                         }
+                        Button {
+                            selectedGame = .shadow
+                        } label: {
+                            Label("ИГРАТЬ · ТЕНЬ ЧЕРНОБЫЛЯ", systemImage: "play.fill")
+                                .font(.headline.bold())
+                                .frame(maxWidth: 320)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.yellow)
+                        .accessibilityHint("Открывает проверку запуска; настоящий X-Ray пока не подключён")
+                        .padding(.top, 8)
                         Spacer(minLength: 0)
                         Text("Только интерфейс · игровой движок отключён")
                             .font(.caption).foregroundStyle(.white.opacity(0.7))

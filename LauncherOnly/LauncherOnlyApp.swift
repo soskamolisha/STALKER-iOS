@@ -206,6 +206,8 @@ struct LauncherOnlyView: View {
                         Text(infoSection ?? "STALKER Mobile")
                             .font(.title2.bold()).foregroundStyle(.yellow)
                         Text(sectionDescription)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white.opacity(0.85))
                         if infoSection == "Импорт ресурсов" {
                             Button("Выбрать папку Тени Чернобыля") {
                                 importingGameFolder = true
@@ -217,8 +219,6 @@ struct LauncherOnlyView: View {
                                     .foregroundStyle(.white)
                             }
                         }
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.white.opacity(0.85))
                         if infoSection == "О проекте" {
                             LabeledContent("Версия", value: "Launcher Only")
                                 .foregroundStyle(.white)

@@ -245,10 +245,21 @@ struct LauncherOnlyView: View {
                             let config = root.appendingPathComponent("fsgame.ltx")
                             if game != .shadow {
                                 launchCheckMessage = "Пробный запуск пока предусмотрен только для Тени Чернобыля."
-                            } else if !FileManager.default.fileExists(atPath: config.path) {
-                                launchCheckMessage = "Не найден fsgame.ltx в импортированной папке ShadowOfChernobyl."
                             } else {
-                                launchCheckMessage = "Файл fsgame.ltx найден. Настоящий X-Ray в этой версии лаунчера не подключён — запуск игры пока невозможен."
+                                let configSize = (try? config.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                                let files = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+                                let archives = files.filter {
+                                    $0.lowercased().hasPrefix("gamedata.db")
+                                }
+                                let looseData = FileManager.default.fileExists(
+                                    atPath: root.appendingPathComponent("gamedata").path)
+                                if configSize == 0 {
+                                    launchCheckMessage = "Отсутствует или пустой fsgame.ltx."
+                                } else if archives.isEmpty && !looseData {
+                                    launchCheckMessage = "Не найдены игровые архивы gamedata.db* или папка gamedata."
+                                } else {
+                                    launchCheckMessage = "Обнаружены fsgame.ltx и игровые ресурсы (архивов: \\(archives.count)). Настоящий X-Ray ещё не подключён к этой сборке."
+                                }
                             }
                         } label: {
                             Label("Проверить запуск", systemImage: "play.fill")
@@ -262,7 +273,7 @@ struct LauncherOnlyView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.orange)
                         }
-                        Label("Файлы игры пока не добавлены", systemImage: "folder.badge.questionmark")
+                        Label("Игровые ресурсы проверяются перед запуском", systemImage: "folder.badge.questionmark")
                             .foregroundStyle(.white)
                         Text("Это версия лаунчера без X-Ray. Игру запустить нельзя, но карточки и меню работают.")
                             .multilineTextAlignment(.center)

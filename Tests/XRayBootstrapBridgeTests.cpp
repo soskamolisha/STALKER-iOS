@@ -750,6 +750,35 @@ int main() {
         record[15] = 0;
         assert(st_xray_validate_directory_records(record, sizeof(record)) == -3);
     }
+    // Some archive variants store compressed directories without encryption.
+    // Ensure the auto-decoder accepts the raw LZO stream (key -1).
+    {
+        const unsigned char record[] = {
+            24,0, 4,0,0,0, 4,0,0,0, 0x78,0x56,0x34,0x12,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        unsigned char packed[256] {};
+        lzo_uint packed_size = sizeof(packed);
+        std::vector<unsigned char> work(LZO1X_1_MEM_COMPRESS);
+        assert(lzo_init() == LZO_E_OK);
+        assert(lzo1x_1_compress(record, sizeof(record), packed, &packed_size,
+                                work.data()) == LZO_E_OK);
+        {
+            std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+            const unsigned char header[] = {1,0,0,128};
+            const uint32_t size = static_cast<uint32_t>(packed_size);
+            file.write(reinterpret_cast<const char*>(header), sizeof(header));
+            file.write(reinterpret_cast<const char*>(&size), 4);
+            file.write(reinterpret_cast<const char*>(packed), packed_size);
+        }
+        unsigned char decoded[sizeof(record)] {};
+        uint32_t actual_size = 0;
+        int32_t key_used = -2;
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(decoded), &actual_size, &key_used) == 0);
+        assert(key_used == -1 && actual_size == sizeof(record));
+        assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+    }
     // Test both legacy encryption keys against actual compressed directory payloads.
     for (int key = 0; key < 2; ++key) {
       for (int malformed = 0; malformed < 2; ++malformed) {

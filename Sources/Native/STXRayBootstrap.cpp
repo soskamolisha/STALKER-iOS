@@ -877,6 +877,9 @@ int32_t st_xray_memory_cform_mesh(const void* bytes, uint32_t size,
     if (!vertex_count || !triangle_count) return -1;
     *vertex_count = 0;
     *triangle_count = 0;
+    // Invalid caller buffers must be rejected before inspecting game data.
+    if ((vertex_capacity != 0 && !xyz) ||
+        (triangle_capacity != 0 && !indices)) return -1;
     uint32_t vertices = 0, triangles = 0;
     float minimum[3] {}, maximum[3] {};
     const int32_t valid = st_xray_memory_cform_info(

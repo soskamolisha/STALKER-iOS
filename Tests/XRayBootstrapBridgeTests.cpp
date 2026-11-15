@@ -797,7 +797,7 @@ int main() {
         const int32_t result = st_xray_archive_directory_auto_decrypt(
             handle, 0, decoded, sizeof(decoded), &actual_size, &key_used);
         if (malformed) {
-            assert(result == -4 && actual_size == 0 && key_used == -2);
+            assert(result == -5 && actual_size == 0 && key_used == -2);
         } else {
             assert(result == 0 && key_used == key && actual_size == sizeof(record));
             assert(std::memcmp(decoded, record, sizeof(record)) == 0);

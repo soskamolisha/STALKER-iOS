@@ -84,10 +84,11 @@ jobs:
           echo "::group::X-Ray packed archive bridge regression"
           # Print the exact assertion and its nearby source when a regression fails.
           set +e
-          /tmp/stalker-xray-bridge-linux-tests 2>/tmp/stalker-xray-bridge-errors.log
+          /tmp/stalker-xray-bridge-linux-tests > /tmp/stalker-xray-bridge-output.log 2>/tmp/stalker-xray-bridge-errors.log
           bridge_status=$?
           set -e
           if [ "$bridge_status" -ne 0 ]; then
+            cat /tmp/stalker-xray-bridge-output.log
             cat /tmp/stalker-xray-bridge-errors.log
             failing_line=$(sed -n 's/.*XRayBootstrapBridgeTests.cpp:\([0-9][0-9]*\):.*/\1/p' /tmp/stalker-xray-bridge-errors.log | head -n 1)
             if [ -n "$failing_line" ]; then

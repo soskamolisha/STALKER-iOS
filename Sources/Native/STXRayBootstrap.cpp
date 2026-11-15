@@ -866,6 +866,40 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
     std::memcpy(maximum_xyz, high, sizeof(high));
     return 0;
 }
+int32_t st_xray_memory_cform_mesh(const void* bytes, uint32_t size,
+                                   float* xyz, uint32_t vertex_capacity,
+                                   uint32_t* indices, uint32_t triangle_capacity,
+                                   uint32_t* vertex_count, uint32_t* triangle_count) {
+    if (!vertex_count || !triangle_count) return -1;
+    *vertex_count = 0;
+    *triangle_count = 0;
+    uint32_t vertices = 0, triangles = 0;
+    float minimum[3] {}, maximum[3] {};
+    const int32_t valid = st_xray_memory_cform_info(
+        bytes, size, &vertices, &triangles, minimum, maximum);
+    if (valid != 0) return valid;
+    // Bound the prototype viewer's memory and prevent oversized GPU uploads.
+    if (vertices > 50000 || triangles > 50000 ||
+        vertices > vertex_capacity || triangles > triangle_capacity) return -3;
+    if ((vertices != 0 && !xyz) || (triangles != 0 && !indices)) return -1;
+    const auto* p = static_cast<const unsigned char*>(bytes);
+    for (uint32_t i = 0; i < vertices; ++i) {
+        const unsigned char* vertex = p + 36ull + uint64_t(i) * 12ull;
+        for (int axis = 0; axis < 3; ++axis) {
+            const uint32_t bits = memory_le32(vertex + axis * 4);
+            std::memcpy(xyz + i * 3 + axis, &bits, sizeof(float));
+        }
+    }
+    const uint64_t faces_offset = 36ull + uint64_t(vertices) * 12ull;
+    for (uint32_t i = 0; i < triangles; ++i) {
+        const unsigned char* face = p + faces_offset + uint64_t(i) * 16ull;
+        for (int corner = 0; corner < 3; ++corner)
+            indices[i * 3 + corner] = memory_le32(face + corner * 4);
+    }
+    *vertex_count = vertices;
+    *triangle_count = triangles;
+    return 0;
+}
 int32_t st_xray_packed_level_chunk_count(STXRayHandle handle, const char* level_name) {
     uint32_t geometry = 0, collision = 0;
     const int32_t status = st_xray_packed_level_info(

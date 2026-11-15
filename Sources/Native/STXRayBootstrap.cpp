@@ -696,15 +696,18 @@ int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_p
         std::memcpy(destination, decoded.data(), real);
         return 0;
     }
-    unsigned char* output = static_cast<unsigned char*>(destination);
+    // Stage plain files as well: a truncated or replaced archive must not
+    // expose partially loaded level data to the caller.
+    std::vector<unsigned char> staged(real);
     uint32_t cursor = 0;
     while (cursor < real) {
         const uint32_t amount = real - cursor > 65536u ? 65536u : real - cursor;
         const int32_t result = st_xray_archive_file_read(
-            handle, archive, entry, cursor, output + cursor, amount);
+            handle, archive, entry, cursor, staged.data() + cursor, amount);
         if (result != 0) return result;
         cursor += amount;
     }
+    std::memcpy(destination, staged.data(), real);
     return 0;
 }
 int32_t st_xray_level_count(STXRayHandle handle) {

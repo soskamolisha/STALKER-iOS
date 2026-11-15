@@ -590,31 +590,8 @@ struct TrilogyLauncherView: View {
                         }
     }
 
-    private var launcherScrollContent: some View {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        launcherHeader
-                        if isCopying {
-                            ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
-                                .tint(.yellow)
-                        }
-                        HStack {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(russian ? "ДОБРО ПОЖАЛОВАТЬ В ЗОНУ" : "WELCOME TO THE ZONE")
-                                    .font(.caption.bold()).tracking(3).foregroundStyle(.yellow)
-                                Text(russian ? "Выберите свою историю" : "Choose your story")
-                                    .font(.title2.bold()).foregroundStyle(.white)
-                            }
-                            Spacer()
-                            Image(systemName: "waveform.path.ecg.rectangle")
-                                .font(.title).foregroundStyle(.yellow.opacity(0.7))
-                        }
-                        ViewThatFits(in: .horizontal) {
-                            launcherContent
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                launcherContent.frame(minWidth: 900)
-                            }
-                        }
+    private var launcherFooter: some View {
+        VStack(alignment: .leading, spacing: 14) {
                         HStack(spacing: 14) {
                             Image(systemName: "newspaper.fill")
                                 .font(.title2)
@@ -662,6 +639,35 @@ struct TrilogyLauncherView: View {
                         .tint(.orange)
                         Text(russian ? "Запуск оригинальных игр пока недоступен: требуется порт движка X-Ray." : "Original game launching is not yet available: an iOS X-Ray engine port is required.")
                             .font(.footnote).foregroundStyle(.gray)
+        }
+    }
+
+    private var launcherScrollContent: some View {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        launcherHeader
+                        if isCopying {
+                            ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
+                                .tint(.yellow)
+                        }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(russian ? "ДОБРО ПОЖАЛОВАТЬ В ЗОНУ" : "WELCOME TO THE ZONE")
+                                    .font(.caption.bold()).tracking(3).foregroundStyle(.yellow)
+                                Text(russian ? "Выберите свою историю" : "Choose your story")
+                                    .font(.title2.bold()).foregroundStyle(.white)
+                            }
+                            Spacer()
+                            Image(systemName: "waveform.path.ecg.rectangle")
+                                .font(.title).foregroundStyle(.yellow.opacity(0.7))
+                        }
+                        ViewThatFits(in: .horizontal) {
+                            launcherContent
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                launcherContent.frame(minWidth: 900)
+                            }
+                        }
+                        launcherFooter
                     }
                     .padding()
                 }

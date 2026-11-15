@@ -195,7 +195,8 @@ extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char* utf
         if (length < 17 || length > 4096 || length > size - cursor - 2) return -7;
         const uint32_t nameLength = length - 16;
         const std::uint8_t* name = data.data() + cursor + 14;
-        if (nameLength == 0 || name[0] == '/' || name[0] == '\\') return -7;
+        if (nameLength == 0 || name[0] == '/' || name[0] == '\\' ||
+            (nameLength >= 2 && name[1] == ':')) return -7;
         for (uint32_t i = 0; i < nameLength; ++i) {
             if (name[i] == 0 || name[i] == '\\') return -7;
             if (name[i] == '.' && i + 1 < nameLength && name[i + 1] == '.' &&
@@ -237,7 +238,8 @@ extern "C" int32_t st_xray_probe_first_archive_directory_name(const char* utf8_p
         if (length < 17 || length > 4096 || length > size - cursor - 2) return -7;
         const uint32_t nameLength = length - 16;
         const std::uint8_t* name = data.data() + cursor + 14;
-        if (nameLength == 0 || name[0] == '/') return -7;
+        if (nameLength == 0 || name[0] == '/' ||
+            (nameLength >= 2 && name[1] == ':')) return -7;
         for (uint32_t i = 0; i < nameLength; ++i) {
             if (name[i] == 0 || name[i] == 92) return -7;
             if (name[i] == '.' && i + 1 < nameLength && name[i + 1] == '.' &&

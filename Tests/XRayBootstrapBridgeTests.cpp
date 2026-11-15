@@ -455,7 +455,6 @@ int main() {
     assert(st_xray_load_packed_resource(
         handle, "missing.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == -2);
     assert(loadedSize == 0);
-    assert(loadedSize == 4);
     assert(st_xray_archive_file_read(handle, 0, 0, 2, extracted, 3) == -3);
     // A corrupt directory record must not redirect file reads into metadata.
     {

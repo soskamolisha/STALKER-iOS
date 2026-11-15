@@ -146,6 +146,16 @@ jobs:
             ${{ runner.temp }}/openxray-failure-summary.txt
             ${{ runner.temp }}/openxray-ios/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: ignore
+      - name: Upload compiled OpenXRay libraries for integration
+        if: steps.compile.outcome == 'success' && steps.inspect.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-static-libraries
+          path: |
+            upstream/bin/**/*.a
+            ${{ runner.temp }}/openxray-ios/**/*.a
+          if-no-files-found: error
+          retention-days: 7
       - name: Mark experiment unsuccessful if configure or compile failed
         if: always()
         run: |

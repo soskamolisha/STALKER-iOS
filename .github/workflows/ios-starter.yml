@@ -489,7 +489,7 @@ jobs:
                                       if let name = String(bytes: nameBytes, encoding: .utf8),
                                          !name.isEmpty, !name.hasPrefix("/"), !name.hasPrefix("\\\\"),
                                          !name.contains(":"), !name.contains("\\0"),
-                                         !name.split(whereSeparator: { $0 == "/" || $0 == "\\\\" }).contains(where: { $0 == "." || $0 == ".." }) {
+                                         !name.split(whereSeparator: { $0 == "/" || String($0) == "\\\\" }).contains(where: { $0 == "." || $0 == ".." }) {
                                           let realSize = UInt32(decoded[2]) | (UInt32(decoded[3]) << 8) | (UInt32(decoded[4]) << 16) | (UInt32(decoded[5]) << 24)
                                           let storedSize = UInt32(decoded[6]) | (UInt32(decoded[7]) << 8) | (UInt32(decoded[8]) << 16) | (UInt32(decoded[9]) << 24)
                                           let fileCRC = UInt32(decoded[10]) | (UInt32(decoded[11]) << 8) | (UInt32(decoded[12]) << 16) | (UInt32(decoded[13]) << 24)
@@ -634,7 +634,8 @@ jobs:
           s=s.replace('Text("Это версия лаунчера без X-Ray. Игру запустить нельзя, но карточки и меню работают.")', 'Text(XRayStatus.details)')
           s=s.replace('Text(sectionDescription)', 'Text(infoSection == "О проекте" ? XRayStatus.details : sectionDescription)')
           s=s.replace('import UIKit', 'import UIKit\nimport UniformTypeIdentifiers')
-          s=s.replace('@State private var settings = false', '@State private var settings = false\n    @State private var importingGameFolder = false\n    @State private var importMessage: String?')
+          if '@State private var importingGameFolder' not in s:
+              s=s.replace('@State private var settings = false', '@State private var settings = false\n    @State private var importingGameFolder = false\n    @State private var importMessage: String?')
           s=s.replace('''                        Text(infoSection ?? "STALKER Mobile")
                             .font(.title2.bold()).foregroundStyle(.yellow)''', '''                        Text(infoSection ?? "STALKER Mobile")
                             .font(.title2.bold()).foregroundStyle(.yellow)

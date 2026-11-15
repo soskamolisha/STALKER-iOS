@@ -52,6 +52,8 @@ jobs:
           print(report.read_text())
           launcher = Path("launcher/Sources/Native/STOpenXRayRuntime.cpp").read_text()
           assert all(symbol in launcher for symbol in expected)
+          if not candidates:
+              print("ABI integration blocked: upstream library alone cannot satisfy launcher entry points.")
           PY
       - name: Report SDK and upstream revision
         run: |

@@ -108,6 +108,21 @@ int main() {
     assert(actual == 0);
     assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -6);
     assert(crc == 0);
+    // Directory discovery must search past other chunks, not assume index zero.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char delayedDirectory[] = {
+          7,0,0,0,2,0,0,0,'x','y',
+          1,0,0,128,3,0,0,0,'a','b','c'
+      };
+      out.write(reinterpret_cast<const char*>(delayedDirectory), sizeof(delayedDirectory)); }
+    assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == 0);
+    assert(directoryIndex == 1 && directorySize == 3 && directoryCompressed == 1);
+    // Missing directory is distinct from an unreadable or malformed archive.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char noDirectory[] = {7,0,0,0,1,0,0,0,'x'};
+      out.write(reinterpret_cast<const char*>(noDirectory), sizeof(noDirectory)); }
+    assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == -2);
+    assert(directoryIndex == 0 && directorySize == 0 && directoryCompressed == 0);
     // A compressed chunk must be indexed but not returned as raw decoded data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};

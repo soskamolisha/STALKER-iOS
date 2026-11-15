@@ -7,7 +7,17 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-// When a real static engine adapter is compiled into the target, use a strong\n// link reference. dlsym cannot reliably discover dead-stripped static symbols.\n#if defined(ST_XRAY_STATIC_ENGINE_ADAPTER)\nextern "C" int st_xray_embedded_run(const char*);\nextern "C" int st_xray_embedded_run_with_resources(const char*, const char*);\nusing EmbeddedRun = int (*)(const char*);\nusing EmbeddedRunWithResources = int (*)(const char*, const char*);\nstatic EmbeddedRun embedded_run() { return &st_xray_embedded_run; }\nstatic EmbeddedRunWithResources embedded_run_with_resources() { return &st_xray_embedded_run_with_resources; }\n#else\n// Resolve optional exports at runtime in the standalone iOS launcher.
+// When a real static engine adapter is compiled into the target, use a strong
+// link reference. dlsym cannot reliably discover dead-stripped static symbols.
+#if defined(ST_XRAY_STATIC_ENGINE_ADAPTER)
+extern "C" int st_xray_embedded_run(const char*);
+extern "C" int st_xray_embedded_run_with_resources(const char*, const char*);
+using EmbeddedRun = int (*)(const char*);
+using EmbeddedRunWithResources = int (*)(const char*, const char*);
+static EmbeddedRun embedded_run() { return &st_xray_embedded_run; }
+static EmbeddedRunWithResources embedded_run_with_resources() { return &st_xray_embedded_run_with_resources; }
+#else
+// Resolve optional exports at runtime in the standalone iOS launcher.
 // The actual engine must export these C entry points when it is integrated.
 #if defined(__APPLE__)
 #include <dlfcn.h>
@@ -29,7 +39,9 @@ static auto embedded_run_with_resources() -> int (*)(const char*, const char*) {
 }
 #endif
 
-#endif // ST_XRAY_STATIC_ENGINE_ADAPTER\n\nextern "C" int32_t st_openxray_runtime_linked(void) {
+#endif // ST_XRAY_STATIC_ENGINE_ADAPTER
+
+extern "C" int32_t st_openxray_runtime_linked(void) {
     return embedded_run() != nullptr ? 1 : 0;
 }
 

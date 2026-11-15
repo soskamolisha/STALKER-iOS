@@ -37,8 +37,8 @@ struct STArchiveImportView: View {
                     if !report.missingNumbers.isEmpty {
                         Text("Missing indices: \(report.missingNumbers.map(String.init).joined(separator: ", "))")
                     }
-                    ForEach(Array(report.warnings.enumerated()), id: \.offset) { _, warning in
-                        Text(warning).font(.caption).foregroundStyle(.orange)
+                    ForEach(Array(report.warnings.enumerated()), id: \.offset) { entry in
+                        Text(entry.element).font(.caption).foregroundStyle(.orange)
                     }
                 }
                 if let errorMessage {
@@ -64,6 +64,7 @@ struct STArchiveImportView: View {
         .confirmationDialog("Import game archives?", isPresented: $showingReplaceConfirmation, titleVisibility: .visible) {
             Button("Copy archives into app") {
                 guard let folder = pendingFolder else { return }
+                pendingFolder = nil
                 beginImport(folder)
             }
             Button("Cancel", role: .cancel) { pendingFolder = nil }

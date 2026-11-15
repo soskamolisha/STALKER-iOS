@@ -450,6 +450,10 @@ int main() {
         file.write(reinterpret_cast<const char*>(forged_offset), 4);
     }
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 1) == -3);
+    // The requested byte is outside metadata, but the full file overlaps it.
+    assert(st_xray_archive_file_read(handle, 0, 0, 3, extracted, 1) == -3);
+    // A zero-byte probe must not bypass validation of a forged extent.
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, nullptr, 0) == -3);
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
         file.seekp(30);

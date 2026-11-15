@@ -2,6 +2,15 @@ name: OpenXRay iOS ARM64 Compile Experiment
 
 on:
   workflow_dispatch:
+    inputs:
+      build_target:
+        description: "Upstream CMake target (xrCore for first iOS milestone, all for full engine)"
+        required: true
+        type: choice
+        default: xrCore
+        options:
+          - xrCore
+          - all
   push:
     branches:
       - feature/trilogy-launcher-v3
@@ -105,9 +114,17 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --parallel 3 \
-            -- -quiet CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+          TARGET="${{ github.event.inputs.build_target || 'xrCore' }}"
+          echo "Compiling upstream target: $TARGET"
+          if [ "$TARGET" = "all" ]; then
+            cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --parallel 3 \
+              -- -quiet CODE_SIGNING_ALLOWED=NO \
+              2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+          else
+            cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --target xrCore --parallel 3 \
+              -- -quiet CODE_SIGNING_ALLOWED=NO \
+              2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+          fi
       - name: Inspect produced ARM64 static libraries and engine entry points
         if: steps.compile.outcome == 'success'
         id: inspect

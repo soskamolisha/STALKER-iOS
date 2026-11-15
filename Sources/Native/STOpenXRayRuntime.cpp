@@ -129,17 +129,18 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
             if (std::strncmp(entry->d_name, prefix, prefix_length) != 0) continue;
             const char* suffix = entry->d_name + prefix_length;
             const size_t suffix_length = std::strlen(suffix);
-            if (suffix_length < 1 || suffix_length > 2) continue;
+            if (suffix_length < 1 || suffix_length > 4) continue;
             bool valid_suffix = true;
+            unsigned int archive_index = 0;
             for (size_t i = 0; i < suffix_length; ++i) {
-                const char c = suffix[i];
-                if (!((c >= '0' && c <= '9') ||
-                      (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+                const char digit = suffix[i];
+                if (digit < '0' || digit > '9') {
                     valid_suffix = false;
                     break;
                 }
+                archive_index = archive_index * 10 + static_cast<unsigned int>(digit - '0');
             }
-            if (!valid_suffix) continue;
+            if (!valid_suffix || archive_index > 9999) continue;
             const std::string archive = std::string(resource_root) + "/" + entry->d_name;
             struct stat archive_info {};
             if (lstat(archive.c_str(), &archive_info) == 0 &&

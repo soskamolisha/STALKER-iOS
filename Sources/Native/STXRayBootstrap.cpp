@@ -661,10 +661,15 @@ int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_p
     *actual_size = real;
     constexpr uint32_t max_resource = 64u * 1024u * 1024u;
     if (real > max_resource || real > capacity) return -3;
-    if (real == 0) return 0;
+    if (real == 0) {
+        // Even empty entries must have a valid in-archive data offset.
+        if (stored != 0 || offset < 8) return -3;
+        return st_xray_archive_file_read(handle, archive, entry, 0, nullptr, 0);
+    }
     if (!destination) return -1;
     if (real != stored)
-        return st_xray_archive_file_decompress(handle, archive, entry, destination, capacity);
+        return st_xray_archive_file_decompress(
+            handle, archive, entry, destination, real);
     unsigned char* output = static_cast<unsigned char*>(destination);
     uint32_t cursor = 0;
     while (cursor < real) {

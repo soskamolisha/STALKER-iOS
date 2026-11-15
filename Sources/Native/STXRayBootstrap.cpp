@@ -522,15 +522,15 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
         if (count < 0) return count;
         uint32_t cursor = 0;
         for (int32_t index = 0; index < count; ++index) {
-            const uint32_t length = static_cast<uint32_t>(decoded[cursor]) |
-                                    (static_cast<uint32_t>(decoded[cursor + 1]) << 8);
-            const uint32_t name_length = length - 16;
+            const uint32_t record_length = static_cast<uint32_t>(decoded[cursor]) |
+                                           (static_cast<uint32_t>(decoded[cursor + 1]) << 8);
+            const uint32_t name_length = record_length - 16;
             if (name_length == length &&
                 st_xray_asset_path_equal(
                     reinterpret_cast<const char*>(decoded.data() + cursor + 14),
                     relative_path, name_length))
                 return index;
-            cursor += length + 2;
+            cursor += record_length + 2;
         }
         return -2;
     }

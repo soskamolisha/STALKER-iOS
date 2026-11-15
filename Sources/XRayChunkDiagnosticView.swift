@@ -37,7 +37,11 @@ struct XRayChunkDiagnosticView: View {
                 let lowerName = url.lastPathComponent.lowercased()
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { try? handle.close() }
-                if [".db0", ".db1", ".db2", ".db3"].contains(where: lowerName.hasSuffix) {
+                // All numbered .db segments use the same bounded inspection path.
+                let dbExtension = url.pathExtension.lowercased()
+                let isDbSegment = dbExtension.count >= 3 && dbExtension.hasPrefix("db") &&
+                    dbExtension.dropFirst(2).allSatisfy { $0.isNumber }
+                if isDbSegment {
                     // Read a bounded sample, never load the complete game archive.
                     let fileSize = try handle.seekToEnd()
                     try handle.seek(toOffset: 0)
@@ -47,10 +51,10 @@ struct XRayChunkDiagnosticView: View {
                     let suffix = try handle.read(upToCount: 32) ?? Data()
                     let headHex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
                     let tailHex = suffix.map { String(format: "%02X", $0) }.joined(separator: " ")
-                    message = "X-Ray .db candidate (\(fileSize) bytes). Head: \(headHex). Tail at \(tailOffset): \(tailHex). Directory decoding is not implemented."
+                    message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nHead (offset 0): \(headHex)\nTail (offset \(tailOffset)): \(tailHex)\nX-Ray .db directory decoding is not implemented."
                     return
                 }
-                // FileHandle may return fewer bytes than requested before EOF.
+                // ZIP archives are containers, not generic X-Ray chunks.\n                if lowerName.hasSuffix(".zip") {\n                    message = "ZIP archive selected. Extract the target file before diagnostics."\n                    return\n                }\n                // FileHandle may return fewer bytes than requested before EOF.
                 // Read until EOF or the hard limit, whichever comes first.
                 let limit = 4 * 1024 * 1024
                 var data = Data()

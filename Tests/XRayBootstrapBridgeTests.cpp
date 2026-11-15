@@ -671,6 +671,26 @@ int main() {
     // are loaded from gamedata.db0 and inspected through the public bridge.
     {
         const unsigned char packedGeometry[] = {7,0,0,0, 2,0,0,0, 0xAA,0xBB};
+        // A second geometry chunk uses the real minilzo compressor. It is
+        // stored inside the archive and must survive the complete loader path.
+        const unsigned char originalChunk[] = "X-Ray packed geometry LZO integration";
+        unsigned char compressedChunk[256] {};
+        lzo_uint compressedChunkSize = sizeof(compressedChunk);
+        void* chunkWork = std::malloc(LZO1X_1_MEM_COMPRESS);
+        assert(chunkWork && lzo_init() == LZO_E_OK);
+        assert(lzo1x_1_compress(originalChunk, sizeof(originalChunk),
+            compressedChunk, &compressedChunkSize, chunkWork) == LZO_E_OK);
+        std::free(chunkWork);
+        std::vector<unsigned char> packedGeometryData(
+            packedGeometry, packedGeometry + sizeof(packedGeometry));
+        const uint32_t compressedChunkID = 0x80000009u;
+        const uint32_t compressedLength = static_cast<uint32_t>(compressedChunkSize);
+        for (int shift = 0; shift < 32; shift += 8)
+            packedGeometryData.push_back(static_cast<unsigned char>(compressedChunkID >> shift));
+        for (int shift = 0; shift < 32; shift += 8)
+            packedGeometryData.push_back(static_cast<unsigned char>(compressedLength >> shift));
+        packedGeometryData.insert(packedGeometryData.end(),
+            compressedChunk, compressedChunk + compressedChunkSize);
         const unsigned char packedCollision[] = {
             4,0,0,0, 1,0,0,0, 0,0,0,0,
             0,0,0,0, 0,0,0,0, 0,0,0,0,
@@ -690,7 +710,7 @@ int main() {
         const uint32_t directoryBytes = static_cast<uint32_t>(
             2 * (2 + 16) + names[0].size() + names[1].size());
         uint32_t fileOffset = 8 + directoryBytes;
-        const uint32_t sizes[] = {sizeof(packedGeometry), sizeof(packedCollision)};
+        const uint32_t sizes[] = {static_cast<uint32_t>(packedGeometryData.size()), sizeof(packedCollision)};
         for (int index = 0; index < 2; ++index) {
             append16(static_cast<uint16_t>(16 + names[index].size()));
             append32(sizes[index]);
@@ -709,14 +729,14 @@ int main() {
         };
         file.write(reinterpret_cast<const char*>(directoryHeader), sizeof(directoryHeader));
         file.write(reinterpret_cast<const char*>(directory.data()), directory.size());
-        file.write(reinterpret_cast<const char*>(packedGeometry), sizeof(packedGeometry));
+        file.write(reinterpret_cast<const char*>(packedGeometryData.data()), packedGeometryData.size());
         file.write(reinterpret_cast<const char*>(packedCollision), sizeof(packedCollision));
         file.close();
         uint32_t geometryBytes = 0, collisionBytes = 0;
         assert(st_xray_packed_level_info(handle, "zaton", &geometryBytes, &collisionBytes) == 0);
-        assert(geometryBytes == sizeof(packedGeometry));
+        assert(geometryBytes == packedGeometryData.size());
         assert(collisionBytes == sizeof(packedCollision));
-        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 1);
+        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 2);
         uint32_t packedChunkID = 0, packedChunkOffset = 0, packedChunkSize = 0;
         int32_t packedChunkCompressed = -1;
         assert(st_xray_packed_level_chunk_info(handle, "zaton", 0,
@@ -737,7 +757,7 @@ int main() {
         assert(decodedChunk[0] == 0xEE);
         assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
             decodedChunk, 1, 2, &decodedChunkBytes) == -3);
-        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 2,
             decodedChunk, sizeof(decodedChunk), 2, &decodedChunkBytes) == -2);
         assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
             decodedChunk, sizeof(decodedChunk), 2, nullptr) == -1);
@@ -746,7 +766,7 @@ int main() {
         assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
             payload, 1, &payloadBytes) == -3);
         assert(payloadBytes == 2 && payload[0] == 0xEE);
-        assert(st_xray_packed_level_chunk_read(handle, "zaton", 1,
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 2,
             payload, sizeof(payload), &payloadBytes) == -2);
         assert(payloadBytes == 0);
         assert(st_xray_packed_level_chunk_read(handle, "../zaton", 0,
@@ -755,9 +775,25 @@ int main() {
             payload, sizeof(payload), nullptr) == -1);
         assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
             nullptr, 2, &payloadBytes) == -1);
+        uint32_t compressedID = 0, compressedOffset = 0, compressedSize = 0;
+        int32_t compressedFlag = 0;
+        assert(st_xray_packed_level_chunk_info(handle, "zaton", 1,
+            &compressedID, &compressedOffset, &compressedSize, &compressedFlag) == 0);
+        assert(compressedID == 9 && compressedFlag == 1 &&
+               compressedSize == compressedChunkSize);
+        unsigned char expandedChunk[sizeof(originalChunk)] {};
+        uint32_t expandedSize = 0;
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), sizeof(originalChunk), &expandedSize) == 0);
+        assert(expandedSize == sizeof(originalChunk));
+        assert(std::memcmp(expandedChunk, originalChunk, expandedSize) == 0);
+        expandedChunk[0] = 0xEE;
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            expandedChunk, sizeof(expandedChunk), sizeof(originalChunk) - 1, &expandedSize) != 0);
+        assert(expandedChunk[0] == 0xEE);
         assert(packedChunkID == 7 && packedChunkOffset == 8 &&
                packedChunkSize == 2 && packedChunkCompressed == 0);
-        assert(st_xray_packed_level_chunk_info(handle, "zaton", 1,
+        assert(st_xray_packed_level_chunk_info(handle, "zaton", 2,
             &packedChunkID, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == -2);
         assert(st_xray_packed_level_chunk_info(handle, "zaton", 0,
             nullptr, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == -1);
@@ -767,14 +803,14 @@ int main() {
         assert(st_xray_packed_level_collision_info(handle, "zaton",
             &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == 0);
         assert(packedVertices == 1 && packedTriangles == 0 && packedMaximum[0] == 1.0f);
-        unsigned char loadedGeometry[sizeof(packedGeometry)] {};
+        std::vector<unsigned char> loadedGeometry(packedGeometryData.size());
         uint32_t loadedSize = 0;
         assert(st_xray_load_packed_level_file(handle, "zaton", 0,
-            loadedGeometry, sizeof(loadedGeometry), &loadedSize) == 0);
-        assert(loadedSize == sizeof(packedGeometry));
-        assert(std::memcmp(loadedGeometry, packedGeometry, loadedSize) == 0);
+            loadedGeometry.data(), static_cast<uint32_t>(loadedGeometry.size()), &loadedSize) == 0);
+        assert(loadedSize == packedGeometryData.size());
+        assert(std::memcmp(loadedGeometry.data(), packedGeometryData.data(), loadedSize) == 0);
         assert(st_xray_load_packed_level_file(handle, "zaton", 0,
-            loadedGeometry, 1, &loadedSize) == -3);
+            loadedGeometry.data(), 1, &loadedSize) == -3);
         assert(loadedSize == sizeof(packedGeometry));
         // Corrupt geometry chunk length: the packed inspector must reject it.
         {
@@ -790,11 +826,11 @@ int main() {
             corrupt.seekp(8 + directoryBytes + 4);
             const unsigned char goodSize[4] = {2,0,0,0};
             corrupt.write(reinterpret_cast<const char*>(goodSize), 4);
-            corrupt.seekp(8 + directoryBytes + sizeof(packedGeometry) + 12);
+            corrupt.seekp(8 + directoryBytes + packedGeometryData.size() + 12);
             const unsigned char nanBits[4] = {0,0,192,127};
             corrupt.write(reinterpret_cast<const char*>(nanBits), 4);
         }
-        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 1);
+        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 2);
         assert(st_xray_packed_level_collision_info(handle, "zaton",
             &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == -3);
     }

@@ -967,6 +967,22 @@ int main() {
         assert(st_xray_packed_level_collision_info(handle, "zaton",
             &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == 0);
         assert(packedVertices == 1 && packedTriangles == 0 && packedMaximum[0] == 1.0f);
+        // Packed DB archive -> decoded CForm -> renderer-ready vertex buffer.
+        float packedXYZ[3] = {99.0f,99.0f,99.0f};
+        uint32_t packedIndices[3] = {77,77,77};
+        uint32_t outputVertices = 999, outputTriangles = 999;
+        assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+            packedXYZ, 1, packedIndices, 1, &outputVertices, &outputTriangles) == 0);
+        assert(outputVertices == 1 && outputTriangles == 0 && packedXYZ[0] == 0.0f);
+        packedXYZ[0] = 99.0f;
+        assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+            packedXYZ, 0, packedIndices, 1, &outputVertices, &outputTriangles) == -3);
+        assert(outputVertices == 0 && outputTriangles == 0 && packedXYZ[0] == 99.0f);
+        assert(st_xray_packed_level_collision_mesh(handle, "../zaton",
+            packedXYZ, 1, packedIndices, 1, &outputVertices, &outputTriangles) == -1);
+        assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+            packedXYZ, 1, packedIndices, 1, nullptr, &outputTriangles) == -1);
+
         // Invalid vertex coordinates and triangle indices must be rejected.
         {
             std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);

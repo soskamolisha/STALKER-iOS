@@ -467,6 +467,36 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
     }
     return -2;
 }
+int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
+                                   const char* relative_path) {
+    if (!handle || !relative_path) return -1;
+    const size_t length = strnlen(relative_path, 4097);
+    if (length == 0 || length > 4096 || relative_path[0] == '/') return -1;
+    for (size_t i = 0; i < length; ++i) {
+        const char ch = relative_path[i];
+        if (ch == '\\\\' || ch == ':' || static_cast<unsigned char>(ch) < 32 ||
+            (ch == '/' && (i == 0 || i + 1 == length || relative_path[i - 1] == '/')))
+            return -1;
+        if ((i == 0 || relative_path[i - 1] == '/') && ch == '.' &&
+            (i + 1 == length || relative_path[i + 1] == '/' ||
+             (i + 1 < length && relative_path[i + 1] == '.' &&
+              (i + 2 == length || relative_path[i + 2] == '/'))))
+            return -1;
+    }
+    const int32_t count = st_xray_archive_directory_count(handle, archive_index);
+    if (count < 0) return count;
+    // Directory entries are validated before exposing names.
+    for (int32_t index = 0; index < count; ++index) {
+        char name[4097] {};
+        uint32_t real = 0, packed = 0, crc = 0, offset = 0;
+        const int32_t status = st_xray_archive_directory_entry(
+            handle, archive_index, static_cast<uint32_t>(index),
+            name, sizeof(name), &real, &packed, &crc, &offset);
+        if (status != 0) return status;
+        if (std::strcmp(name, relative_path) == 0) return index;
+    }
+    return -2;
+}
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size) {

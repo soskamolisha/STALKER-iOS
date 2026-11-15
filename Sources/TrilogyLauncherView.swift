@@ -134,6 +134,12 @@ struct TrilogyLauncherView: View {
                                 if entryStatus == 0 {
                                     let firstPath = String(cString: entryName)
                                     archiveDetails += " [\(firstPath): \(realSize) B / \(storedSize) B]"
+                                    let foundIndex = firstPath.withCString {
+                                        st_xray_archive_find_file(handle, 0, $0)
+                                    }
+                                    archiveDetails += foundIndex == 0
+                                        ? " [path lookup ✓]"
+                                        : " [path lookup error \(foundIndex)]"
                                     // Read only a small bounded sample; never load an
                                     // entire large game asset during launcher diagnostics.
                                     if realSize == storedSize {

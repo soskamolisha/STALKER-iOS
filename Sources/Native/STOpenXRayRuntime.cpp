@@ -79,8 +79,20 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     bool has_game_data = false;
     const std::string loose_path = std::string(resource_root) + "/gamedata";
     struct stat loose_info {};
-    if (lstat(loose_path.c_str(), &loose_info) == 0 && S_ISDIR(loose_info.st_mode))
-        has_game_data = true;
+    if (lstat(loose_path.c_str(), &loose_info) == 0 && S_ISDIR(loose_info.st_mode)) {
+        // An empty gamedata directory is not evidence of imported game files.
+        DIR* loose = opendir(loose_path.c_str());
+        if (loose) {
+            while (struct dirent* item = readdir(loose)) {
+                if (std::strcmp(item->d_name, ".") != 0 &&
+                    std::strcmp(item->d_name, "..") != 0) {
+                    has_game_data = true;
+                    break;
+                }
+            }
+            closedir(loose);
+        }
+    }
     DIR* dir = opendir(resource_root);
     if (dir) {
         while (!has_game_data) {

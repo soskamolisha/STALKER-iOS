@@ -140,6 +140,18 @@ struct TrilogyLauncherView: View {
                                     archiveDetails += foundIndex == 0
                                         ? " [path lookup ✓]"
                                         : " [path lookup error \(foundIndex)]"
+                                    var resolvedArchive: UInt32 = 0
+                                    var resolvedEntry: UInt32 = 0
+                                    let resourceStatus = firstPath.withCString {
+                                        st_xray_find_resource(
+                                            handle, $0, &resolvedArchive, &resolvedEntry
+                                        )
+                                    }
+                                    if resourceStatus == 0 {
+                                        archiveDetails += " [resource: db\(resolvedArchive), entry \(resolvedEntry) ✓]"
+                                    } else {
+                                        archiveDetails += " [resource lookup error \(resourceStatus)]"
+                                    }
                                     // Read only a small bounded sample; never load an
                                     // entire large game asset during launcher diagnostics.
                                     if realSize == storedSize {

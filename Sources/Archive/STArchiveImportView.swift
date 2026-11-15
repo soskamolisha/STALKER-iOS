@@ -14,6 +14,7 @@ struct STArchiveImportView: View {
     @State private var selectedFolder: String?
     @State private var errorMessage: String?
     @State private var storedArchiveStatus: String = "Проверка ранее загруженных файлов…"
+    @State private var nativeArchiveStatus: String?
 
     var body: some View {
         ScrollView {
@@ -30,6 +31,15 @@ struct STArchiveImportView: View {
                 Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 Text("Если кнопка «Открыть» при выборе папки неактивна: открой приложение «Файлы» → «На iPhone» → STALKERiOSStarter → ImportedGame и скопируй архивы туда. Затем вернись сюда и нажми «Проверить файлы».")
                     .font(.footnote)
+                Button("Проверить файлы") { refreshStoredArchives() }
+                    .disabled(isImporting)
+                    .buttonStyle(.bordered)
+                Button("Проверить архивы через X-Ray") { inspectNativeArchives() }
+                    .disabled(isImporting)
+                    .buttonStyle(.bordered)
+                if let nativeArchiveStatus {
+                    Text(nativeArchiveStatus).font(.footnote).foregroundStyle(.secondary)
+                }
                 Button("Проверить файлы") { refreshStoredArchives() }
                     .disabled(isImporting)
                     .buttonStyle(.bordered)
@@ -86,6 +96,31 @@ struct STArchiveImportView: View {
             Button("Отмена", role: .cancel) { pendingFolder = nil }
         } message: {
             Text("Ранее загруженные архивы будут заменены только после успешного копирования новых. Для больших файлов понадобится свободное место.")
+        }
+    }
+
+    private func inspectNativeArchives() {
+        do {
+            let root = try STArchiveStore.destinationRoot()
+            guard let handle = st_xray_create() else {
+                nativeArchiveStatus = "Не удалось создать диагностический экземпляр X-Ray"
+                return
+            }
+            defer { st_xray_destroy(handle) }
+            guard st_xray_initialize(handle, 0) == 0 else {
+                nativeArchiveStatus = "Ошибка инициализации X-Ray"
+                return
+            }
+            let attached = root.path.withCString { st_xray_attach_resources(handle, $0) }
+            guard attached == 0 else {
+                nativeArchiveStatus = "X-Ray не смог открыть ImportedGame (код \(attached))"
+                return
+            }
+            let count = st_xray_archive_count(handle)
+            let bytes = st_xray_archive_bytes(handle)
+            nativeArchiveStatus = "X-Ray обнаружил \(count) архивов, \(ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)). Это проверка чтения файлов, не запуск игры."
+        } catch {
+            nativeArchiveStatus = "Ошибка проверки X-Ray: \(error.localizedDescription)"
         }
     }
 

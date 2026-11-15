@@ -43,6 +43,17 @@ int main() {
     assert(st_xray_archive_count(handle) == 2);
     // Asset resolver must reject unsafe paths before touching archive data.
     uint32_t foundArchive = 99, foundEntry = 99, requiredSize = 99;
+    // Ten additional boundary cases for the archive lookup contract.
+    assert(st_xray_archive_find_file(handle, 0, "") == -1);
+    assert(st_xray_archive_find_file(handle, 0, ".") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "..") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a/.") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a/..") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a//b") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a/") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a:b") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a\\\\b") == -1);
+    assert(st_xray_archive_find_file(handle, 0, "a/../b") == -1);
     assert(st_xray_archive_find_file(handle, 0, "../escape") == -1);
     assert(st_xray_archive_find_file(handle, 0, "/absolute") == -1);
     assert(st_xray_archive_find_file(handle, 0, "levels//bad") == -1);

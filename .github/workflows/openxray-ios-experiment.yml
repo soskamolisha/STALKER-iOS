@@ -15,6 +15,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
+      - name: Checkout launcher integration sources
+        uses: actions/checkout@v4
+        with:
+          path: launcher
       - name: Checkout upstream OpenXRay with dependencies
         uses: actions/checkout@v4
         with:
@@ -22,6 +26,33 @@ jobs:
           ref: dev
           submodules: recursive
           path: upstream
+      - name: Validate launcher engine ABI against upstream exports
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          expected = ("st_xray_embedded_run_with_resources", "st_xray_embedded_run")
+          root = Path("upstream")
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-abi-audit.txt"
+          candidates = []
+          for path in root.rglob("*"):
+              if path.suffix not in (".h", ".hpp", ".c", ".cc", ".cpp", ".mm"):
+                  continue
+              if len(path.parts) > 12:
+                  continue
+              try:
+                  contents = path.read_text(errors="replace")
+              except OSError:
+                  continue
+              for symbol in expected:
+                  if symbol in contents:
+                      candidates.append(f"{symbol}: {path}")
+          report.write_text("\\n".join(candidates) if candidates else
+                            "No launcher ABI entry points found in upstream source. An iOS adapter must be implemented.")
+          print(report.read_text())
+          launcher = Path("launcher/Sources/Native/STOpenXRayRuntime.cpp").read_text()
+          assert all(symbol in launcher for symbol in expected)
+          PY
       - name: Report SDK and upstream revision
         run: |
           xcodebuild -version
@@ -139,6 +170,7 @@ jobs:
         with:
           name: openxray-ios-arm64-diagnostics
           path: |
+            ${{ runner.temp }}/openxray-abi-audit.txt
             ${{ runner.temp }}/openxray-requirements.txt
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log

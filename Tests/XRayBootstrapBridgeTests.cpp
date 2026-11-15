@@ -811,7 +811,7 @@ int main() {
         assert(std::memcmp(loadedGeometry.data(), packedGeometryData.data(), loadedSize) == 0);
         assert(st_xray_load_packed_level_file(handle, "zaton", 0,
             loadedGeometry.data(), 1, &loadedSize) == -3);
-        assert(loadedSize == sizeof(packedGeometry));
+        assert(loadedSize == packedGeometryData.size());
         // Corrupt geometry chunk length: the packed inspector must reject it.
         {
             std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);

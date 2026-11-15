@@ -149,6 +149,24 @@ struct TrilogyLauncherView: View {
                                     }
                                     if resourceStatus == 0 {
                                         archiveDetails += " [resource: db\(resolvedArchive), entry \(resolvedEntry) ✓]"
+                                        // Exercise the same named-resource loader that the
+                                        // level system will use, with a strict 64 KiB cap.
+                                        if resolvedArchive == 0 && resolvedEntry == 0 &&
+                                            realSize > 0 && realSize <= 65536 {
+                                            var loaded = [UInt8](repeating: 0, count: Int(realSize))
+                                            var actualSize: UInt32 = 0
+                                            let loadStatus = loaded.withUnsafeMutableBytes { buffer in
+                                                firstPath.withCString { path in
+                                                    st_xray_load_packed_resource(
+                                                        handle, path, buffer.baseAddress,
+                                                        realSize, &actualSize
+                                                    )
+                                                }
+                                            }
+                                            archiveDetails += loadStatus == 0 && actualSize == realSize
+                                                ? " [named load \(actualSize) B ✓]"
+                                                : " [named load error \(loadStatus), size \(actualSize)]"
+                                        }
                                     } else {
                                         archiveDetails += " [resource lookup error \(resourceStatus)]"
                                     }

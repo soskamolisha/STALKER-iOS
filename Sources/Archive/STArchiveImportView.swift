@@ -92,8 +92,13 @@ struct STArchiveImportView: View {
                 return
             }
             let saved = try STArchiveInventory.scan(directory: destination)
+            let bytes = saved.archives.reduce(UInt64(0)) { total, archive in
+                let (sum, overflow) = total.addingReportingOverflow(archive.bytes)
+                return overflow ? UInt64.max : sum
+            }
+            let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)
             storedArchiveStatus = saved.hasBaseArchive
-                ? "В приложении сохранено архивов: \(saved.archives.count) (содержимое не проверено)"
+                ? "Сохранено архивов: \(saved.archives.count), общий размер: \(size). Содержимое не проверено."
                 : "В сохранённой папке отсутствует gamedata.db0"
         } catch {
             storedArchiveStatus = "Не удалось проверить сохранённые файлы: \(error.localizedDescription)"

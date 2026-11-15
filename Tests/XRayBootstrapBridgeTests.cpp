@@ -163,6 +163,29 @@ int main() {
     assert(st_xray_load_packed_resource(
         handle, "test.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
     assert(loadedSize == 4 && std::memcmp(loadedResource, "DATA", 4) == 0);
+    // Later gamedata archives override earlier files with the same path.
+    {
+        std::ofstream overrideFile(secondArchive, std::ios::binary | std::ios::trunc);
+        const unsigned char directory[] = {
+            1,0,0,0, 26,0,0,0,
+            24,0, 4,0,0,0, 4,0,0,0, 0,0,0,0,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        overrideFile.write(reinterpret_cast<const char*>(directory), sizeof(directory));
+        const unsigned char padding[8] {};
+        overrideFile.write(reinterpret_cast<const char*>(padding), sizeof(padding));
+        overrideFile.write("NEW!", 4);
+    }
+    assert(st_xray_find_resource(handle, "test.ltx", &resourceArchive, &resourceEntry) == 0);
+    assert(resourceArchive == 1 && resourceEntry == 0);
+    assert(st_xray_load_packed_resource(
+        handle, "test.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
+    assert(loadedSize == 4 && std::memcmp(loadedResource, "NEW!", 4) == 0);
+    // Restore the original test fixture for subsequent archive tests.
+    { std::ofstream restore(secondArchive, std::ios::binary | std::ios::trunc);
+      restore << "fixture2"; }
+    assert(st_xray_find_resource(handle, "test.ltx", &resourceArchive, &resourceEntry) == 0);
+    assert(resourceArchive == 0 && resourceEntry == 0);
     assert(st_xray_load_packed_resource(
         handle, "test.ltx", loadedResource, 3, &loadedSize) == -3);
     assert(loadedSize == 4);

@@ -81,6 +81,16 @@ int main() {
     assert(symlink("/etc/hosts", empty_file.c_str()) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(unlink(empty_file.c_str()) == 0);
+    const std::string nested_dir = loose_path + "/levels";
+    assert(mkdir(nested_dir.c_str(), 0700) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    const std::string nested_empty = nested_dir + "/placeholder";
+    FILE* nested = std::fopen(nested_empty.c_str(), "wb");
+    assert(nested != nullptr);
+    assert(std::fclose(nested) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(std::remove(nested_empty.c_str()) == 0);
+    assert(rmdir(nested_dir.c_str()) == 0);
     assert(rmdir(loose_path.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");

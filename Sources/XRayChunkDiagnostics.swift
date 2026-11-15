@@ -12,7 +12,7 @@ enum XRayChunkDiagnostics {
 
     enum ScanError: Error {
         case tooLarge
-        case malformed(Int32)
+        case malformed(Int)
         case tooManyChunks
     }
 
@@ -28,7 +28,7 @@ enum XRayChunkDiagnostics {
                 let status = stalker_next_chunk(ptr, data.count, &offset, &info)
                 if status == STALKER_CHUNK_END { return }
                 guard status == STALKER_CHUNK_OK else {
-                    throw ScanError.malformed(status.rawValue)
+                    throw ScanError.malformed(Int(status.rawValue))
                 }
                 guard chunks.count < maxChunks else { throw ScanError.tooManyChunks }
                 chunks.append(Chunk(id: info.id,

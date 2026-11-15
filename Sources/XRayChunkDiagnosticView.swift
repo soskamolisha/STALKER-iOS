@@ -38,8 +38,12 @@ struct XRayChunkDiagnosticView: View {
                     let fileSize = try handle.seekToEnd()
                     try handle.seek(toOffset: 0)
                     let prefix = try handle.read(upToCount: 32) ?? Data()
-                    let hex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
-                    message = "X-Ray .db candidate (\(fileSize) bytes). First \(prefix.count) bytes: \(hex). Directory decoding is not implemented."
+                    let tailOffset = fileSize > 32 ? fileSize - 32 : 0
+                    try handle.seek(toOffset: tailOffset)
+                    let suffix = try handle.read(upToCount: 32) ?? Data()
+                    let headHex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    let tailHex = suffix.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    message = "X-Ray .db candidate (\(fileSize) bytes). Head: \(headHex). Tail at \(tailOffset): \(tailHex). Directory decoding is not implemented."
                     return
                 }
                 // FileHandle may return fewer bytes than requested before EOF.

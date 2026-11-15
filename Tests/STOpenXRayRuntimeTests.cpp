@@ -24,13 +24,20 @@ int main() {
     char* root = mkdtemp(root_template);
     assert(root != nullptr);
     const std::string config_path = std::string(root) + "/fsgame.ltx";
-    // Even a real imported directory cannot start without the engine entry.
-    assert(st_openxray_runtime_run_with_resources("-start server(single/alife/new)", root) == -5);
+    // Missing files are diagnosed before the absent engine entry.
+    assert(st_openxray_runtime_run_with_resources("-start server(single/alife/new)", root) == -7);
     FILE* config = std::fopen(config_path.c_str(), "wb");
     assert(config != nullptr);
     assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
     assert(std::fclose(config) == 0);
+    assert(st_openxray_runtime_run_with_resources("-start server(single/alife/new)", root) == -8);
+    const std::string archive_path = std::string(root) + "/gamedata.db0";
+    FILE* archive = std::fopen(archive_path.c_str(), "wb");
+    assert(archive != nullptr);
+    assert(std::fputc(0, archive) != EOF);
+    assert(std::fclose(archive) == 0);
     assert(st_openxray_runtime_run_with_resources("-start server(single/alife/new)", root) == -5);
+    assert(std::remove(archive_path.c_str()) == 0);
     assert(std::remove(config_path.c_str()) == 0);
     assert(rmdir(root) == 0);
 }

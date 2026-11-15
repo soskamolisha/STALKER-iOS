@@ -121,6 +121,18 @@ jobs:
           if not configs:
               raise SystemExit("SDL2 build finished without an installed CMake package")
           print("Installed iPhone SDL2 package:", *configs)
+          libraries = list(prefix.rglob("libSDL2.a"))
+          if not libraries:
+              raise SystemExit("No static libSDL2.a installed for iPhone")
+          import subprocess
+          for library in libraries:
+              info = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                    capture_output=True, text=True)
+              print(library, info.stdout or info.stderr)
+              if info.returncode == 0 and "arm64" in info.stdout:
+                  break
+          else:
+              raise SystemExit("Installed SDL2 archive is not ARM64")
           with open(os.environ["GITHUB_ENV"], "a") as env:
               print(f"SDL2_DIR={configs[0].parent}", file=env)
           PY

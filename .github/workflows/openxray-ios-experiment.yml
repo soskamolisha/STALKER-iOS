@@ -190,10 +190,12 @@ jobs:
       - name: Record native build results
         if: always()
         run: |
+          echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Static library inspection: ${{ steps.inspect.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "This experiment does not produce a playable iOS engine or integrate it into the launcher." >> "$GITHUB_STEP_SUMMARY"
+          echo "xrCore is an upstream subsystem, not a playable engine. Even a successful xrCore build does not launch S.T.A.L.K.E.R." >> "$GITHUB_STEP_SUMMARY"
+          echo "The launcher still requires a resource-aware engine adapter and remaining upstream subsystems." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4

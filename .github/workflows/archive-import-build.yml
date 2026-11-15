@@ -6,6 +6,7 @@ on:
       - feature/trilogy-launcher-v3
     paths:
       - 'Sources/**'
+      - 'Tests/**'
       - 'project.yml'
       - '.github/workflows/archive-import-build.yml'
   workflow_dispatch:

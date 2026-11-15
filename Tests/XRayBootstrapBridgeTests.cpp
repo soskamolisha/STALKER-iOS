@@ -838,6 +838,26 @@ int main() {
         assert(st_xray_packed_level_collision_info(handle, "zaton",
             &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == 0);
         assert(packedVertices == 1 && packedTriangles == 0 && packedMaximum[0] == 1.0f);
+        // Invalid vertex coordinates and triangle indices must be rejected.
+        {
+            std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);
+            const auto collisionOffset = 8 + directoryBytes + packedGeometryData.size();
+            corrupt.seekp(collisionOffset + 36);
+            const unsigned char nanVertex[4] = {0,0,192,127};
+            corrupt.write(reinterpret_cast<const char*>(nanVertex), 4);
+        }
+        assert(st_xray_packed_level_collision_info(handle, "zaton",
+            &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == -3);
+        {
+            std::fstream restore(archive, std::ios::binary | std::ios::in | std::ios::out);
+            const auto collisionOffset = 8 + directoryBytes + packedGeometryData.size();
+            restore.seekp(collisionOffset + 36);
+            const unsigned char zero[4] = {0,0,0,0};
+            restore.write(reinterpret_cast<const char*>(zero), 4);
+        }
+        assert(st_xray_packed_level_collision_info(handle, "zaton",
+            &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == 0);
+
         std::vector<unsigned char> loadedGeometry(packedGeometryData.size());
         uint32_t loadedSize = 0;
         assert(st_xray_load_packed_level_file(handle, "zaton", 0,

@@ -837,9 +837,6 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
     const uint64_t required = 36ull + uint64_t(vertex_count) * 12ull +
                               uint64_t(face_count) * 16ull;
     if (required > size) return -3;
-    // Bound the number of records before traversing untrusted collision data.
-    // Renderer-facing conversion already enforces this same prototype limit.
-    if (vertex_count > 50000u || face_count > 50000u) return -3;
     float low[3] {}, high[3] {};
     for (int axis = 0; axis < 3; ++axis) {
         const uint32_t a = memory_le32(p + 12 + axis * 4);

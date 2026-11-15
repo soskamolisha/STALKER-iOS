@@ -82,6 +82,30 @@ int main() {
     assert(st_xray_memory_chunk_count(maxChunks.data(),
         static_cast<uint32_t>(maxChunks.size())) == -3);
 
+    // Deterministic mutation sweep over valid chunk streams. No crashes or
+    // successful out-of-bounds chunk offsets are permitted.
+    uint32_t mutationSeed = 0x1234abcdu;
+    for (uint32_t iteration = 0; iteration < 256; ++iteration) {
+        std::vector<unsigned char> mutated(32, 0);
+        for (uint32_t chunk = 0; chunk < 4; ++chunk) mutated[chunk * 8] = 1;
+        mutationSeed = mutationSeed * 1664525u + 1013904223u;
+        const uint32_t position = mutationSeed % static_cast<uint32_t>(mutated.size());
+        mutationSeed = mutationSeed * 1664525u + 1013904223u;
+        mutated[position] ^= static_cast<unsigned char>(mutationSeed >> 24);
+        const int32_t count = st_xray_memory_chunk_count(
+            mutated.data(), static_cast<uint32_t>(mutated.size()));
+        assert(count == -3 || (count >= 1 && count <= 4));
+        if (count > 0) {
+            for (int32_t j = 0; j < count; ++j) {
+                uint32_t id = 0, offset = 0, length = 0;
+                int32_t isCompressed = 0;
+                assert(st_xray_memory_chunk_info(mutated.data(),
+                    static_cast<uint32_t>(mutated.size()), static_cast<uint32_t>(j),
+                    &id, &offset, &length, &isCompressed) == 0);
+                assert(offset <= mutated.size() && length <= mutated.size() - offset);
+            }
+        }
+    }
     const unsigned char collision[] = {
         4,0,0,0, 1,0,0,0, 0,0,0,0,
         0,0,0,0, 0,0,0,0, 0,0,0,0,

@@ -21,6 +21,7 @@ extern "C" int32_t st_xray_probe_first_archive_directory(const char*, uint32_t*,
 extern "C" int32_t st_xray_probe_first_archive_directory_read(const char*, void*, uint32_t, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_crc32(const char*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char*, uint32_t*);
+extern "C" int32_t st_xray_probe_first_archive_directory_name(const char*, uint32_t, char*, uint32_t);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -72,6 +73,11 @@ int main() {
     uint32_t directoryEntries = 99;
     assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == 0);
     assert(directoryEntries == 1);
+    char directoryName[16] = {};
+    assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == 0);
+    assert(std::string(directoryName) == "test");
+    assert(st_xray_probe_first_archive_directory_name(root, 1, directoryName, sizeof(directoryName)) == -2);
+    assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, 2) == -6);
     // Malformed short directory records must not be accepted as file names.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char malformedDirectory[] = {1,0,0,0,3,0,0,0,'a','b','c'};

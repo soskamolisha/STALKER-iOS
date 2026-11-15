@@ -25,6 +25,7 @@ struct LauncherOnlyView: View {
     @State private var infoSection: String?
     @State private var settings = false
     @State private var selectedGame: Edition?
+    @State private var launchCheckMessage: String?
     @AppStorage("launcher.showWheel") private var showWheel = true
     @AppStorage("launcher.largeCards") private var largeCards = false
     private let menu: [(String, String)] = [
@@ -238,6 +239,29 @@ struct LauncherOnlyView: View {
                         Text(game.title)
                             .font(.title2.bold())
                             .foregroundStyle(.yellow)
+                        Button {
+                            let root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                                .appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                            let config = root.appendingPathComponent("fsgame.ltx")
+                            if game != .shadow {
+                                launchCheckMessage = "Пробный запуск пока предусмотрен только для Тени Чернобыля."
+                            } else if !FileManager.default.fileExists(atPath: config.path) {
+                                launchCheckMessage = "Не найден fsgame.ltx в импортированной папке ShadowOfChernobyl."
+                            } else {
+                                launchCheckMessage = "Файл fsgame.ltx найден. Настоящий X-Ray в этой версии лаунчера не подключён — запуск игры пока невозможен."
+                            }
+                        } label: {
+                            Label("Проверить запуск", systemImage: "play.fill")
+                                .font(.headline.bold())
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.yellow)
+                        if let launchCheckMessage {
+                            Text(launchCheckMessage)
+                                .multilineTextAlignment(.center)
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                        }
                         Label("Файлы игры пока не добавлены", systemImage: "folder.badge.questionmark")
                             .foregroundStyle(.white)
                         Text("Это версия лаунчера без X-Ray. Игру запустить нельзя, но карточки и меню работают.")

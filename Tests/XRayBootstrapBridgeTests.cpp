@@ -209,6 +209,15 @@ int main() {
     assert(st_xray_memory_cform_mesh(triangleCollision.data(),
         static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
         meshIndices, 1, nullptr, &meshTriangles) == -1);
+    // Even corrupt input must report an invalid destination consistently.
+    const unsigned char invalidCForm[4] = {0,0,0,0};
+    assert(st_xray_memory_cform_mesh(invalidCForm, sizeof(invalidCForm),
+        nullptr, 1, meshIndices, 1, &meshVertices, &meshTriangles) == -1);
+    assert(meshVertices == 0 && meshTriangles == 0);
+    assert(st_xray_memory_cform_mesh(invalidCForm, sizeof(invalidCForm),
+        meshXYZ, 1, nullptr, 1, &meshVertices, &meshTriangles) == -1);
+    assert(meshVertices == 0 && meshTriangles == 0);
+
 
     const uint32_t faceStart = 36 + 12;
     triangleCollision[faceStart] = 1; // vertex index 1 is out of range

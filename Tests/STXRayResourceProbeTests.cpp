@@ -86,7 +86,7 @@ int main() {
     // A valid first entry must not hide malformed trailing directory data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char mixedDirectory[] = {
-          1,0,0,0, 22,0,0,0,
+          1,0,0,0, 33,0,0,0,
           20,0, 0,0,0,0,0,0,0,0,0,0,0,0,
           't','e','s','t', 0,0,0,0,
           2,0,0,0, 3,0,0,0, 'x','y','z'

@@ -10,6 +10,10 @@ int32_t st_openxray_runtime_resources_linked(void);
 // Returns -1 if no runtime was linked, -2 for an invalid command line.
 // Never call on the UIKit main thread: the upstream entry point is blocking.
 int32_t st_openxray_runtime_run(const char* command_line);
+// Non-invasive launch readiness probe: 0 means an embedded engine entry is present;
+// -5 means no resource-aware engine is linked; -6 means invalid resource root;
+// -7 means the imported root has no usable fsgame.ltx. Does not start gameplay.
+int32_t st_openxray_runtime_preflight(const char* resource_root);
 // Resource-aware embedded ABI must be implemented by the actual engine.
 // Returns -5 if the engine does not export this integration entry.
 int32_t st_openxray_runtime_run_with_resources(const char* command_line, const char* resource_root);

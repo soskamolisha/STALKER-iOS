@@ -78,6 +78,23 @@ int main() {
     assert(std::string(directoryName) == "test");
     assert(st_xray_probe_first_archive_directory_name(root, 1, directoryName, sizeof(directoryName)) == -2);
     assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, 2) == -6);
+    // Two valid directory entries must be enumerated in stable archive order.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char twoEntries[] = {
+          1,0,0,0, 52,0,0,0,
+          20,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          'f','i','r','s', 0,0,0,0,
+          24,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          's','e','c','o','n','d','/','x', 0,0,0,0
+      };
+      out.write(reinterpret_cast<const char*>(twoEntries), sizeof(twoEntries)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == 0);
+    assert(directoryEntries == 2);
+    assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == 0);
+    assert(std::string(directoryName) == "firs");
+    assert(st_xray_probe_first_archive_directory_name(root, 1, directoryName, sizeof(directoryName)) == 0);
+    assert(std::string(directoryName) == "second/x");
+    assert(st_xray_probe_first_archive_directory_name(root, 2, directoryName, sizeof(directoryName)) == -2);
     // Malformed short directory records must not be accepted as file names.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char malformedDirectory[] = {1,0,0,0,3,0,0,0,'a','b','c'};

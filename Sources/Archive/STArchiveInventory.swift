@@ -29,7 +29,7 @@ enum STArchiveInventory {
             let prefix = "gamedata.db"
             guard name.lowercased().hasPrefix(prefix) else { continue }
             let suffix = String(name.dropFirst(prefix.count))
-            guard !suffix.isEmpty, suffix.allSatisfy({ $0.isASCII && $0.isNumber }),
+            guard !suffix.isEmpty, suffix.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
                   let number = Int(suffix), number <= 9999 else {
                 warnings.append("Unrecognized archive name: \(name)")
                 continue

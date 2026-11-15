@@ -349,12 +349,19 @@ int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_in
             // Decode the real directory using the existing safe LZO + key
             // auto-detection path. Cap memory to avoid unbounded allocations
             // on iOS; callers can distinguish oversized directories (-4).
-            constexpr uint32_t max_directory = 8u * 1024u * 1024u;
-            std::vector<unsigned char> decoded(max_directory);
+            constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+            std::vector<unsigned char> decoded(initial_directory);
             uint32_t actual = 0;
             int32_t key = -2;
-            const int32_t status = st_xray_archive_directory_auto_decrypt(
-                handle, archive_index, decoded.data(), max_directory, &actual, &key);
+            int32_t status = st_xray_archive_directory_auto_decrypt(
+                handle, archive_index, decoded.data(),
+                static_cast<uint32_t>(decoded.size()), &actual, &key);
+            if (status == -6 && actual > decoded.size() && actual <= 64u * 1024u * 1024u) {
+                decoded.resize(actual);
+                status = st_xray_archive_directory_auto_decrypt(
+                    handle, archive_index, decoded.data(),
+                    static_cast<uint32_t>(decoded.size()), &actual, &key);
+            }
             if (status != 0) return status;
             return st_xray_validate_directory_records(decoded.data(), actual);
         }
@@ -394,12 +401,19 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
         if (compressed) {
             // Use the same bounded, validated LZO/key path as directory_count.
             // Do not expose paths from a partially decoded directory.
-            constexpr uint32_t max_directory = 8u * 1024u * 1024u;
-            std::vector<unsigned char> decoded(max_directory);
+            constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+            std::vector<unsigned char> decoded(initial_directory);
             uint32_t actual = 0;
             int32_t key = -2;
-            const int32_t status = st_xray_archive_directory_auto_decrypt(
-                handle, archive_index, decoded.data(), max_directory, &actual, &key);
+            int32_t status = st_xray_archive_directory_auto_decrypt(
+                handle, archive_index, decoded.data(),
+                static_cast<uint32_t>(decoded.size()), &actual, &key);
+            if (status == -6 && actual > decoded.size() && actual <= 64u * 1024u * 1024u) {
+                decoded.resize(actual);
+                status = st_xray_archive_directory_auto_decrypt(
+                    handle, archive_index, decoded.data(),
+                    static_cast<uint32_t>(decoded.size()), &actual, &key);
+            }
             if (status != 0) return status;
             const int32_t entries = st_xray_validate_directory_records(decoded.data(), actual);
             if (entries < 0) return entries;
@@ -544,12 +558,19 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
     }
     if (!has_directory) return -2;
     if (compressed) {
-        constexpr uint32_t max_directory = 8u * 1024u * 1024u;
-        std::vector<unsigned char> decoded(max_directory);
+        constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+        std::vector<unsigned char> decoded(initial_directory);
         uint32_t actual = 0;
         int32_t key = -2;
-        const int32_t status = st_xray_archive_directory_auto_decrypt(
-            handle, archive_index, decoded.data(), max_directory, &actual, &key);
+        int32_t status = st_xray_archive_directory_auto_decrypt(
+            handle, archive_index, decoded.data(),
+            static_cast<uint32_t>(decoded.size()), &actual, &key);
+        if (status == -6 && actual > decoded.size() && actual <= 64u * 1024u * 1024u) {
+            decoded.resize(actual);
+            status = st_xray_archive_directory_auto_decrypt(
+                handle, archive_index, decoded.data(),
+                static_cast<uint32_t>(decoded.size()), &actual, &key);
+        }
         if (status != 0) return status;
         const int32_t count = st_xray_validate_directory_records(decoded.data(), actual);
         if (count < 0) return count;

@@ -479,8 +479,15 @@ jobs:
                           for archiveIndex in 0..<min(count, UInt32(8)) {
                               var decodedBytes: UInt32 = 0
                               var keyUsed: Int32 = -2
-                              let decodeResult = decoded.withUnsafeMutableBytes { buffer in
+                              var decodeResult = decoded.withUnsafeMutableBytes { buffer in
                                   xrayDecodeDirectory(engine, archiveIndex, buffer.baseAddress!, UInt32(buffer.count), &decodedBytes, &keyUsed)
+                              }
+                              if decodeResult == -6 && decodedBytes > UInt32(decoded.count) &&
+                                 decodedBytes <= 64 * 1024 * 1024 {
+                                  decoded = [UInt8](repeating: 0, count: Int(decodedBytes))
+                                  decodeResult = decoded.withUnsafeMutableBytes { buffer in
+                                      xrayDecodeDirectory(engine, archiveIndex, buffer.baseAddress!, UInt32(buffer.count), &decodedBytes, &keyUsed)
+                                  }
                               }
                               let fileCount: Int32 = decodeResult == 0
                                   ? decoded.withUnsafeBytes { buffer in

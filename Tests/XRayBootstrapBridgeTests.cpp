@@ -1028,6 +1028,11 @@ int main() {
         assert(st_xray_packed_level_collision_mesh(handle, "zaton",
             packedXYZ, 0, packedIndices, 1, &outputVertices, &outputTriangles) == -3);
         assert(outputVertices == 0 && outputTriangles == 0 && packedXYZ[0] == 99.0f);
+        assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+            nullptr, 1, packedIndices, 1, &outputVertices, &outputTriangles) == -1);
+        assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+            packedXYZ, 1, packedIndices, 1, &outputVertices, nullptr) == -1);
+
         assert(st_xray_packed_level_collision_mesh(handle, "../zaton",
             packedXYZ, 1, packedIndices, 1, &outputVertices, &outputTriangles) == -1);
         assert(st_xray_packed_level_collision_mesh(handle, "zaton",

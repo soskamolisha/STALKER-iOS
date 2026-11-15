@@ -31,12 +31,15 @@ struct XRayChunkDiagnosticView: View {
                 let securityScoped = url.startAccessingSecurityScopedResource()
                 defer { if securityScoped { url.stopAccessingSecurityScopedResource() } }
                 let lowerName = url.lastPathComponent.lowercased()
-                if [".db0", ".db1", ".db2", ".db3"].contains(where: lowerName.hasSuffix) {
-                    message = "X-Ray .db archive selected. This diagnostic does not yet parse .db directories."
-                    return
-                }
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { try? handle.close() }
+                if [".db0", ".db1", ".db2", ".db3"].contains(where: lowerName.hasSuffix) {
+                    // Read a bounded sample, never load the complete game archive.
+                    let prefix = try handle.read(upToCount: 32) ?? Data()
+                    let hex = prefix.map { String(format: "%02X", $0) }.joined(separator: " ")
+                    message = "X-Ray .db candidate. First \(prefix.count) bytes: \(hex). Directory decoding is not implemented."
+                    return
+                }
                 // FileHandle may return fewer bytes than requested before EOF.
                 // Read until EOF or the hard limit, whichever comes first.
                 let limit = 4 * 1024 * 1024

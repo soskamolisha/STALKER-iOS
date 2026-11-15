@@ -249,8 +249,10 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
                                             &decoded, nullptr) == LZO_E_OK && decoded != 0 &&
                         decoded <= trial) {
                         if (st_xray_validate_directory_records(
-                                scratch.data(), static_cast<uint32_t>(decoded)) >= 0)
-                            return -6; // valid directory; caller must supply more capacity
+                                scratch.data(), static_cast<uint32_t>(decoded)) >= 0) {
+                            *actual_size = static_cast<uint32_t>(decoded);
+                            return -6; // report exact required capacity to caller
+                        }
                         decoded_invalid_directory = true;
                     }
                 }

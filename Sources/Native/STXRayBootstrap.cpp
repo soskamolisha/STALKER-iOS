@@ -352,7 +352,59 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
                                                            &chunk_size, &compressed);
         if (result != 0) return result;
         if (chunk_id != 1) continue;
-        if (compressed) return -4;
+        if (compressed) {
+            // Use the same bounded, validated LZO/key path as directory_count.
+            // Do not expose paths from a partially decoded directory.
+            constexpr uint32_t max_directory = 8u * 1024u * 1024u;
+            std::vector<unsigned char> decoded(max_directory);
+            uint32_t actual = 0;
+            int32_t key = -2;
+            const int32_t status = st_xray_archive_directory_auto_decrypt(
+                handle, archive_index, decoded.data(), max_directory, &actual, &key);
+            if (status != 0) return status;
+            const int32_t entries = st_xray_validate_directory_records(decoded.data(), actual);
+            if (entries < 0) return entries;
+            if (entry_index >= static_cast<uint32_t>(entries)) return -2;
+            uint32_t cursor = 0;
+            for (uint32_t i = 0; i <= entry_index; ++i) {
+                const uint32_t length = static_cast<uint32_t>(decoded[cursor]) |
+                                        (static_cast<uint32_t>(decoded[cursor + 1]) << 8);
+                if (i == entry_index) {
+                    const uint32_t name_length = length - 16;
+                    if (name_length == 0 || name_length + 1 > name_capacity) return -3;
+                    const unsigned char* bytes = decoded.data() + cursor;
+                    const unsigned char* path = bytes + 14;
+                    if (std::memchr(path, 0, name_length)) return -3;
+                    for (uint32_t j = 0; j < name_length; ++j) {
+                        const char ch = static_cast<char>(path[j]);
+                        if (ch == ':' || static_cast<unsigned char>(ch) < 32 ||
+                            ch == '\\' || (ch == '/' && (j == 0 || j + 1 == name_length)))
+                            return -3;
+                        const bool start = j == 0 || path[j - 1] == '/';
+                        if (start && ch == '.' &&
+                            (j + 1 == name_length || path[j + 1] == '/' ||
+                             (j + 1 < name_length && path[j + 1] == '.' &&
+                              (j + 2 == name_length || path[j + 2] == '/'))))
+                            return -3;
+                    }
+                    std::memcpy(name, path, name_length);
+                    name[name_length] = 0;
+                    auto le32 = [](const unsigned char* p) -> uint32_t {
+                        return static_cast<uint32_t>(p[0]) |
+                               (static_cast<uint32_t>(p[1]) << 8) |
+                               (static_cast<uint32_t>(p[2]) << 16) |
+                               (static_cast<uint32_t>(p[3]) << 24);
+                    };
+                    *size_real = le32(bytes + 2);
+                    *size_compressed = le32(bytes + 6);
+                    *crc = le32(bytes + 10);
+                    *data_offset = le32(path + name_length);
+                    return 0;
+                }
+                cursor += length + 2;
+            }
+            return -2;
+        }
         uint32_t cursor = 0;
         for (uint32_t i = 0; i <= entry_index; ++i) {
             if (cursor == chunk_size) return -2;

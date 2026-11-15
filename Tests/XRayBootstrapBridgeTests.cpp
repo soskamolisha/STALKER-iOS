@@ -10,6 +10,40 @@
 #include "../Sources/Native/Upstream/minilzo.h"
 
 int main() {
+    // Inspect synthetic decoded geometry without filesystem access.
+    const unsigned char geometry[] = {
+        7,0,0,0, 2,0,0,0, 0xAA,0xBB,
+        8,0,0,0x80, 1,0,0,0, 0xCC
+    };
+    assert(st_xray_memory_chunk_count(geometry, sizeof(geometry)) == 2);
+    uint32_t memoryID = 0, memoryOffset = 0, memorySize = 0;
+    int32_t memoryCompressed = -1;
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,
+        &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == 0);
+    assert(memoryID == 7 && memoryOffset == 8 && memorySize == 2 && memoryCompressed == 0);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 1,
+        &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == 0);
+    assert(memoryID == 8 && memoryOffset == 18 && memorySize == 1 && memoryCompressed == 1);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 2,
+        &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == -2);
+    assert(st_xray_memory_chunk_count(geometry, sizeof(geometry) - 1) == -3);
+    assert(st_xray_memory_chunk_count(nullptr, 0) == -1);
+    const unsigned char collision[] = {
+        4,0,0,0, 1,0,0,0, 0,0,0,0,
+        0,0,0,0, 0,0,0,0, 0,0,0,0,
+        0,0,128,63, 0,0,128,63, 0,0,128,63,
+        0,0,0,0, 0,0,0,0, 0,0,0,0
+    };
+    uint32_t memoryVertices = 0, memoryFaces = 0;
+    float memoryMin[3] {}, memoryMax[3] {};
+    assert(st_xray_memory_cform_info(collision, sizeof(collision),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
+    assert(memoryVertices == 1 && memoryFaces == 0 && memoryMax[0] == 1.0f);
+    assert(st_xray_memory_cform_info(collision, 35,
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+    assert(st_xray_memory_cform_info(nullptr, 0,
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -1);
+
     assert(st_xray_initialize(nullptr, 0) == -1);
     STXRayHandle handle = st_xray_create();
     assert(handle);

@@ -915,6 +915,19 @@ int main() {
         } else {
             assert(result == 0 && key_used == key && actual_size == sizeof(record));
             assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+            // A short output buffer must report the exact size without losing
+            // the ability to identify the original encryption key on retry.
+            unsigned char short_buffer[4] {};
+            uint32_t required = 0;
+            int32_t short_key = 99;
+            assert(st_xray_archive_directory_auto_decrypt(
+                handle, 0, short_buffer, sizeof(short_buffer), &required, &short_key) == -6);
+            assert(required == sizeof(record) && short_key == -2);
+            std::vector<unsigned char> retried(required);
+            assert(st_xray_archive_directory_auto_decrypt(
+                handle, 0, retried.data(), required, &required, &short_key) == 0);
+            assert(short_key == key && required == sizeof(record));
+            assert(std::memcmp(retried.data(), record, sizeof(record)) == 0);
         }
       }
     }

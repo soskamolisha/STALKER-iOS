@@ -91,6 +91,16 @@ int main() {
     assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(std::remove(nested_empty.c_str()) == 0);
     assert(rmdir(nested_dir.c_str()) == 0);
+    // A nonempty regular file inside a loose gamedata directory is
+    // sufficient for resource discovery (not proof of valid game data).
+    const std::string loose_file = loose_path + "/test.ltx";
+    FILE* loose_content = std::fopen(loose_file.c_str(), "wb");
+    assert(loose_content != nullptr);
+    assert(std::fputs("mock data", loose_content) >= 0);
+    assert(std::fclose(loose_content) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == 0);
+    assert(std::remove(loose_file.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(rmdir(loose_path.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");

@@ -121,6 +121,13 @@ int32_t st_xray_packed_level_chunk_decode(STXRayHandle handle, const char* level
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,
                                             float* minimum_xyz, float* maximum_xyz);
+// Load collision geometry directly from a validated packed level into
+// renderer-ready buffers. Capacities are vertex and triangle counts.
+// No output buffers are modified when parsing or capacity validation fails.
+int32_t st_xray_packed_level_collision_mesh(STXRayHandle handle, const char* level_name,
+                                            float* xyz, uint32_t vertex_capacity,
+                                            uint32_t* indices, uint32_t triangle_capacity,
+                                            uint32_t* vertex_count, uint32_t* triangle_count);
 // Inspect an already decoded X-Ray geometry chunk stream in memory.
 // Chunk payload offsets are relative to the supplied byte buffer.
 int32_t st_xray_memory_chunk_count(const void* bytes, uint32_t size);

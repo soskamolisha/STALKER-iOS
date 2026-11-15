@@ -214,6 +214,7 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
             if (read_result != 0) return read_result;
             cursor += amount;
         }
+        bool decoded_invalid_directory = false;
         for (int32_t key = -1; key <= 1; ++key) {
             std::vector<unsigned char> bytes = original;
             if (key >= 0 && st_xray_directory_decrypt(bytes.data(), chunk_size, key) != 0)
@@ -222,14 +223,18 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
             const int result = lzo1x_decompress_safe(
                 bytes.data(), chunk_size, static_cast<unsigned char*>(destination),
                 &decoded, nullptr);
-            if (result == LZO_E_OK && decoded != 0 && decoded <= capacity &&
-                st_xray_validate_directory_records(destination, static_cast<uint32_t>(decoded)) >= 0) {
-                *actual_size = static_cast<uint32_t>(decoded);
-                *key_used = key;
-                return 0;
+            if (result == LZO_E_OK && decoded != 0 && decoded <= capacity) {
+                if (st_xray_validate_directory_records(destination,
+                                                       static_cast<uint32_t>(decoded)) >= 0) {
+                    *actual_size = static_cast<uint32_t>(decoded);
+                    *key_used = key;
+                    return 0;
+                }
+                decoded_invalid_directory = true;
             }
         }
-        return -4;
+        // -4: no key produced valid LZO; -5: LZO succeeded but records are invalid.
+        return decoded_invalid_directory ? -5 : -4;
     }
     return -2;
 }

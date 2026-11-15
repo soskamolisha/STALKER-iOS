@@ -5,6 +5,7 @@ on:
     branches:
       - feature/trilogy-launcher-v3
     paths:
+      - 'Sources/Native/Portable/**'
       - 'tools/xray_archive_probe.py'
       - 'tools/xray_chunk_scan.py'
       - 'tools/xray_zip_db_peek.py'
@@ -23,3 +24,7 @@ jobs:
           python-version: '3.11'
       - name: Run all archive diagnostic regression tests
         run: python -m unittest discover -s tests -p 'test_xray_*.py' -v
+      - name: Compile and run portable C++ binary reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-byte-reader-test Sources/Native/Portable/ByteReaderTests.cpp
+          /tmp/xray-byte-reader-test

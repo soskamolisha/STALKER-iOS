@@ -1,0 +1,70 @@
+name: OpenXRay iOS ARM64 Compile Experiment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - '.github/workflows/openxray-ios-experiment.yml'
+
+jobs:
+  upstream-ios-compile:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout upstream OpenXRay with dependencies
+        uses: actions/checkout@v4
+        with:
+          repository: OpenXRay/xray-16
+          ref: dev
+          submodules: recursive
+          path: upstream
+      - name: Report SDK and upstream revision
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          git -C upstream rev-parse HEAD
+      - name: Attempt CMake configuration for iPhone ARM64
+        id: configure
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cmake -S upstream -B "$RUNNER_TEMP/openxray-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DCMAKE_BUILD_TYPE=Release \
+            2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
+      - name: Attempt upstream iOS compilation
+        if: steps.configure.outcome == 'success'
+        id: compile
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --parallel 3 \
+            -- -quiet CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+      - name: Record native build results
+        if: always()
+        run: |
+          echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "This experiment does not produce a playable iOS engine or integrate it into the launcher." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-diagnostics
+          path: |
+            ${{ runner.temp }}/openxray-configure.log
+            ${{ runner.temp }}/openxray-compile.log
+            ${{ runner.temp }}/openxray-ios/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+      - name: Mark experiment unsuccessful if configure or compile failed
+        if: always()
+        run: |
+          test "${{ steps.configure.outcome }}" = "success"
+          test "${{ steps.compile.outcome }}" = "success"

@@ -49,6 +49,15 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee "$RUNNER_TEMP/stalker-simulator-build.log"
+      - name: Compile archive unit tests for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STArchiveTests \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
       - name: Build for physical iPhone (unsigned)
         run: |
           set -o pipefail
@@ -67,6 +76,7 @@ jobs:
           path: |
             ${{ runner.temp }}/stalker-simulator-build.log
             ${{ runner.temp }}/stalker-device-build.log
+            ${{ runner.temp }}/stalker-tests-build.log
           if-no-files-found: ignore
       - name: Package unsigned IPA
         run: |

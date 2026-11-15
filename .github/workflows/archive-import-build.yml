@@ -89,19 +89,19 @@ jobs:
           temp = Path(os.environ["RUNNER_TEMP"])
           pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|The following build commands failed", re.I)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-              summary.write("### iOS build diagnostics\\n")
+              summary.write("### iOS build diagnostics\n")
               for filename in ("stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
-                  summary.write(f"\\n**{filename}**\\n")
+                  summary.write(f"\n**{filename}**\n")
                   file = temp / filename
                   if not file.exists():
-                      summary.write("Not run\\n")
+                      summary.write("Not run\n")
                       continue
                   lines = [line[:400] for line in file.read_text(errors="replace").splitlines()
                            if pattern.search(line)]
                   if lines:
-                      summary.write("```text\\n" + "\\n".join(lines[:20]) + "\\n```\\n")
+                      summary.write("```text\n" + "\n".join(lines[:20]) + "\n```\n")
                   else:
-                      summary.write("No matching compiler errors found\\n")
+                      summary.write("No matching compiler errors found\n")
           PY
       - name: Upload build logs (including failures)
         if: always()

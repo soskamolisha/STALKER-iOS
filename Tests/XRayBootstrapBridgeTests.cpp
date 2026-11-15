@@ -305,6 +305,13 @@ int main() {
             corrupt.write(reinterpret_cast<const char*>(&bad), 1);
         }
         assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, sizeof(decoded)) != 0);
+        unsigned char untouched[sizeof(original)];
+        std::memset(untouched, 0xa5, sizeof(untouched));
+        uint32_t corruptSize = 0;
+        assert(st_xray_load_packed_resource(
+            handle, "test.ltx", untouched, sizeof(untouched), &corruptSize) != 0);
+        assert(corruptSize == sizeof(original));
+        for (unsigned char value : untouched) assert(value == 0xa5);
     }
     // Restore plain directory fixture for the compressed-directory test.
     {

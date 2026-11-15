@@ -193,6 +193,23 @@ int main() {
     char extracted[4] = {};
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
+    // Metadata probes must not decompress game assets or allocate their bodies.
+    uint32_t probeReal = 99, probeStored = 99;
+    assert(st_xray_packed_resource_info(handle, "test.ltx", &probeReal, &probeStored) == 0);
+    assert(probeReal == 4 && probeStored == 4);
+    assert(st_xray_packed_resource_info(handle, "TEST.LTX", &probeReal, &probeStored) == 0);
+    assert(probeReal == 4 && probeStored == 4);
+    assert(st_xray_packed_resource_info(handle, "missing.ltx", &probeReal, &probeStored) == -2);
+    assert(probeReal == 0 && probeStored == 0);
+    assert(st_xray_packed_resource_info(handle, "../escape", &probeReal, &probeStored) == -1);
+    assert(st_xray_packed_resource_info(handle, "test.ltx", nullptr, &probeStored) == -1);
+    uint32_t geometrySize = 99, collisionSize = 99;
+    assert(st_xray_packed_level_info(handle, "zaton", &geometrySize, &collisionSize) == -2);
+    assert(geometrySize == 0 && collisionSize == 0);
+    assert(st_xray_packed_level_info(handle, "../zaton", &geometrySize, &collisionSize) == -1);
+    assert(st_xray_packed_level_info(handle, "zaton/level", &geometrySize, &collisionSize) == -1);
+    assert(st_xray_packed_level_info(handle, "", &geometrySize, &collisionSize) == -1);
+    assert(st_xray_packed_level_info(handle, "zaton", nullptr, &collisionSize) == -1);
     assert(st_xray_archive_find_file(handle, 0, "test.ltx") == 0);
     assert(st_xray_archive_find_file(handle, 0, "TEST.LTX") == 0);
     assert(st_xray_archive_find_file(handle, 0, "Test.Ltx") == 0);

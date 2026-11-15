@@ -279,6 +279,11 @@ jobs:
                   for line_number, line in matches[:80]:
                       print(f"{line_number}: {line[:350]}", file=out)
           print(report.read_text())
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("### First actionable compiler / CMake errors\\n")
+              summary.write("\\`\\`\\`text\\n")
+              summary.write(report.read_text()[:12000])
+              summary.write("\\n\\`\\`\\`\\n")
           PY
       - name: Record native build results
         if: always()

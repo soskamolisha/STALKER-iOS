@@ -14,7 +14,8 @@ struct XRayChunkDiagnosticView: View {
                 .font(.caption)
             Button("Inspect file") { importing = true }
             Text(message).font(.caption)
-            List(Array(chunks.enumerated()), id: \.offset) { _, chunk in
+            List(chunks.indices, id: \.self) { index in
+                let chunk = chunks[index]
                 VStack(alignment: .leading) {
                     Text("Chunk \(chunk.id) · \(chunk.payloadSize) bytes")
                     Text("Offset \(chunk.payloadOffset) · compressed flag: \(chunk.compressed ? "yes" : "no")")

@@ -119,7 +119,9 @@ jobs:
           import subprocess
           import os
           root = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios"
-          # OpenXRay sets its own output directory under upstream/bin.\n          # Inspect both that directory and the CMake build tree.\n          libraries = sorted(set(root.rglob("*.a")) | set(Path("upstream/bin").rglob("*.a")))
+          # OpenXRay sets its own output directory under upstream/bin.
+          # Inspect both that directory and the CMake build tree.
+          libraries = sorted(set(root.rglob("*.a")) | set(Path("upstream/bin").rglob("*.a")))
           report = Path(os.environ["RUNNER_TEMP"]) / "openxray-linkage.txt"
           with report.open("w") as out:
               print(f"Static libraries: {len(libraries)}", file=out)

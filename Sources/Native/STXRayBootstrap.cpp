@@ -828,6 +828,9 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
     if (!bytes || !vertices || !triangles || !minimum_xyz || !maximum_xyz) return -1;
     if (size < 36 || size > 64u * 1024u * 1024u) return -3;
     const auto* p = static_cast<const unsigned char*>(bytes);
+    const uint32_t version = memory_le32(p);
+    // CForm v4 is the supported X-Ray collision layout for this bridge.
+    if (version != 4) return -3;
     const uint32_t vertex_count = memory_le32(p + 4);
     const uint32_t face_count = memory_le32(p + 8);
     const uint64_t required = 36ull + uint64_t(vertex_count) * 12ull +

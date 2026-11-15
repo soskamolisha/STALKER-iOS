@@ -778,6 +778,12 @@ int main() {
             handle, 0, decoded, sizeof(decoded), &actual_size, &key_used) == 0);
         assert(key_used == -1 && actual_size == sizeof(record));
         assert(std::memcmp(decoded, record, sizeof(record)) == 0);
+        // A buffer smaller than the decoded catalog must not be accepted.
+        actual_size = 99;
+        key_used = 99;
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(record) - 1, &actual_size, &key_used) != 0);
+        assert(actual_size == 0 && key_used == -2);
     }
     // Test both legacy encryption keys against actual compressed directory payloads.
     for (int key = 0; key < 2; ++key) {

@@ -22,6 +22,7 @@ extern "C" int32_t st_xray_probe_first_archive_directory_read(const char*, void*
 extern "C" int32_t st_xray_probe_first_archive_directory_crc32(const char*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char*, uint32_t*);
 extern "C" int32_t st_xray_probe_first_archive_directory_name(const char*, uint32_t, char*, uint32_t);
+extern "C" int32_t st_xray_probe_first_archive_name(const char*, char*, uint32_t);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -35,6 +36,10 @@ int main() {
     { std::ofstream out(archive, std::ios::binary); out << "fixture"; }
     assert(st_xray_probe_shadow_resources(root, &count, &bytes, &levels) == 0);
     assert(count == 1 && bytes == 7 && levels == 0);
+    char selectedArchive[64] = {};
+    assert(st_xray_probe_first_archive_name(root, selectedArchive, sizeof(selectedArchive)) == 0);
+    assert(std::string(selectedArchive) == "gamedata.db0");
+    assert(st_xray_probe_first_archive_name(root, selectedArchive, 2) == -6);
     uint32_t chunks = 99;
     assert(st_xray_probe_first_archive_chunks(root, &chunks) == -4);
     assert(chunks == 0);

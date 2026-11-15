@@ -572,7 +572,7 @@ jobs:
                               }
                               let report = decodeResult == 0
                                   ? "db[" + String(archiveIndex) + "]: " + String(decodedBytes) + " bytes, files " + String(fileCount) + firstFile + ", key " + (keyUsed == -1 ? "none" : keyUsed == 0 ? "worldwide" : keyUsed == 1 ? "Russian" : "unknown")
-                                  : "db[" + String(archiveIndex) + "]: error " + String(decodeResult)
+                                  : "db[" + String(archiveIndex) + "]: error " + String(decodeResult) + (decodeResult == -6 ? " (needs " + String(decodedBytes) + " bytes)" : decodeResult == -4 ? " (LZO/key mismatch)" : decodeResult == -5 ? " (invalid decoded records)" : "")
                               archiveReports.append(report)
                           }
                           lzoStatus = ", LZO directories: " + archiveReports.joined(separator: "; ")

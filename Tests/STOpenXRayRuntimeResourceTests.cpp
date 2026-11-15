@@ -12,12 +12,12 @@
 // This does not build or run the real OpenXRay engine.
 static int nested_result = 0;
 static int cross_entry_result = 0;
-extern "C" int st_xray_embedded_run(const char*) {
-    cross_entry_result = st_openxray_runtime_run_with_resources("", "/tmp");
-    return 23;
-}
 static std::string test_root;
 static const char* expected_root = nullptr;
+extern "C" int st_xray_embedded_run(const char*) {
+    cross_entry_result = st_openxray_runtime_run_with_resources("", expected_root);
+    return 23;
+}
 extern "C" int st_xray_embedded_run_with_resources(const char* args, const char* root) {
     assert(root && std::strcmp(root, expected_root) == 0);
     if (std::strcmp(args, "-nested") == 0) {

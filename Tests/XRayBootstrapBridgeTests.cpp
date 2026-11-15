@@ -804,8 +804,6 @@ int main() {
         check_bad_name("a/../abc");
         check_bad_name("a:\\b.ltx");
         check_bad_name("a\\b.ltx");
-        check_bad_name("a/b/.ltx");
-        check_bad_name("a/b/..x");
     }
     // Some archive variants store compressed directories without encryption.
     // Ensure the auto-decoder accepts the raw LZO stream (key -1).

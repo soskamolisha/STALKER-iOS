@@ -314,10 +314,6 @@ struct TrilogyLauncherView: View {
                                     }
     }
 
-    private func handleGameCardAction(for game: GameEdition) {
-
-    }
-
     private func gameCard(for game: GameEdition) -> some View {
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
@@ -416,7 +412,7 @@ struct TrilogyLauncherView: View {
                                                     engineDiagnostics[game.rawValue]! += " · payload: " + prefix
                                                 }
                                                 if let fileCount = probe.archiveDirectoryCount {
-                                                    engineDiagnostics[game.rawValue]! += " · files: \(fileCount)"
+                                                    engineDiagnostics[game.rawValue]! += " · files: \\(fileCount)"
                                                 }
                                                 if let status = probe.archiveDirectoryStatus {
                                                     engineDiagnostics[game.rawValue]! += " · " + status
@@ -780,4 +776,4 @@ struct TrilogyLauncherView: View {
         }
     }
 }                                     gameArtwork(for: game)
-                                         handleGameCardAction(for: game)
+

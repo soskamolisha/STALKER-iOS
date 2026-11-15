@@ -125,6 +125,7 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     const int32_t readiness = st_openxray_runtime_preflight(resource_root);
     if (readiness != 0) return readiness;
     const auto run = embedded_run_with_resources();
+    if (!run) return -5; // The optional entry may disappear between checks.
     if (runtime_active.test_and_set(std::memory_order_acquire)) return -3;
     struct ReleaseFlag {
         ~ReleaseFlag() { runtime_active.clear(std::memory_order_release); }

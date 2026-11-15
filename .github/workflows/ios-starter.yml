@@ -116,6 +116,16 @@ jobs:
           python3 Tests/test_adapt_fsgame_ios.py
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayCFormHeader.cpp Sources/Native/XRayCFormGeometry.cpp Sources/Native/STXRayMesh.cpp Tests/STXRayMeshBridgeTests.cpp -o /tmp/stalker-mesh-bridge-tests
           /tmp/stalker-mesh-bridge-tests
+      - name: Upload X-Ray bridge failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xray-bridge-failure-diagnostics
+          path: |
+            /tmp/stalker-xray-bridge-errors.log
+            /tmp/stalker-xray-bridge-output.log
+          if-no-files-found: ignore
+          retention-days: 7
   xray-ios-native-probe:
     # Experimental arm64 iPhoneOS compilation; does not alter the working launcher IPA.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Probe X-Ray native bridge on iPhoneOS' || github.event.head_commit.message == 'Compile miniLZO decoder for iPhoneOS ARM64' || github.event.head_commit.message == 'Compile full resource bridge for iPhoneOS ARM64' || github.event.head_commit.message == 'Verify iPhone ARM64 archive decoder symbols' }}

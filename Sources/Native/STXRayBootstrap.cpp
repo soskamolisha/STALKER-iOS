@@ -506,7 +506,8 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
         const int32_t status = st_xray_archive_chunk_info(
             handle, archive_index, chunk, &directory_chunk, &directory_offset,
             &directory_size, &compressed);
-        if (status != 0) break;
+        if (status == -2) break;
+        if (status != 0) return status;
         if (directory_chunk == 1) { has_directory = true; break; }
     }
     if (!has_directory) return -2;

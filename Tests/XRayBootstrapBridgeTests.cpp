@@ -67,6 +67,18 @@ int main() {
     assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 2,
         &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == -2);
     assert(st_xray_memory_chunk_count(geometry, sizeof(geometry) - 1) == -3);
+    // Invalid output pointers and out-of-range chunk indices are rejected.
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,
+        nullptr, &memoryOffset, &memorySize, &memoryCompressed) == -1);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,
+        &memoryID, nullptr, &memorySize, &memoryCompressed) == -1);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,
+        &memoryID, &memoryOffset, nullptr, &memoryCompressed) == -1);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,
+        &memoryID, &memoryOffset, &memorySize, nullptr) == -1);
+    assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0xffffffffu,
+        &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == -2);
+
     assert(st_xray_memory_chunk_count(nullptr, 0) == -1);
     // Boundary cases: empty input, short headers, oversized payload claims,
     // maximum valid chunk count and the first count beyond the safety limit.

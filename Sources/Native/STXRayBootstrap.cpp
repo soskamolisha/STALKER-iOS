@@ -919,6 +919,8 @@ int32_t st_xray_packed_level_chunk_decode(STXRayHandle handle, const char* level
     if (!actual_size) return -1;
     *actual_size = 0;
     if (expected_size > 64u * 1024u * 1024u) return -3;
+    if (expected_size > capacity) return -3;
+    if (expected_size != 0 && !destination) return -1;
     uint32_t geometry = 0, collision = 0;
     const int32_t status = st_xray_packed_level_info(
         handle, level_name, &geometry, &collision);

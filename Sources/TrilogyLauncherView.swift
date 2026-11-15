@@ -111,6 +111,23 @@ struct TrilogyLauncherView: View {
                     )
                     if chunkStatus == 0 {
                         archiveDetails = " [\(name): chunk \(chunkID), \(payloadSize) bytes, \(compressed == 1 ? "compressed" : "raw")]"
+                        // The native reader validates records in an uncompressed
+                        // X-Ray directory chunk. A compressed directory is not
+                        // reported as empty: it needs the separate LZO path.
+                        let recordCount = st_xray_archive_directory_count(handle, 0)
+                        if recordCount >= 0 {
+                            archiveDetails += russian
+                                ? " [каталог: \(recordCount) записей]"
+                                : " [directory: \(recordCount) records]"
+                        } else if recordCount == -4 {
+                            archiveDetails += russian
+                                ? " [каталог сжат: требуется декодирование]"
+                                : " [directory compressed: decoding required]"
+                        } else {
+                            archiveDetails += russian
+                                ? " [каталог недоступен: \(recordCount)]"
+                                : " [directory unavailable: \(recordCount)]"
+                        }
                     } else {
                         archiveDetails = " [\(name): chunk header unavailable (\(chunkStatus))]"
                     }

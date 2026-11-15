@@ -485,6 +485,41 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
     }
     const int32_t count = st_xray_archive_directory_count(handle, archive_index);
     if (count < 0) return count;
+    // A compressed directory is decoded only once per lookup rather than
+    // re-running LZO/key autodetection for every entry in a large archive.
+    uint32_t directory_chunk = 0, directory_size = 0;
+    uint64_t directory_offset = 0;
+    int32_t compressed = 0;
+    bool has_directory = false;
+    for (uint32_t chunk = 0; chunk < 64; ++chunk) {
+        const int32_t status = st_xray_archive_chunk_info(
+            handle, archive_index, chunk, &directory_chunk, &directory_offset,
+            &directory_size, &compressed);
+        if (status != 0) break;
+        if (directory_chunk == 1) { has_directory = true; break; }
+    }
+    if (!has_directory) return -2;
+    if (compressed) {
+        constexpr uint32_t max_directory = 8u * 1024u * 1024u;
+        std::vector<unsigned char> decoded(max_directory);
+        uint32_t actual = 0;
+        int32_t key = -2;
+        const int32_t status = st_xray_archive_directory_auto_decrypt(
+            handle, archive_index, decoded.data(), max_directory, &actual, &key);
+        if (status != 0) return status;
+        if (st_xray_validate_directory_records(decoded.data(), actual) != count) return -3;
+        uint32_t cursor = 0;
+        for (int32_t index = 0; index < count; ++index) {
+            const uint32_t length = static_cast<uint32_t>(decoded[cursor]) |
+                                    (static_cast<uint32_t>(decoded[cursor + 1]) << 8);
+            const uint32_t name_length = length - 16;
+            if (name_length == std::strlen(relative_path) &&
+                std::memcmp(decoded.data() + cursor + 14, relative_path, name_length) == 0)
+                return index;
+            cursor += length + 2;
+        }
+        return -2;
+    }
     // Directory entries are validated before exposing names.
     for (int32_t index = 0; index < count; ++index) {
         char name[4097] {};

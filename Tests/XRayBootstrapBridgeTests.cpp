@@ -386,6 +386,19 @@ int main() {
         &packedVertices, &packedTriangles, packedMin, packedMax) == -1);
     assert(st_xray_packed_level_collision_info(handle, "zaton",
         nullptr, &packedTriangles, packedMin, packedMax) == -1);
+    // Missing packed collision must not change the caller's vertex buffer.
+    float missingXYZ[3] = {13.0f, 17.0f, 19.0f};
+    uint32_t missingIndices[3] = {23, 29, 31};
+    uint32_t missingVertices = 42, missingTriangles = 43;
+    assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+        missingXYZ, 1, missingIndices, 1, &missingVertices, &missingTriangles) == -2);
+    assert(missingVertices == 0 && missingTriangles == 0);
+    assert(missingXYZ[0] == 13.0f && missingIndices[0] == 23);
+    assert(st_xray_packed_level_collision_mesh(handle, "../zaton",
+        missingXYZ, 1, missingIndices, 1, &missingVertices, &missingTriangles) == -1);
+    assert(st_xray_packed_level_collision_mesh(handle, "zaton",
+        missingXYZ, 1, missingIndices, 1, nullptr, &missingTriangles) == -1);
+
 
     char levelBuffer[8] = {'U','N','T','O','U','C','H','D'};
     uint32_t levelBytes = 99;

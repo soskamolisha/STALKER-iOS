@@ -577,7 +577,14 @@ struct TrilogyLauncherView: View {
                 Text(russian ? "STALKER Mobile — тестовый лаунчер. Порт X-Ray для iOS ещё не готов." : "STALKER Mobile is a prototype launcher. The iOS X-Ray port is not ready yet.")
             }
             .task {
-                for game in GameEdition.allCases { await resources.refresh(gameID: game.rawValue) }
+                for game in GameEdition.allCases {
+                    await resources.refresh(gameID: game.rawValue)
+                    // Reattach the native resource probe after relaunch, too.
+                    // A successful probe does not mean gameplay is available.
+                    if resources.detectedResources[game.rawValue] == true {
+                        checkEngineResources(for: game)
+                    }
+                }
             }
             .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("OK", role: .cancel) { importError = nil }

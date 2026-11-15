@@ -123,7 +123,10 @@ int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* lev
                                             float* minimum_xyz, float* maximum_xyz);
 // Load collision geometry directly from a validated packed level into
 // renderer-ready buffers. Capacities are vertex and triangle counts.
-// No output buffers are modified when parsing or capacity validation fails.
+// xyz points to at least 3 * vertex_capacity floats; indices points to
+// at least 3 * triangle_capacity uint32 values. vertex_count and
+// triangle_count are required even on failure; they are reset to zero.
+// No xyz/indices buffers are modified when parsing or capacity validation fails.
 int32_t st_xray_packed_level_collision_mesh(STXRayHandle handle, const char* level_name,
                                             float* xyz, uint32_t vertex_capacity,
                                             uint32_t* indices, uint32_t triangle_capacity,

@@ -44,6 +44,14 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
           xcodegen --version
+      - name: Swift syntax preflight
+        run: |
+          set -euo pipefail
+          # Parse every app Swift file before the more expensive simulator build.
+          find Sources -type f -name '*.swift' -print0 | while IFS= read -r -d '' source; do
+            echo "Checking Swift syntax: $source"
+            xcrun swiftc -frontend -parse "$source"
+          done
       - name: Build for iOS Simulator (unsigned)
         run: |
           set -o pipefail

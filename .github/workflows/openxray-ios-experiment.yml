@@ -100,6 +100,30 @@ jobs:
           if not libraries:
               raise SystemExit("No static libraries produced; inspect build outputs")
           PY
+      - name: Summarize first native compiler and CMake failures
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          temp = Path(os.environ["RUNNER_TEMP"])
+          patterns = re.compile(r"(fatal error:| error:|CMake Error|Could NOT find|No such file or directory|unsupported|not supported|undefined symbol|ld:)", re.I)
+          report = temp / "openxray-failure-summary.txt"
+          with report.open("w") as out:
+              for name in ("openxray-configure.log", "openxray-compile.log"):
+                  log = temp / name
+                  print(f"=== {name} ===", file=out)
+                  if not log.exists():
+                      print("No log: stage was skipped or failed before producing output.", file=out)
+                      continue
+                  matches = [(i, line.strip()) for i, line in enumerate(log.read_text(errors="replace").splitlines(), 1)
+                             if patterns.search(line)]
+                  if not matches:
+                      print("No recognized errors; inspect full log.", file=out)
+                  for line_number, line in matches[:80]:
+                      print(f"{line_number}: {line[:350]}", file=out)
+          print(report.read_text())
+          PY
       - name: Record native build results
         if: always()
         run: |
@@ -117,6 +141,7 @@ jobs:
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
             ${{ runner.temp }}/openxray-linkage.txt
+            ${{ runner.temp }}/openxray-failure-summary.txt
             ${{ runner.temp }}/openxray-ios/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: ignore
       - name: Mark experiment unsuccessful if configure or compile failed

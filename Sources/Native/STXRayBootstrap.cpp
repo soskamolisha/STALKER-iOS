@@ -5,6 +5,7 @@
 #include <new>
 #include <cstring>
 #include <limits>
+#include <cmath>
 #include <vector>
 #include "Upstream/minilzo.h"
 #include <fcntl.h>
@@ -783,6 +784,71 @@ int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_na
                                       (member == 0 ? "/level" : "/level.cform");
     return st_xray_load_packed_resource(
         handle, relative_path.c_str(), destination, capacity, actual_size);
+}
+namespace {
+uint32_t memory_le32(const unsigned char* p) {
+    return uint32_t(p[0]) | (uint32_t(p[1]) << 8) |
+           (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
+}
+}
+int32_t st_xray_memory_chunk_count(const void* bytes, uint32_t size) {
+    if (!bytes || size == 0 || size > 64u * 1024u * 1024u) return -1;
+    const auto* p = static_cast<const unsigned char*>(bytes);
+    uint32_t cursor = 0;
+    int32_t count = 0;
+    while (cursor < size) {
+        if (size - cursor < 8 || count >= 65536) return -3;
+        const uint32_t payload = memory_le32(p + cursor + 4);
+        if (payload > size - cursor - 8) return -3;
+        cursor += 8 + payload;
+        ++count;
+    }
+    return count;
+}
+int32_t st_xray_memory_chunk_info(const void* bytes, uint32_t size,
+                                  uint32_t index, uint32_t* chunk_id,
+                                  uint32_t* payload_offset, uint32_t* payload_size,
+                                  int32_t* compressed) {
+    if (!chunk_id || !payload_offset || !payload_size || !compressed) return -1;
+    const int32_t count = st_xray_memory_chunk_count(bytes, size);
+    if (count < 0) return count;
+    if (index >= static_cast<uint32_t>(count)) return -2;
+    const auto* p = static_cast<const unsigned char*>(bytes);
+    uint32_t cursor = 0;
+    for (uint32_t i = 0; i < index; ++i)
+        cursor += 8 + memory_le32(p + cursor + 4);
+    const uint32_t raw_id = memory_le32(p + cursor);
+    *chunk_id = raw_id & 0x7fffffffu;
+    *compressed = (raw_id & 0x80000000u) != 0 ? 1 : 0;
+    *payload_offset = cursor + 8;
+    *payload_size = memory_le32(p + cursor + 4);
+    return 0;
+}
+int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
+                                  uint32_t* vertices, uint32_t* triangles,
+                                  float* minimum_xyz, float* maximum_xyz) {
+    if (!bytes || !vertices || !triangles || !minimum_xyz || !maximum_xyz) return -1;
+    if (size < 36 || size > 64u * 1024u * 1024u) return -3;
+    const auto* p = static_cast<const unsigned char*>(bytes);
+    const uint32_t vertex_count = memory_le32(p + 4);
+    const uint32_t face_count = memory_le32(p + 8);
+    const uint64_t required = 36ull + uint64_t(vertex_count) * 12ull +
+                              uint64_t(face_count) * 16ull;
+    if (required > size) return -3;
+    float low[3] {}, high[3] {};
+    for (int axis = 0; axis < 3; ++axis) {
+        const uint32_t a = memory_le32(p + 12 + axis * 4);
+        const uint32_t b = memory_le32(p + 24 + axis * 4);
+        std::memcpy(&low[axis], &a, sizeof(float));
+        std::memcpy(&high[axis], &b, sizeof(float));
+        if (!std::isfinite(low[axis]) || !std::isfinite(high[axis]) ||
+            low[axis] > high[axis]) return -3;
+    }
+    *vertices = vertex_count;
+    *triangles = face_count;
+    std::memcpy(minimum_xyz, low, sizeof(low));
+    std::memcpy(maximum_xyz, high, sizeof(high));
+    return 0;
 }
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;

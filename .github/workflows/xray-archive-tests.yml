@@ -32,3 +32,7 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-chunk-reader-test Sources/Native/Portable/ChunkReaderTests.cpp
           /tmp/xray-chunk-reader-test
+      - name: Compile and run C ABI chunk reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-chunk-c-test Sources/Native/Portable/ChunkReaderCTests.cpp Sources/Native/Portable/ChunkReaderC.cpp
+          /tmp/xray-chunk-c-test

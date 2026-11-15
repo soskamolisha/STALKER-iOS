@@ -72,6 +72,15 @@ int main() {
     const std::string loose_path = test_root + "/gamedata";
     assert(mkdir(loose_path.c_str(), 0700) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
+    const std::string empty_file = loose_path + "/placeholder";
+    FILE* placeholder = std::fopen(empty_file.c_str(), "wb");
+    assert(placeholder != nullptr);
+    assert(std::fclose(placeholder) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(std::remove(empty_file.c_str()) == 0);
+    assert(symlink("/etc/hosts", empty_file.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(unlink(empty_file.c_str()) == 0);
     assert(rmdir(loose_path.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");

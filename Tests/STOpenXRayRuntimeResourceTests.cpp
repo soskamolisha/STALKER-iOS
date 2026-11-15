@@ -112,6 +112,23 @@ int main() {
     assert(std::remove(loose_file.c_str()) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(rmdir(loose_path.c_str()) == 0);
+    // Archive names alone do not establish resource availability.
+    const std::string empty_archive = test_root + "/gamedata.db1";
+    FILE* zero_archive = std::fopen(empty_archive.c_str(), "wb");
+    assert(zero_archive != nullptr);
+    assert(std::fclose(zero_archive) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(std::remove(empty_archive.c_str()) == 0);
+    assert(symlink("/etc/hosts", empty_archive.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(unlink(empty_archive.c_str()) == 0);
+    const std::string invalid_archive = test_root + "/gamedata.db0.backup";
+    FILE* backup = std::fopen(invalid_archive.c_str(), "wb");
+    assert(backup != nullptr);
+    assert(std::fputs("not an archive", backup) >= 0);
+    assert(std::fclose(backup) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(std::remove(invalid_archive.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");
     assert(archive != nullptr);

@@ -108,11 +108,15 @@ int main() {
     assert(st_xray_probe_first_archive_chunks(root, &chunks) == -4);
     assert(chunks == 0);
     assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == -4);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -4);
+    assert(crc == 0);
     assert(std::remove(archive.c_str()) == 0);
     const std::string target = std::string(root) + "/target.bin";
     { std::ofstream out(target, std::ios::binary); out << "outside"; }
     assert(symlink(target.c_str(), archive.c_str()) == 0);
     assert(st_xray_probe_first_archive_chunks(root, &chunks) == -3);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -3);
+    assert(crc == 0);
     assert(std::remove(archive.c_str()) == 0);
     assert(std::remove(target.c_str()) == 0);
     assert(rmdir(root) == 0);

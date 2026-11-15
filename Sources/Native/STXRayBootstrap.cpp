@@ -306,7 +306,19 @@ int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_in
                                                            &chunk_size, &compressed);
         if (result != 0) return result;
         if (chunk_id != 1) continue;
-        if (compressed) return -4;
+        if (compressed) {
+            // Decode the real directory using the existing safe LZO + key
+            // auto-detection path. Cap memory to avoid unbounded allocations
+            // on iOS; callers can distinguish oversized directories (-4).
+            constexpr uint32_t max_directory = 8u * 1024u * 1024u;
+            std::vector<unsigned char> decoded(max_directory);
+            uint32_t actual = 0;
+            int32_t key = -2;
+            const int32_t status = st_xray_archive_directory_auto_decrypt(
+                handle, archive_index, decoded.data(), max_directory, &actual, &key);
+            if (status != 0) return status;
+            return st_xray_validate_directory_records(decoded.data(), actual);
+        }
         uint32_t cursor = 0;
         int32_t count = 0;
         while (cursor < chunk_size) {

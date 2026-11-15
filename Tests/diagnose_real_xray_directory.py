@@ -4,6 +4,7 @@ import argparse
 import ctypes
 import ctypes.util
 import struct
+import zipfile
 
 def decrypt(payload, rounds, table_seed, stream_seed):
     def random(seed):
@@ -28,7 +29,15 @@ def decrypt(payload, rounds, table_seed, stream_seed):
     return result
 
 def run(path):
-    with open(path, "rb") as stream:
+    archive_zip = zipfile.ZipFile(path) if path.lower().endswith(".zip") else None
+    if archive_zip:
+        members = [item for item in archive_zip.infolist() if item.filename.split("/")[-1].lower() == "gamedata.db0"]
+        if len(members) != 1:
+            raise ValueError("expected exactly one gamedata.db0 in ZIP")
+        stream_context = archive_zip.open(members[0])
+    else:
+        stream_context = open(path, "rb")
+    with stream_context as stream:
         header = stream.read(8)
         if len(header) != 8:
             raise ValueError("missing first chunk header")
@@ -59,8 +68,8 @@ def run(path):
                           ("worldwide", (1024, 6011979, 24031979)),
                           ("russian", (2048, 20091958, 20031955))):
         data = payload if variant is None else decrypt(payload, *variant)
-        print(name, "prefix:", bytes(data[:16]).hex())
-        for skip in (0, 4):
+        print(name, "prefix:", bytes(data[:16]).hex(), "little_endian_u32:", struct.unpack_from("<I", data)[0])
+        for skip in (0, 4, 8):
             source = ctypes.create_string_buffer(bytes(data[skip:]))
             output = ctypes.create_string_buffer(8 * 1024 * 1024)
             count = ctypes.c_ulong(len(output))
@@ -71,5 +80,5 @@ def run(path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("archive", help="Locally owned, unpacked gamedata.db0")
+    parser.add_argument("archive", help="Locally owned gamedata.db0 or gamedata.db0.zip")
     run(parser.parse_args().archive)

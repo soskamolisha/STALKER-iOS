@@ -38,6 +38,11 @@ enum GameResourceImporter {
         }
         do {
             try fm.copyItem(at: source, to: incomingFolder)
+            // Verify the copied tree before promoting it to the engine's resource root.
+            // Detect incomplete iCloud/provider copies and newly introduced links.
+            guard try folderSize(incomingFolder) == incoming else {
+                throw ImportFailure.incompleteCopy
+            }
             // Some iOS ports store the game root inside a Data/ directory.
             // Flatten only a recognized wrapper, never an arbitrary nested folder.
             try unwrapPortDataDirectory(in: incomingFolder)
@@ -250,7 +255,7 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, invalidArchive, unsafeSymlink, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
+        case invalidEdition, invalidFolder, invalidArchive, unsafeSymlink, incompleteCopy, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
         var errorDescription: String? {
             switch self {
             case .invalidFilesystemConfig: return "Invalid fsgame.ltx filesystem configuration"
@@ -260,6 +265,7 @@ enum GameResourceImporter {
             case .invalidFolder: return "Select an extracted game folder"
             case .invalidArchive: return "Select a nonempty original gamedata.dbN file"
             case .unsafeSymlink: return "Game folder contains symbolic links; import regular files instead"
+            case .incompleteCopy: return "Copied game folder is incomplete; check free space and Files provider downloads"
             case .insufficientStorage: return "Not enough free storage on this device"
             case .missingResources: return "No recognizable X-Ray game resources found"
             case .tooManyFiles: return "Too many files to validate safely"

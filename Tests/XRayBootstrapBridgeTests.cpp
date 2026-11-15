@@ -54,6 +54,23 @@ int main() {
     assert(st_xray_find_resource(handle, "levels/file", nullptr, &foundEntry) == -1);
     assert(st_xray_load_packed_resource(handle, "../escape", nullptr, 0, &requiredSize) == -1);
     assert(st_xray_load_packed_resource(handle, "levels/file", nullptr, 0, nullptr) == -1);
+    uint32_t resetSize = 123;
+    assert(st_xray_load_packed_resource(nullptr, "levels/file", nullptr, 0, &resetSize) == -1);
+    assert(resetSize == 0);
+    assert(st_xray_load_packed_resource(handle, nullptr, nullptr, 0, &resetSize) == -1);
+    assert(resetSize == 0);
+    // Directory record counts are capped to fit the native entry-index API.
+    {
+        const unsigned char record[] = {
+            17,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 'a', 0,0,0,0
+        };
+        std::string oversized;
+        oversized.reserve(sizeof(record) * 65537u);
+        for (uint32_t i = 0; i < 65537u; ++i)
+            oversized.append(reinterpret_cast<const char*>(record), sizeof(record));
+        assert(st_xray_validate_directory_records(
+            oversized.data(), static_cast<uint32_t>(oversized.size())) == -3);
+    }
     assert(st_xray_archive_bytes(handle) == 15);
     char archiveName[32] = {};
     assert(st_xray_archive_name(handle, 0, archiveName, sizeof(archiveName)) == 0);

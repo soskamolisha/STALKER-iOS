@@ -54,7 +54,12 @@ struct XRayChunkDiagnosticView: View {
                     message = "File: \(url.lastPathComponent)\nSize: \(fileSize) bytes\nHead (offset 0): \(headHex)\nTail (offset \(tailOffset)): \(tailHex)\nX-Ray .db directory decoding is not implemented."
                     return
                 }
-                // ZIP archives are containers, not generic X-Ray chunks.\n                if lowerName.hasSuffix(".zip") {\n                    message = "ZIP archive selected. Extract the target file before diagnostics."\n                    return\n                }\n                // Check actual file length before allocating a diagnostic buffer.
+                // ZIP archives are containers, not generic X-Ray chunks.
+                if lowerName.hasSuffix(".zip") {
+                    message = "ZIP archive selected. Extract the target file before diagnostics."
+                    return
+                }
+                // Check actual file length before allocating a diagnostic buffer.
                 // This avoids reading several megabytes from unsupported large inputs.
                 let candidateSize = try handle.seekToEnd()
                 try handle.seek(toOffset: 0)

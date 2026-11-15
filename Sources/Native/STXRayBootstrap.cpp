@@ -769,6 +769,21 @@ int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_p
     std::memcpy(destination, staged.data(), real);
     return 0;
 }
+int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_name,
+                                        int32_t member, void* destination,
+                                        uint32_t capacity, uint32_t* actual_size) {
+    if (!actual_size) return -1;
+    *actual_size = 0;
+    if (member != 0 && member != 1) return -1;
+    uint32_t geometry_size = 0, collision_size = 0;
+    const int32_t probe = st_xray_packed_level_info(
+        handle, level_name, &geometry_size, &collision_size);
+    if (probe != 0) return probe;
+    const std::string relative_path = std::string("levels/") + level_name +
+                                      (member == 0 ? "/level" : "/level.cform");
+    return st_xray_load_packed_resource(
+        handle, relative_path.c_str(), destination, capacity, actual_size);
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

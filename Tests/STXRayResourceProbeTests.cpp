@@ -125,6 +125,17 @@ int main() {
     assert(directoryEntries == 0);
     assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == -7);
 
+    // Reject Windows drive-qualified archive paths.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char drivePath[] = {
+          1,0,0,0, 26,0,0,0,
+          24,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          'C',':','/','e','v','i','l','x', 0,0,0,0
+      };
+      out.write(reinterpret_cast<const char*>(drivePath), sizeof(drivePath)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
+    assert(directoryEntries == 0);
+
     // Two adjacent chunks must retain their own offsets and payload boundaries.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoChunks[] = {

@@ -55,10 +55,10 @@ struct STArchiveImportView: View {
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             switch result {
             case .failure(let error):
-                errorMessage = error.localizedDescription
+                errorMessage = "Не удалось открыть выбор папки: \(error.localizedDescription)"
             case .success(let urls):
                 guard let folder = urls.first else {
-                    errorMessage = "No folder selected"
+                    errorMessage = "Папка не выбрана"
                     return
                 }
                 pendingFolder = folder
@@ -111,6 +111,7 @@ struct STArchiveImportView: View {
                             errorMessage = nil
                             refreshStoredArchives()
                         case .failure(let error):
+                            refreshStoredArchives()
                             report = nil
                             importStatus = nil
                             errorMessage = "Ошибка импорта: \(error.localizedDescription)"

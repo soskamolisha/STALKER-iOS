@@ -51,3 +51,15 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios.tests
         GENERATE_INFOPLIST_FILE: "YES"
         CODE_SIGNING_ALLOWED: "NO"
+
+schemes:
+  STALKERiOSStarter:
+    build:
+      targets:
+        STALKERiOSStarter: all
+        STArchiveTests: [test]
+    test:
+      targets:
+        - STArchiveTests
+    run:
+      config: Debug

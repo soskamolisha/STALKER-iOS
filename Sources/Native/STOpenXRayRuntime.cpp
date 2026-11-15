@@ -75,7 +75,8 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     if (lstat(config_path.c_str(), &config_info) != 0 ||
         !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
     // A config alone is not enough to boot Shadow of Chernobyl.
-    // Accept either loose gamedata or at least one nonempty gamedata.db* archive.
+    // Accept either loose gamedata or a nonempty base gamedata.db0 archive.
+    // Later numbered archives alone cannot form a bootable base resource set.
     bool has_game_data = false;
     const std::string loose_path = std::string(resource_root) + "/gamedata";
     struct stat loose_info {};
@@ -140,7 +141,7 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
                 }
                 archive_index = archive_index * 10 + static_cast<unsigned int>(digit - '0');
             }
-            if (!valid_suffix || archive_index > 9999) continue;
+            if (!valid_suffix || archive_index != 0) continue;
             const std::string archive = std::string(resource_root) + "/" + entry->d_name;
             struct stat archive_info {};
             if (lstat(archive.c_str(), &archive_info) == 0 &&
@@ -195,7 +196,7 @@ extern "C" const char* st_openxray_runtime_status_message(int32_t status) {
         case -5: return "Resource-aware X-Ray engine is not linked";
         case -6: return "Invalid or inaccessible game folder";
         case -7: return "Missing, empty, or invalid fsgame.ltx";
-        case -8: return "Missing gamedata folder or nonempty gamedata.db archive";
+        case -8: return "Missing loose gamedata or nonempty gamedata.db0 base archive";
         default: return "X-Ray returned an unknown status";
     }
 }

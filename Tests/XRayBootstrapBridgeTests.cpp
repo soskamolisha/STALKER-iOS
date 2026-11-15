@@ -225,6 +225,15 @@ int main() {
         unsigned char decoded[sizeof(original)] {};
         assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, sizeof(decoded)) == 0);
         assert(std::memcmp(decoded, original, sizeof(original)) == 0);
+        uint32_t packedLoadedSize = 0;
+        unsigned char packedLoaded[sizeof(original)] {};
+        assert(st_xray_load_packed_resource(
+            handle, "test.ltx", packedLoaded, sizeof(packedLoaded), &packedLoadedSize) == 0);
+        assert(packedLoadedSize == sizeof(original));
+        assert(std::memcmp(packedLoaded, original, sizeof(original)) == 0);
+        assert(st_xray_load_packed_resource(
+            handle, "test.ltx", packedLoaded, 3, &packedLoadedSize) == -3);
+        assert(packedLoadedSize == sizeof(original));
         assert(st_xray_archive_file_decompress(handle, 0, 0, decoded, 3) == -3);
         {
             std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);

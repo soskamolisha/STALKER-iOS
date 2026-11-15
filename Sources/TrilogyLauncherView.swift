@@ -314,6 +314,77 @@ struct TrilogyLauncherView: View {
                                     }
     }
 
+    private func handleGameCardAction(for game: GameEdition) {
+                                        if resources.status[game.rawValue] == nil {
+                                            selectedGame = game
+                                            showImporter = true
+                                        } else {
+                                            if let probe = XRayResourcePreflight.inspect(gameID: game.rawValue) {
+                                                engineDiagnostics[game.rawValue] = russian
+                                                    ? "X-Ray: архивов \(probe.archiveCount), уровней \(probe.looseLevelCount), данных \(probe.archiveBytes) байт"
+                                                    : "X-Ray: \(probe.archiveCount) archives, \(probe.looseLevelCount) levels, \(probe.archiveBytes) bytes"
+                                                if !probe.archiveNames.isEmpty {
+                                                    engineDiagnostics[game.rawValue]! += " · " + probe.archiveNames.prefix(4).joined(separator: ", ")
+                                                }
+                                                if let signature = probe.firstArchiveSignature {
+                                                    engineDiagnostics[game.rawValue]! += " · DB[0..15]: " + signature
+                                                }
+                                                if let chunk = probe.firstArchiveChunk {
+                                                    engineDiagnostics[game.rawValue]! += " · chunk: " + chunk
+                                                }
+                                                if let prefix = probe.firstChunkPayloadPrefix {
+                                                    engineDiagnostics[game.rawValue]! += " · payload: " + prefix
+                                                }
+                                                if let fileCount = probe.archiveDirectoryCount {
+                                                    engineDiagnostics[game.rawValue]! += " · files: \(fileCount)"
+                                                }
+                                                if let status = probe.archiveDirectoryStatus {
+                                                    engineDiagnostics[game.rawValue]! += " · " + status
+                                                }
+                                                if let prefix = probe.firstFilePrefix {
+                                                    engineDiagnostics[game.rawValue]! += " · file bytes: " + prefix
+                                                }
+                                                if let entry = probe.firstArchiveEntry {
+                                                    engineDiagnostics[game.rawValue]! += " · file: " + entry
+                                                }
+                                                if probe.needsPackedArchiveMounting {
+                                                    engineDiagnostics[game.rawValue]! += russian
+                                                        ? " · требуется чтение уровней из архивов"
+                                                        : " · packed level mounting required"
+                                                } else if probe.hasRenderableLooseLevels {
+                                                    engineDiagnostics[game.rawValue]! += russian
+                                                        ? " · найдены распакованные локации"
+                                                        : " · loose levels detected"
+                                                }
+                                                showDiagnostics = true
+                                            } else {
+                                                engineDiagnostics[game.rawValue] = russian
+                                                    ? "X-Ray: не удалось проверить файлы игры"
+                                                    : "X-Ray: game data preflight failed"
+                                                showDiagnostics = true
+                                            }
+                                            // Exercise the same Swift-to-native lifecycle
+                                            // used by the future playable engine, not only
+                                            // the standalone diagnostics probe.
+                                            let nativeEngine = XRayBootstrapEngine(gameID: game.rawValue)
+                                            engineDiagnostics[game.rawValue, default: "X-Ray"] +=
+                                                nativeEngine.isNativeEntryLinked
+                                                ? (russian ? " · OpenXRay: точка входа связана (запуск не проверен)"
+                                                           : " · OpenXRay: entry linked (launch unverified)")
+                                                : (russian ? " · OpenXRay: исполняемый модуль не подключён"
+                                                           : " · OpenXRay: executable module not linked")
+                                            do {
+                                                try nativeEngine.start()
+                                            } catch {
+                                                let message = error.localizedDescription
+                                                engineDiagnostics[game.rawValue, default: "X-Ray"] += " · " + message
+                                            }
+                                            nativeEngine.stop()
+                                            showDiagnostics = true
+                                            showEngineNotice = true
+                                        }
+    }
+
     private func gameCard(for game: GameEdition) -> some View {
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
@@ -391,74 +462,7 @@ struct TrilogyLauncherView: View {
                                     .disabled(isCopying)
                                     }
                                     Button {
-                                        if resources.status[game.rawValue] == nil {
-                                            selectedGame = game
-                                            showImporter = true
-                                        } else {
-                                            if let probe = XRayResourcePreflight.inspect(gameID: game.rawValue) {
-                                                engineDiagnostics[game.rawValue] = russian
-                                                    ? "X-Ray: архивов \(probe.archiveCount), уровней \(probe.looseLevelCount), данных \(probe.archiveBytes) байт"
-                                                    : "X-Ray: \(probe.archiveCount) archives, \(probe.looseLevelCount) levels, \(probe.archiveBytes) bytes"
-                                                if !probe.archiveNames.isEmpty {
-                                                    engineDiagnostics[game.rawValue]! += " · " + probe.archiveNames.prefix(4).joined(separator: ", ")
-                                                }
-                                                if let signature = probe.firstArchiveSignature {
-                                                    engineDiagnostics[game.rawValue]! += " · DB[0..15]: " + signature
-                                                }
-                                                if let chunk = probe.firstArchiveChunk {
-                                                    engineDiagnostics[game.rawValue]! += " · chunk: " + chunk
-                                                }
-                                                if let prefix = probe.firstChunkPayloadPrefix {
-                                                    engineDiagnostics[game.rawValue]! += " · payload: " + prefix
-                                                }
-                                                if let fileCount = probe.archiveDirectoryCount {
-                                                    engineDiagnostics[game.rawValue]! += " · files: \\(fileCount)"
-                                                }
-                                                if let status = probe.archiveDirectoryStatus {
-                                                    engineDiagnostics[game.rawValue]! += " · " + status
-                                                }
-                                                if let prefix = probe.firstFilePrefix {
-                                                    engineDiagnostics[game.rawValue]! += " · file bytes: " + prefix
-                                                }
-                                                if let entry = probe.firstArchiveEntry {
-                                                    engineDiagnostics[game.rawValue]! += " · file: " + entry
-                                                }
-                                                if probe.needsPackedArchiveMounting {
-                                                    engineDiagnostics[game.rawValue]! += russian
-                                                        ? " · требуется чтение уровней из архивов"
-                                                        : " · packed level mounting required"
-                                                } else if probe.hasRenderableLooseLevels {
-                                                    engineDiagnostics[game.rawValue]! += russian
-                                                        ? " · найдены распакованные локации"
-                                                        : " · loose levels detected"
-                                                }
-                                                showDiagnostics = true
-                                            } else {
-                                                engineDiagnostics[game.rawValue] = russian
-                                                    ? "X-Ray: не удалось проверить файлы игры"
-                                                    : "X-Ray: game data preflight failed"
-                                                showDiagnostics = true
-                                            }
-                                            // Exercise the same Swift-to-native lifecycle
-                                            // used by the future playable engine, not only
-                                            // the standalone diagnostics probe.
-                                            let nativeEngine = XRayBootstrapEngine(gameID: game.rawValue)
-                                            engineDiagnostics[game.rawValue, default: "X-Ray"] +=
-                                                nativeEngine.isNativeEntryLinked
-                                                ? (russian ? " · OpenXRay: точка входа связана (запуск не проверен)"
-                                                           : " · OpenXRay: entry linked (launch unverified)")
-                                                : (russian ? " · OpenXRay: исполняемый модуль не подключён"
-                                                           : " · OpenXRay: executable module not linked")
-                                            do {
-                                                try nativeEngine.start()
-                                            } catch {
-                                                let message = error.localizedDescription
-                                                engineDiagnostics[game.rawValue, default: "X-Ray"] += " · " + message
-                                            }
-                                            nativeEngine.stop()
-                                            showDiagnostics = true
-                                            showEngineNotice = true
-                                        }
+                                        handleGameCardAction(for: game)
                                     } label: {
                                         Label(resources.status[game.rawValue] == nil
                                               ? (russian ? "Добавить файлы игры" : "Add game files")

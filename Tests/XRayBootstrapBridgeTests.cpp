@@ -79,6 +79,12 @@ int main() {
     assert(st_xray_memory_cform_info(collision, sizeof(collision),
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
     assert(memoryVertices == 1 && memoryFaces == 0 && memoryMax[0] == 1.0f);
+    unsigned char unsupportedCollision[sizeof(collision)] {};
+    std::memcpy(unsupportedCollision, collision, sizeof(collision));
+    unsupportedCollision[0] = 5;
+    assert(st_xray_memory_cform_info(unsupportedCollision, sizeof(unsupportedCollision),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+
     assert(st_xray_memory_cform_info(collision, 35,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
     assert(st_xray_memory_cform_info(nullptr, 0,

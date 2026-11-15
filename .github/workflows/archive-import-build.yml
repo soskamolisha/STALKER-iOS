@@ -35,6 +35,11 @@ jobs:
           assert "moveItem(at: staging, to: destination)" in store
           print("Archive import entry, persistence, and status wiring found")
           PY
+      - name: Record Xcode and SDK versions
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+          xcodegen --version
       - name: Build for iOS Simulator (unsigned)
         run: |
           set -o pipefail
@@ -43,7 +48,7 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee "$RUNNER_TEMP/stalker-simulator-build.log"
       - name: Build for physical iPhone (unsigned)
         run: |
           set -o pipefail
@@ -53,7 +58,16 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/stalker-device" \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1 | tee "$RUNNER_TEMP/stalker-device-build.log"
+      - name: Upload build logs (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-build-logs
+          path: |
+            ${{ runner.temp }}/stalker-simulator-build.log
+            ${{ runner.temp }}/stalker-device-build.log
+          if-no-files-found: ignore
       - name: Package unsigned IPA
         run: |
           set -euo pipefail

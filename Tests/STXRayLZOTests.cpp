@@ -51,5 +51,13 @@ int main() {
                                   static_cast<uint32_t>(compressedSize),
                                   guarded.data(), static_cast<uint32_t>(guarded.size()),
                                   64u * 1024u * 1024u + 1u) == -3);
+    // Empty input and null buffers must fail before invoking miniLZO.
+    assert(st_xray_lzo_decompress(nullptr, 1, decoded, sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), static_cast<uint32_t>(compressedSize),
+                                  nullptr, sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), 0, decoded,
+                                  sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), static_cast<uint32_t>(compressedSize),
+                                  decoded, sizeof(decoded), 0) == -3);
     return 0;
 }

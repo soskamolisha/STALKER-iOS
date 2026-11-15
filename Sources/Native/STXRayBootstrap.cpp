@@ -863,6 +863,26 @@ int32_t st_xray_packed_level_chunk_count(STXRayHandle handle, const char* level_
     if (actual != geometry) return -3;
     return st_xray_memory_chunk_count(bytes.data(), actual);
 }
+int32_t st_xray_packed_level_chunk_info(STXRayHandle handle, const char* level_name,
+                                         uint32_t index, uint32_t* chunk_id,
+                                         uint32_t* payload_offset, uint32_t* payload_size,
+                                         int32_t* compressed) {
+    if (!chunk_id || !payload_offset || !payload_size || !compressed) return -1;
+    uint32_t geometry = 0, collision = 0;
+    const int32_t status = st_xray_packed_level_info(
+        handle, level_name, &geometry, &collision);
+    if (status != 0) return status;
+    if (geometry == 0) return -2;
+    if (geometry > 64u * 1024u * 1024u) return -3;
+    std::vector<unsigned char> bytes(geometry);
+    uint32_t actual = 0;
+    const int32_t loaded = st_xray_load_packed_level_file(
+        handle, level_name, 0, bytes.data(), geometry, &actual);
+    if (loaded != 0) return loaded;
+    if (actual != geometry) return -3;
+    return st_xray_memory_chunk_info(bytes.data(), actual, index,
+                                     chunk_id, payload_offset, payload_size, compressed);
+}
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,
                                             float* minimum_xyz, float* maximum_xyz) {

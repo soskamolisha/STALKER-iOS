@@ -71,6 +71,11 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
 // with forward slashes; no absolute paths or parent traversal.
 int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
                                    const char* relative_path);
+// Locate an asset across imported game archives, searching later archives
+// first so expansion packs can override earlier resources.
+// Returns 0 on success, -2 when absent, or another negative error.
+int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
+                              uint32_t* archive_index, uint32_t* entry_index);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

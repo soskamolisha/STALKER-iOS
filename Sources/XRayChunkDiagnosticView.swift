@@ -13,7 +13,11 @@ struct XRayChunkDiagnosticView: View {
             Text("Read-only developer tool. Not a game archive importer.")
                 .font(.caption)
             Button("Inspect file") { importing = true }
-            Text(message).font(.caption)
+            Text(message).font(.caption).textSelection(.enabled)
+            ShareLink(item: message) {
+                Label("Share diagnostic report", systemImage: "square.and.arrow.up")
+            }
+            .disabled(message == "Choose a small candidate chunk-stream file (up to 4 MB).")
             List(chunks.indices, id: \.self) { index in
                 let chunk = chunks[index]
                 VStack(alignment: .leading) {

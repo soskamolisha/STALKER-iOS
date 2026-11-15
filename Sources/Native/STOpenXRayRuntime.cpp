@@ -4,6 +4,7 @@
 #include <string>
 #include <cstddef>
 #include <sys/stat.h>
+#include <dirent.h>
 
 // On Apple, resolve optional engine exports dynamically to avoid undefined
 // symbols in the standalone iOS app. On Linux, preserve weak references so
@@ -76,6 +77,28 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     struct stat config_info {};
     if (lstat(config_path.c_str(), &config_info) != 0 ||
         !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
+    // A config alone is not enough to boot Shadow of Chernobyl.
+    // Accept either loose gamedata or at least one nonempty gamedata.db* archive.
+    bool has_game_data = false;
+    const std::string loose_path = std::string(resource_root) + "/gamedata";
+    struct stat loose_info {};
+    if (lstat(loose_path.c_str(), &loose_info) == 0 && S_ISDIR(loose_info.st_mode))
+        has_game_data = true;
+    DIR* dir = opendir(resource_root);
+    if (dir) {
+        while (!has_game_data) {
+            struct dirent* entry = readdir(dir);
+            if (!entry) break;
+            if (std::strncmp(entry->d_name, "gamedata.db", 11) != 0) continue;
+            const std::string archive = std::string(resource_root) + "/" + entry->d_name;
+            struct stat archive_info {};
+            if (lstat(archive.c_str(), &archive_info) == 0 &&
+                S_ISREG(archive_info.st_mode) && archive_info.st_size > 0)
+                has_game_data = true;
+        }
+        closedir(dir);
+    }
+    if (!has_game_data) return -8;
     return 0;
 }
 
@@ -117,6 +140,7 @@ extern "C" const char* st_openxray_runtime_status_message(int32_t status) {
         case -5: return "Resource-aware X-Ray engine is not linked";
         case -6: return "Invalid or inaccessible game folder";
         case -7: return "Missing, empty, or invalid fsgame.ltx";
+        case -8: return "Missing gamedata folder or nonempty gamedata.db archive";
         default: return "X-Ray returned an unknown status";
     }
 }

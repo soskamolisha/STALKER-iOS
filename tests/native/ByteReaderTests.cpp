@@ -33,5 +33,14 @@ int main() {
     stalker_port::ByteReader empty(nullptr, 0);
     assert(!empty.read_u32_le(value));
     assert(empty.remaining() == 0);
+    assert(empty.skip(0));
+    assert(!empty.skip(1));
+
+    // A missing backing buffer must not permit advancing through fake data.
+    stalker_port::ByteReader missing(nullptr, 8);
+    assert(!missing.skip(1));
+    assert(missing.position() == 0);
+    assert(!missing.read_u32_le(value));
+    assert(missing.position() == 0);
     return 0;
 }

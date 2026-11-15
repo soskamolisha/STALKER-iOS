@@ -56,10 +56,11 @@ def inspect(path: Path, sample_size: int = 65536) -> dict:
                         "method": entry.compress_type,
                     })
                 if entry.filename.lower().endswith((".db0", ".db1", ".db2", ".db3")):
-                    candidate_db_members.append({
-                        "name": entry.filename,
-                        "size": entry.file_size,
-                    })
+                    if len(candidate_db_members) < MAX_LISTED_ENTRIES + 1:
+                        candidate_db_members.append({
+                            "name": entry.filename,
+                            "size": entry.file_size,
+                        })
             result["zip_entries"] = count
             result["zip_total_uncompressed_bytes"] = total_size
             result["zip_first_entries"] = first_entries

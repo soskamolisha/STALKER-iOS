@@ -1020,6 +1020,9 @@ int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* lev
                                             uint32_t* vertices, uint32_t* triangles,
                                             float* minimum_xyz, float* maximum_xyz) {
     if (!vertices || !triangles || !minimum_xyz || !maximum_xyz) return -1;
+    *vertices = 0;
+    *triangles = 0;
+    if (!handle || !level_name || !*level_name) return -1;
     uint32_t geometry = 0, collision = 0;
     const int32_t status = st_xray_packed_level_info(
         handle, level_name, &geometry, &collision);

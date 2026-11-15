@@ -121,6 +121,8 @@ jobs:
           if not configs:
               raise SystemExit("SDL2 build finished without an installed CMake package")
           print("Installed iPhone SDL2 package:", *configs)
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              print(f"SDL2_DIR={configs[0].parent}", file=env)
           PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
@@ -136,6 +138,7 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DXRAY_USE_LUAJIT=OFF \
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DSDL2_DIR="$SDL2_DIR" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -222,6 +225,7 @@ jobs:
         if: always()
         run: |
           echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "SDL2 CMake package: ${SDL2_DIR:-not installed}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.sdl2.outcome }}" != "success" ]; then
             echo "### Blocker: SDL2 iPhone ARM64 build failed" >> "$GITHUB_STEP_SUMMARY"
             echo "Inspect sdl2-configure.log / sdl2-build.log / sdl2-install.log in diagnostics." >> "$GITHUB_STEP_SUMMARY"

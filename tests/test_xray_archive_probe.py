@@ -42,6 +42,17 @@ class ArchiveProbeTests(unittest.TestCase):
             info = module.inspect(path)
             self.assertEqual(info["db_member_candidates"], [])
 
+    def test_many_db_candidates_bounded(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "many.zip"
+            with zipfile.ZipFile(path, "w") as archive:
+                for i in range(25):
+                    archive.writestr(f"data/part{i}.db0", b"x")
+            info = module.inspect(path)
+            self.assertEqual(info["zip_entries"], 25)
+            self.assertEqual(len(info["db_member_candidates"]), 10)
+            self.assertTrue(info["db_member_candidates_truncated"])
+
     def test_empty_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "empty.db0"

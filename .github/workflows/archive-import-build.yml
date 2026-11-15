@@ -29,3 +29,28 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
+      - name: Build for physical iPhone (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-device" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" Payload)
+          unzip -t "$RUNNER_TEMP/STALKERMobile-unsigned.ipa"
+      - name: Upload unsigned IPA for external signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-unsigned-ipa
+          path: ${{ runner.temp }}/STALKERMobile-unsigned.ipa
+          if-no-files-found: error

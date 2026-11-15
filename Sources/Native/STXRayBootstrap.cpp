@@ -912,6 +912,40 @@ int32_t st_xray_packed_level_chunk_read(STXRayHandle handle, const char* level_n
     std::memcpy(destination, bytes.data() + offset, payload_size);
     return 0;
 }
+int32_t st_xray_packed_level_chunk_decode(STXRayHandle handle, const char* level_name,
+                                           uint32_t index, void* destination,
+                                           uint32_t capacity, uint32_t expected_size,
+                                           uint32_t* actual_size) {
+    if (!actual_size) return -1;
+    *actual_size = 0;
+    uint32_t chunk_id = 0, offset = 0, stored_size = 0;
+    int32_t compressed = 0;
+    const int32_t info = st_xray_packed_level_chunk_info(
+        handle, level_name, index, &chunk_id, &offset, &stored_size, &compressed);
+    if (info != 0) return info;
+    if (!compressed) {
+        *actual_size = stored_size;
+        if (expected_size != stored_size || capacity < stored_size) return -3;
+        return st_xray_packed_level_chunk_read(
+            handle, level_name, index, destination, capacity, actual_size);
+    }
+    if (expected_size == 0 || expected_size > 64u * 1024u * 1024u ||
+        expected_size > capacity || stored_size == 0) return -3;
+    if (!destination) return -1;
+    std::vector<unsigned char> encoded(stored_size);
+    uint32_t read_size = 0;
+    const int32_t read_status = st_xray_packed_level_chunk_read(
+        handle, level_name, index, encoded.data(), stored_size, &read_size);
+    if (read_status != 0) return read_status;
+    if (read_size != stored_size) return -3;
+    std::vector<unsigned char> decoded(expected_size);
+    const int32_t decode_status = st_xray_lzo_decompress(
+        encoded.data(), stored_size, decoded.data(), expected_size, expected_size);
+    if (decode_status != 0) return decode_status;
+    std::memcpy(destination, decoded.data(), expected_size);
+    *actual_size = expected_size;
+    return 0;
+}
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,
                                             float* minimum_xyz, float* maximum_xyz) {

@@ -644,6 +644,37 @@ int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_in
     return st_xray_lzo_decompress(compressed_bytes.data(), compressed_size,
                                   destination, destination_capacity, real_size);
 }
+int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_path,
+                                     void* destination, uint32_t capacity,
+                                     uint32_t* actual_size) {
+    if (!handle || !relative_path || !actual_size) return -1;
+    *actual_size = 0;
+    uint32_t archive = 0, entry = 0;
+    const int32_t found = st_xray_find_resource(handle, relative_path, &archive, &entry);
+    if (found != 0) return found;
+    char name[4097] {};
+    uint32_t real = 0, stored = 0, crc = 0, offset = 0;
+    const int32_t metadata = st_xray_archive_directory_entry(
+        handle, archive, entry, name, sizeof(name), &real, &stored, &crc, &offset);
+    if (metadata != 0) return metadata;
+    *actual_size = real;
+    constexpr uint32_t max_resource = 64u * 1024u * 1024u;
+    if (real > max_resource || real > capacity) return -3;
+    if (real == 0) return 0;
+    if (!destination) return -1;
+    if (real != stored)
+        return st_xray_archive_file_decompress(handle, archive, entry, destination, capacity);
+    unsigned char* output = static_cast<unsigned char*>(destination);
+    uint32_t cursor = 0;
+    while (cursor < real) {
+        const uint32_t amount = real - cursor > 65536u ? 65536u : real - cursor;
+        const int32_t result = st_xray_archive_file_read(
+            handle, archive, entry, cursor, output + cursor, amount);
+        if (result != 0) return result;
+        cursor += amount;
+    }
+    return 0;
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

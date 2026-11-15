@@ -187,6 +187,7 @@ extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char* utf
     if (result != 0) return result;
     if (size == 0) return -7;
     uint32_t cursor = 0;
+    uint32_t verifiedCount = 0;
     while (cursor < size) {
         if (size - cursor < 2) return -7;
         const uint32_t length = static_cast<uint32_t>(data[cursor]) |
@@ -202,8 +203,9 @@ extern "C" int32_t st_xray_probe_first_archive_directory_entries(const char* utf
                 (i + 2 == nameLength || name[i + 2] == '/')) return -7;
         }
         cursor += length + 2;
-        ++*entry_count;
+        ++verifiedCount;
     }
+    *entry_count = verifiedCount;
     return 0;
 }
 

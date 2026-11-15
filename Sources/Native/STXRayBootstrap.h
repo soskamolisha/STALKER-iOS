@@ -82,6 +82,15 @@ int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
 int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_path,
                                      void* destination, uint32_t capacity,
                                      uint32_t* actual_size);
+// Query packed resource size without allocating or decoding its file body.
+// Later archives take priority; returns -2 for a missing resource.
+int32_t st_xray_packed_resource_info(STXRayHandle handle, const char* relative_path,
+                                     uint32_t* decoded_size, uint32_t* stored_size);
+// Probe packed level geometry and collision file availability without loading either.
+// Level names must be single safe path components. Returns 0 if either exists,
+// -2 if both are absent; missing members have size zero.
+int32_t st_xray_packed_level_info(STXRayHandle handle, const char* level_name,
+                                  uint32_t* geometry_size, uint32_t* collision_size);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

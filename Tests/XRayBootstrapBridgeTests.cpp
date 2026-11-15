@@ -804,6 +804,20 @@ int main() {
         }
       }
     }
+    // Completely invalid compressed bytes must be reported as an LZO failure,
+    // not as a successfully decoded but malformed directory (-5).
+    {
+        std::ofstream file(archive, std::ios::binary | std::ios::trunc);
+        const unsigned char header[] = {1, 0, 0, 128, 1, 0, 0, 0, 0};
+        file.write(reinterpret_cast<const char*>(header), sizeof(header));
+        file.close();
+        unsigned char decoded[256] {};
+        uint32_t actual_size = 99;
+        int32_t key_used = 99;
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, sizeof(decoded), &actual_size, &key_used) == -4);
+        assert(actual_size == 0 && key_used == -2);
+    }
     // Restore an uncompressed directory for subsequent corruption tests.
     {
         std::ofstream file(archive, std::ios::binary | std::ios::trunc);

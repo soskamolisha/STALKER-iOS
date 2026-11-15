@@ -532,9 +532,7 @@ struct TrilogyLauncherView: View {
                 }.ignoresSafeArea()
     }
 
-    private var launcherScrollContent: some View {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+    private var launcherHeader: some View {
                         HStack {
                             HStack(spacing: 9) {
                                 Image(systemName: "scope").font(.title.bold())
@@ -572,6 +570,12 @@ struct TrilogyLauncherView: View {
                             }
                             .accessibilityLabel(russian ? "О проекте" : "About")
                         }
+    }
+
+    private var launcherScrollContent: some View {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        launcherHeader
                         if isCopying {
                             ProgressView(russian ? "Копирование файлов игры…" : "Copying game files…")
                                 .tint(.yellow)

@@ -28,11 +28,8 @@ struct XRayChunkDiagnosticView: View {
             chunks = []
             do {
                 let url = try result.get()
-                guard url.startAccessingSecurityScopedResource() else {
-                    message = "Unable to access selected file."
-                    return
-                }
-                defer { url.stopAccessingSecurityScopedResource() }
+                let securityScoped = url.startAccessingSecurityScopedResource()
+                defer { if securityScoped { url.stopAccessingSecurityScopedResource() } }
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { try? handle.close() }
                 let data = try handle.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()

@@ -786,6 +786,27 @@ int main() {
                                                 &crc, &offset) == 0);
         assert(std::strcmp(name, "test.ltx") == 0);
     }
+    // Reject traversal, absolute paths and control characters in archive entries.
+    {
+        unsigned char record[] = {
+            24,0, 4,0,0,0, 4,0,0,0, 0,0,0,0,
+            't','e','s','t','.','l','t','x', 42,0,0,0
+        };
+        const auto check_bad_name = [&](const char* name) {
+            unsigned char candidate[sizeof(record)] {};
+            std::memcpy(candidate, record, sizeof(record));
+            std::memcpy(candidate + 14, name, 8);
+            assert(st_xray_validate_directory_records(candidate, sizeof(candidate)) == -3);
+        };
+        check_bad_name("../a.ltx");
+        check_bad_name("/abc.ltx");
+        check_bad_name("a//b.ltx");
+        check_bad_name("a/../abc");
+        check_bad_name("a:\\b.ltx");
+        check_bad_name("a\\b.ltx");
+        check_bad_name("a/b/.ltx");
+        check_bad_name("a/b/..x");
+    }
     // Some archive variants store compressed directories without encryption.
     // Ensure the auto-decoder accepts the raw LZO stream (key -1).
     {

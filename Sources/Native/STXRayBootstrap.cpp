@@ -1039,6 +1039,9 @@ int32_t st_xray_packed_level_collision_mesh(STXRayHandle handle, const char* lev
     if (!vertex_count || !triangle_count) return -1;
     *vertex_count = 0;
     *triangle_count = 0;
+    if (!handle || !level_name || !*level_name) return -1;
+    if ((vertex_capacity != 0 && !xyz) ||
+        (triangle_capacity != 0 && !indices)) return -1;
     uint32_t geometry = 0, collision = 0;
     const int32_t status = st_xray_packed_level_info(
         handle, level_name, &geometry, &collision);

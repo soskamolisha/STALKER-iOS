@@ -189,6 +189,9 @@ int main() {
     assert(st_xray_load_packed_resource(
         handle, "test.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
     assert(loadedSize == 4 && std::memcmp(loadedResource, "NEW!", 4) == 0);
+    assert(st_xray_load_packed_resource(
+        handle, "TEST.LTX", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
+    assert(loadedSize == 4 && std::memcmp(loadedResource, "NEW!", 4) == 0);
     // Restore a valid empty directory so later lookups fall back to db0.
     { std::ofstream restore(secondArchive, std::ios::binary | std::ios::trunc);
       const unsigned char header[8] = {1,0,0,0, 0,0,0,0};
@@ -271,6 +274,8 @@ int main() {
         assert(st_xray_load_packed_resource(
             handle, "test.ltx", packedLoaded, sizeof(packedLoaded), &packedLoadedSize) == 0);
         assert(packedLoadedSize == sizeof(original));
+        assert(st_xray_load_packed_resource(
+            handle, "TEST.LTX", packedLoaded, sizeof(packedLoaded), &packedLoadedSize) == 0);
         assert(std::memcmp(packedLoaded, original, sizeof(original)) == 0);
         assert(st_xray_load_packed_resource(
             handle, "test.ltx", packedLoaded, 3, &packedLoadedSize) == -3);

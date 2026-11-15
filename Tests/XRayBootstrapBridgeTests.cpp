@@ -717,6 +717,17 @@ int main() {
         assert(geometryBytes == sizeof(packedGeometry));
         assert(collisionBytes == sizeof(packedCollision));
         assert(st_xray_packed_level_chunk_count(handle, "zaton") == 1);
+        uint32_t packedChunkID = 0, packedChunkOffset = 0, packedChunkSize = 0;
+        int32_t packedChunkCompressed = -1;
+        assert(st_xray_packed_level_chunk_info(handle, "zaton", 0,
+            &packedChunkID, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == 0);
+        assert(packedChunkID == 7 && packedChunkOffset == 8 &&
+               packedChunkSize == 2 && packedChunkCompressed == 0);
+        assert(st_xray_packed_level_chunk_info(handle, "zaton", 1,
+            &packedChunkID, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == -2);
+        assert(st_xray_packed_level_chunk_info(handle, "zaton", 0,
+            nullptr, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == -1);
+
         uint32_t packedVertices = 0, packedTriangles = 0;
         float packedMinimum[3] {}, packedMaximum[3] {};
         assert(st_xray_packed_level_collision_info(handle, "zaton",

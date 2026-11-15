@@ -35,5 +35,17 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build-openxray CODE_SIGNING_ALLOWED=NO \
   OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive" build
+# A successful link alone is insufficient: the launcher resolves these entry
+# points with dlsym(RTLD_DEFAULT), so they must remain exported by the app.
+app_binary="build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app/STALKERiOSStarter"
+test -s "$app_binary" || { echo "Missing linked iOS executable: $app_binary" >&2; exit 1; }
+symbols="$(xcrun nm -gU "$app_binary")"
+for symbol in _st_xray_embedded_run _st_xray_embedded_run_with_resources; do
+  if ! grep -Eq "[[:space:]]T[[:space:]]${symbol}$" <<< "$symbols"; then
+    echo "Missing exported runtime symbol: ${symbol}; dlsym cannot start the engine" >&2
+    exit 1
+  fi
+done
+echo "Both embedded X-Ray entry points are exported; gameplay still unverified."
 echo "Linked iOS app at build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
 echo "A successful link does NOT establish playable OpenXRay on iPhone."

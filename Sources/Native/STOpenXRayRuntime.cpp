@@ -86,7 +86,24 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
         while (!has_game_data) {
             struct dirent* entry = readdir(dir);
             if (!entry) break;
-            if (std::strncmp(entry->d_name, "gamedata.db", 11) != 0) continue;
+            // Match the same archive naming rule as the Swift importer.
+            // Ignore unrelated files such as gamedata.db0.zip or backups.
+            constexpr char prefix[] = "gamedata.db";
+            constexpr size_t prefix_length = sizeof(prefix) - 1;
+            if (std::strncmp(entry->d_name, prefix, prefix_length) != 0) continue;
+            const char* suffix = entry->d_name + prefix_length;
+            const size_t suffix_length = std::strlen(suffix);
+            if (suffix_length < 1 || suffix_length > 2) continue;
+            bool valid_suffix = true;
+            for (size_t i = 0; i < suffix_length; ++i) {
+                const char c = suffix[i];
+                if (!((c >= '0' && c <= '9') ||
+                      (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) {
+                    valid_suffix = false;
+                    break;
+                }
+            }
+            if (!valid_suffix) continue;
             const std::string archive = std::string(resource_root) + "/" + entry->d_name;
             struct stat archive_info {};
             if (lstat(archive.c_str(), &archive_info) == 0 &&

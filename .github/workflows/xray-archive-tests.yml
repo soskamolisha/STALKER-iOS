@@ -28,3 +28,7 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-byte-reader-test Sources/Native/Portable/ByteReaderTests.cpp
           /tmp/xray-byte-reader-test
+      - name: Compile and run portable C++ chunk reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-chunk-reader-test Sources/Native/Portable/ChunkReaderTests.cpp
+          /tmp/xray-chunk-reader-test

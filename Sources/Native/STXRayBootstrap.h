@@ -91,6 +91,11 @@ int32_t st_xray_packed_resource_info(STXRayHandle handle, const char* relative_p
 // -2 if both are absent; missing members have size zero.
 int32_t st_xray_packed_level_info(STXRayHandle handle, const char* level_name,
                                   uint32_t* geometry_size, uint32_t* collision_size);
+// Load one packed level member: 0=geometry (level), 1=collision (level.cform).
+// Uses the same 64 MiB limit and atomic caller-buffer guarantees as resource loading.
+int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_name,
+                                        int32_t member, void* destination,
+                                        uint32_t capacity, uint32_t* actual_size);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

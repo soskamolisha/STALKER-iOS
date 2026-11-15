@@ -69,6 +69,61 @@ enum GameResourceImporter {
         }
     }
 
+    /// Import one original X-Ray archive segment without reading it into memory.
+    /// A staged copy is moved into place only after its size is verified.
+    static func copyArchive(_ source: URL, gameID: String) throws {
+        guard ["shadow", "clearSky", "pripyat"].contains(gameID) else {
+            throw ImportFailure.invalidEdition
+        }
+        let name = source.lastPathComponent
+        let lower = name.lowercased()
+        guard lower.hasPrefix("gamedata.db"),
+              !lower.dropFirst("gamedata.db".count).isEmpty,
+              lower.dropFirst("gamedata.db".count).allSatisfy({ $0.isNumber }) else {
+            throw ImportFailure.invalidArchive
+        }
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        let values = try source.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard values.isRegularFile == true, let size = values.fileSize, size > 0 else {
+            throw ImportFailure.invalidArchive
+        }
+        let fm = FileManager.default
+        let root = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+        guard isSafeImportSource(source, managedRoot: root) else {
+            throw ImportFailure.managedFolderSelected
+        }
+        let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
+        if let available, Int64(size) > Int64(available) - 256 * 1024 * 1024 {
+            throw ImportFailure.insufficientStorage
+        }
+        let targetFolder = root.appendingPathComponent(gameID, isDirectory: true)
+        try fm.createDirectory(at: targetFolder, withIntermediateDirectories: true)
+        let destination = targetFolder.appendingPathComponent(lower)
+        let staging = targetFolder.appendingPathComponent("." + lower + "." + UUID().uuidString + ".incoming")
+        defer { try? fm.removeItem(at: staging) }
+        try fm.copyItem(at: source, to: staging)
+        let staged = try staging.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard staged.isRegularFile == true, staged.fileSize == size else {
+            throw ImportFailure.invalidArchive
+        }
+        // Replace atomically when possible; keep the previous archive if replacement fails.
+        if fm.fileExists(atPath: destination.path) {
+            let backup = targetFolder.appendingPathComponent("." + lower + "." + UUID().uuidString + ".backup")
+            try fm.moveItem(at: destination, to: backup)
+            do {
+                try fm.moveItem(at: staging, to: destination)
+                try? fm.removeItem(at: backup)
+            } catch {
+                try? fm.moveItem(at: backup, to: destination)
+                throw error
+            }
+        } else {
+            try fm.moveItem(at: staging, to: destination)
+        }
+    }
+
     /// Relocate writable X-Ray app data without changing the original resource aliases.
     /// ISO Latin-1 is used as a reversible byte mapping: older .ltx files may be
     /// CP1251, but the ASCII $app_data_root$ line can still be edited losslessly.
@@ -187,7 +242,7 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
+        case invalidEdition, invalidFolder, invalidArchive, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
         var errorDescription: String? {
             switch self {
             case .invalidFilesystemConfig: return "Invalid fsgame.ltx filesystem configuration"
@@ -195,6 +250,7 @@ enum GameResourceImporter {
             case .managedFolderSelected: return "Choose a game folder outside the app-managed storage directory"
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder"
+            case .invalidArchive: return "Select a nonempty original gamedata.dbN file"
             case .insufficientStorage: return "Not enough free storage on this device"
             case .missingResources: return "No recognizable X-Ray game resources found"
             case .tooManyFiles: return "Too many files to validate safely"

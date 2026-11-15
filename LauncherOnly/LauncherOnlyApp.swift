@@ -235,6 +235,28 @@ struct LauncherOnlyView: View {
                         Button("Закрыть") { infoSection = nil }
                     }
                 }
+        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
+            switch result {
+            case .failure(let error):
+                importMessage = "Ошибка выбора: \\(error.localizedDescription)"
+            case .success(let url):
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                do {
+                    guard !FileManager.default.fileExists(atPath: target.path) else {
+                        importMessage = "Папка игры уже существует. Повторный импорт не перезаписывает файлы."
+                        return
+                    }
+                    try FileManager.default.copyItem(at: url, to: target)
+                    importMessage = "Папка игры импортирована. Проверь запуск Тени Чернобыля."
+                    launchCheckMessage = nil
+                } catch {
+                    importMessage = "Ошибка копирования: \\(error.localizedDescription)"
+                }
+            }
+        }
             }
         }
         .sheet(item: $selectedGame) { game in
@@ -305,28 +327,6 @@ struct LauncherOnlyView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Закрыть") { selectedGame = nil }
                     }
-                }
-            }
-        }
-        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
-            switch result {
-            case .failure(let error):
-                importMessage = "Ошибка выбора: \\(error.localizedDescription)"
-            case .success(let url):
-                let access = url.startAccessingSecurityScopedResource()
-                defer { if access { url.stopAccessingSecurityScopedResource() } }
-                let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
-                do {
-                    guard !FileManager.default.fileExists(atPath: target.path) else {
-                        importMessage = "Папка игры уже существует. Повторный импорт не перезаписывает файлы."
-                        return
-                    }
-                    try FileManager.default.copyItem(at: url, to: target)
-                    importMessage = "Папка игры импортирована. Проверь запуск Тени Чернобыля."
-                    launchCheckMessage = nil
-                } catch {
-                    importMessage = "Ошибка копирования: \\(error.localizedDescription)"
                 }
             }
         }

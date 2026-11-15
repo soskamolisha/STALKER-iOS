@@ -170,7 +170,7 @@ jobs:
           from pathlib import Path
           import os, re
           compiler = Path("upstream/cmake/XRay.Compiler.GNULike.cmake").read_text()
-          packages = re.findall(r"find_package\\(\\s*([A-Za-z0-9_]+)", compiler)
+          packages = re.findall(r"find_package\s*\(\s*([A-Za-z0-9_]+)", compiler)
           prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
           report = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios-dependencies.txt"
           with report.open("w") as out:

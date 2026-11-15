@@ -142,6 +142,23 @@ int main() {
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == 0);
     assert(st_xray_memory_cform_info(collision, 35,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+    // Malformed CForm counts cannot overflow size calculations or walk beyond input.
+    unsigned char hugeCollision[sizeof(collision)] {};
+    std::memcpy(hugeCollision, collision, sizeof(collision));
+    hugeCollision[4] = 0xff;
+    hugeCollision[5] = 0xff;
+    hugeCollision[6] = 0xff;
+    hugeCollision[7] = 0xff;
+    assert(st_xray_memory_cform_info(hugeCollision, sizeof(hugeCollision),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+    std::memcpy(hugeCollision, collision, sizeof(collision));
+    hugeCollision[8] = 0xff;
+    hugeCollision[9] = 0xff;
+    hugeCollision[10] = 0xff;
+    hugeCollision[11] = 0xff;
+    assert(st_xray_memory_cform_info(hugeCollision, sizeof(hugeCollision),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
+
     assert(st_xray_memory_cform_info(nullptr, 0,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -1);
     // CForm metadata requires all four outputs; invalid calls must be safe.

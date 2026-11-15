@@ -222,6 +222,16 @@ jobs:
         if: always()
         run: |
           echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.sdl2.outcome }}" != "success" ]; then
+            echo "### Blocker: SDL2 iPhone ARM64 build failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect sdl2-configure.log / sdl2-build.log / sdl2-install.log in diagnostics." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.configure.outcome }}" != "success" ]; then
+            echo "### Blocker: upstream OpenXRay CMake configuration failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect openxray-configure.log for missing iOS dependencies." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.compile.outcome }}" != "success" ]; then
+            echo "### Blocker: upstream C++ compilation failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect openxray-compile.log for the first compiler errors." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "SDL2 iOS outcome: ${{ steps.sdl2.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"

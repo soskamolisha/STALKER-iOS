@@ -24,12 +24,20 @@ jobs:
             Sources/Native/STOpenXRayRuntime.cpp \
             Tests/Native/OpenXRayRuntimeSmoke.cpp \
             -o /tmp/stalker-xray-runtime-smoke
+      - name: Configure host executable symbol exports
+        run: |
+          if [ "$(uname)" = "Darwin" ]; then
+            echo 'MOCK_EXPORT_FLAG=-Wl,-export_dynamic' >> "$GITHUB_ENV"
+          else
+            echo 'MOCK_EXPORT_FLAG=-rdynamic' >> "$GITHUB_ENV"
+          fi
       - name: Compile linked mock-engine integration test
         run: |
           set -eux
           c++ -std=c++17 -Wall -Wextra -Werror \
             Sources/Native/STOpenXRayRuntime.cpp \
             Tests/Native/OpenXRayMockEngine.cpp \
+            "$MOCK_EXPORT_FLAG" \
             -o /tmp/stalker-xray-mock-engine
       - name: Compile strongly linked static engine adapter test
         run: |

@@ -26,6 +26,7 @@ struct LauncherOnlyView: View {
     @State private var infoSection: String?
     @State private var settings = false
     @State private var importingGameFolder = false
+    @State private var importingGameFiles = false
     @State private var importMessage: String?
     @State private var selectedGame: Edition?
     @State private var launchCheckMessage: String?
@@ -214,6 +215,8 @@ struct LauncherOnlyView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.yellow)
+                            Button("Выбрать файлы игры (несколько)") { importingGameFiles = true }
+                                .buttonStyle(.borderedProminent).tint(.yellow)
                             if let importMessage {
                                 Text(importMessage).font(.footnote)
                                     .foregroundStyle(.white)
@@ -235,6 +238,45 @@ struct LauncherOnlyView: View {
                         Button("Закрыть") { infoSection = nil }
                     }
                 }
+        .fileImporter(isPresented: $importingGameFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+            switch result {
+            case .failure(let error):
+                importMessage = "Ошибка выбора файлов: \(error.localizedDescription)"
+            case .success(let urls):
+                let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                do {
+                    try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+                    var imported = 0
+                    var rejected = 0
+                    for url in urls {
+                        let name = url.lastPathComponent
+                        let lower = name.lowercased()
+                        guard lower == "fsgame.ltx" || lower.hasPrefix("gamedata.db") else {
+                            rejected += 1
+                            continue
+                        }
+                        let access = url.startAccessingSecurityScopedResource()
+                        defer { if access { url.stopAccessingSecurityScopedResource() } }
+                        let destination = target.appendingPathComponent(name)
+                        guard !FileManager.default.fileExists(atPath: destination.path) else {
+                            rejected += 1
+                            continue
+                        }
+                        do {
+                            try FileManager.default.copyItem(at: url, to: destination)
+                            imported += 1
+                        } catch {
+                            rejected += 1
+                        }
+                    }
+                    importMessage = "Скопировано файлов: \(imported). Пропущено: \(rejected)."
+                    launchCheckMessage = nil
+                } catch {
+                    importMessage = "Ошибка импорта: \(error.localizedDescription)"
+                }
+            }
+        }
         .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
             switch result {
             case .failure(let error):

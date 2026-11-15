@@ -137,3 +137,19 @@ extern "C" int32_t st_xray_probe_first_archive_directory(const char* utf8_path,
     }
     return -2;
 }
+
+/* Verify the actual directory chunk with upstream CRC32 when it is uncompressed.
+   Compressed directories are reported as -5 until an LZO decoder is linked. */
+extern "C" int32_t st_xray_probe_first_archive_directory_crc32(const char* utf8_path,
+                                                                  uint32_t* crc) {
+    if (!utf8_path || !crc) return -1;
+    *crc = 0;
+    uint32_t index = 0, size = 0;
+    int32_t compressed = 0;
+    const int32_t status = st_xray_probe_first_archive_directory(
+        utf8_path, &index, &size, &compressed);
+    if (status != 0) return status;
+    if (compressed) return -5;
+    if (size > 65536) return -6;
+    return st_xray_probe_first_archive_chunk_crc32(utf8_path, index, crc);
+}

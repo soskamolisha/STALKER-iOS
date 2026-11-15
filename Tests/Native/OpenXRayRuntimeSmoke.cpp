@@ -26,6 +26,15 @@ int main() {
     expect(st_openxray_runtime_preflight(root.c_str()), -7, "missing config");
     { std::ofstream config(base / "fsgame.ltx"); config << "$game_data$ = true| true| $fs_root$| gamedata\\n"; }
     expect(st_openxray_runtime_preflight(root.c_str()), -8, "missing game data");
+    { std::ofstream zipped(base / "gamedata.db0.zip"); zipped << "zip is not an engine archive"; }
+    expect(st_openxray_runtime_preflight(root.c_str()), -8, "zip must not count as archive");
+    fs::remove(base / "gamedata.db0.zip");
+    { std::ofstream later(base / "gamedata.db1"); later << "later archive"; }
+    expect(st_openxray_runtime_preflight(root.c_str()), -8, "missing base archive");
+    fs::remove(base / "gamedata.db1");
+    { std::ofstream empty(base / "gamedata.db0"); }
+    expect(st_openxray_runtime_preflight(root.c_str()), -8, "empty base archive");
+    fs::remove(base / "gamedata.db0");
     { std::ofstream data(base / "gamedata.db0", std::ios::binary); data << "placeholder"; }
     expect(st_openxray_runtime_preflight(root.c_str()), -5, "archive present but engine missing");
     expect(st_openxray_runtime_resources_linked(), 0, "unlinked resources");

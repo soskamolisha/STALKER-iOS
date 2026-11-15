@@ -47,11 +47,39 @@ jobs:
           cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --parallel 3 \
             -- -quiet CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+      - name: Inspect produced ARM64 static libraries and engine entry points
+        if: steps.compile.outcome == 'success'
+        id: inspect
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import os
+          root = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios"
+          libraries = list(root.rglob("*.a"))
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-linkage.txt"
+          with report.open("w") as out:
+              print(f"Static libraries: {len(libraries)}", file=out)
+              for library in libraries:
+                  print(f"\\n{library.relative_to(root)}", file=out)
+                  result = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                          capture_output=True, text=True)
+                  print((result.stdout or result.stderr).strip(), file=out)
+              print("\\nRequired launcher ABI:", file=out)
+              print("st_xray_embedded_run_with_resources(const char*, const char*)", file=out)
+              print("This upstream build is not linked to the launcher ABI.", file=out)
+          print(report.read_text())
+          if not libraries:
+              raise SystemExit("No static libraries produced; inspect build outputs")
+          PY
       - name: Record native build results
         if: always()
         run: |
           echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Static library inspection: ${{ steps.inspect.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "This experiment does not produce a playable iOS engine or integrate it into the launcher." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload diagnostics
         if: always()
@@ -61,6 +89,7 @@ jobs:
           path: |
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
+            ${{ runner.temp }}/openxray-linkage.txt
             ${{ runner.temp }}/openxray-ios/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: ignore
       - name: Mark experiment unsuccessful if configure or compile failed
@@ -68,3 +97,4 @@ jobs:
         run: |
           test "${{ steps.configure.outcome }}" = "success"
           test "${{ steps.compile.outcome }}" = "success"
+          test "${{ steps.inspect.outcome }}" = "success"

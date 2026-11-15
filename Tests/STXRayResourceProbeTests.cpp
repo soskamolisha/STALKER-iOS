@@ -81,7 +81,7 @@ int main() {
     // Two valid directory entries must be enumerated in stable archive order.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoEntries[] = {
-          1,0,0,0, 52,0,0,0,
+          1,0,0,0, 48,0,0,0,
           20,0, 0,0,0,0,0,0,0,0,0,0,0,0,
           'f','i','r','s', 0,0,0,0,
           24,0, 0,0,0,0,0,0,0,0,0,0,0,0,

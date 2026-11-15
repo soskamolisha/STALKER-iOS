@@ -15,6 +15,7 @@ struct STArchiveImportView: View {
     @State private var errorMessage: String?
     @State private var storedArchiveStatus: String = "Проверка ранее загруженных файлов…"
     @State private var nativeArchiveStatus: String?
+    @State private var engineReadinessStatus: String?
 
     var body: some View {
         ScrollView {
@@ -39,6 +40,12 @@ struct STArchiveImportView: View {
                     .buttonStyle(.bordered)
                 if let nativeArchiveStatus {
                     Text(nativeArchiveStatus).font(.footnote).foregroundStyle(.secondary)
+                }
+                Button("Проверить готовность X-Ray") { inspectEngineReadiness() }
+                    .disabled(isImporting)
+                    .buttonStyle(.bordered)
+                if let engineReadinessStatus {
+                    Text(engineReadinessStatus).font(.footnote).foregroundStyle(.secondary)
                 }
                 Button("Выбрать папку игры") { showingImporter = true }
                     .disabled(isImporting)
@@ -93,6 +100,18 @@ struct STArchiveImportView: View {
             Button("Отмена", role: .cancel) { pendingFolder = nil }
         } message: {
             Text("Ранее загруженные архивы будут заменены только после успешного копирования новых. Для больших файлов понадобится свободное место.")
+        }
+    }
+
+    private func inspectEngineReadiness() {
+        do {
+            let root = try STArchiveStore.destinationRoot()
+            let result = root.path.withCString { st_openxray_runtime_preflight($0) }
+            let nativeMessage = String(cString: st_openxray_runtime_status_message(result))
+            let linked = st_openxray_runtime_resources_linked() == 1
+            engineReadinessStatus = "Код проверки: \(result). \(nativeMessage). Ресурсный игровой движок: \(linked ? "подключён" : "не подключён"). Это не запуск игры."
+        } catch {
+            engineReadinessStatus = "Ошибка проверки движка: \(error.localizedDescription)"
         }
     }
 

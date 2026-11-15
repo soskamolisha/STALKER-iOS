@@ -785,11 +785,9 @@ int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_na
     return st_xray_load_packed_resource(
         handle, relative_path.c_str(), destination, capacity, actual_size);
 }
-namespace {
-uint32_t memory_le32(const unsigned char* p) {
+static uint32_t memory_le32(const unsigned char* p) {
     return uint32_t(p[0]) | (uint32_t(p[1]) << 8) |
            (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
-}
 }
 int32_t st_xray_memory_chunk_count(const void* bytes, uint32_t size) {
     if (!bytes || size == 0 || size > 64u * 1024u * 1024u) return -1;

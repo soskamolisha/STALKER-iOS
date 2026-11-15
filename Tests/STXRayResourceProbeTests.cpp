@@ -67,6 +67,17 @@ int main() {
     assert(crc == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 3, &actual) == -2);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == -2);
+    // Compressed X-Ray chunks must never be exposed as decoded raw bytes.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char compressedChunk[] = {
+          1,0,0,128, 3,0,0,0, 'a','b','c'
+      };
+      out.write(reinterpret_cast<const char*>(compressedChunk), sizeof(compressedChunk)); }
+    assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == 0);
+    assert(id == 1 && size == 3 && compressed == 1);
+    actual = 99;
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, sizeof(payload), &actual) == -5);
+    assert(actual == 0);
     // A single well-formed directory entry with a safe relative filename.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char directoryRecord[] = {

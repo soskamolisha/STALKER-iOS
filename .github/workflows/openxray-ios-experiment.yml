@@ -136,6 +136,15 @@ jobs:
           print(report.read_text())
           if not libraries:
               raise SystemExit("No static libraries produced; inspect build outputs")
+          arm64 = 0
+          for library in libraries:
+              result = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                      capture_output=True, text=True)
+              if result.returncode == 0 and "arm64" in result.stdout:
+                  arm64 += 1
+          print(f"ARM64-compatible static libraries: {arm64}/{len(libraries)}")
+          if arm64 == 0:
+              raise SystemExit("No ARM64 static library available for iPhone")
           PY
       - name: Summarize first native compiler and CMake failures
         if: always()

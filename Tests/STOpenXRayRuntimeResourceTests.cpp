@@ -34,6 +34,7 @@ int main() {
     assert(created_root != nullptr);
     test_root = created_root;
     expected_root = test_root.c_str();
+    assert(st_openxray_runtime_preflight(expected_root) == -7);
     assert(st_openxray_runtime_run_with_resources("", expected_root) == -7);
     const std::string config_path = test_root + "/fsgame.ltx";
     FILE* config = std::fopen(config_path.c_str(), "wb");
@@ -59,6 +60,8 @@ int main() {
     assert(std::fputs("$app_data_root$ = true| false| $fs_root$| appdata\\\\\n", config) >= 0);
     assert(std::fclose(config) == 0);
     assert(st_openxray_runtime_resources_linked() == 1);
+    assert(st_openxray_runtime_preflight(expected_root) == 0);
+    assert(st_openxray_runtime_preflight("relative/game") == -6);
     assert(st_openxray_runtime_run_with_resources(nullptr, expected_root) == -2);
     assert(st_openxray_runtime_run_with_resources("", nullptr) == -2);
     assert(st_openxray_runtime_run_with_resources("", "") == -2);

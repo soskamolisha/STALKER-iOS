@@ -238,11 +238,13 @@ struct LauncherOnlyView: View {
                         Button("Закрыть") { infoSection = nil }
                     }
                 }
-        .fileImporter(isPresented: $importingGameFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
-            switch result {
-            case .failure(let error):
-                importMessage = "Ошибка выбора файлов: \(error.localizedDescription)"
-            case .success(let urls):
+        .sheet(isPresented: $importingGameFiles) {
+            GameFilePicker { urls in
+                importingGameFiles = false
+                guard !urls.isEmpty else {
+                    importMessage = "Выбор отменён или файлы не получены."
+                    return
+                }
                 let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                 let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
                 do {
@@ -256,8 +258,6 @@ struct LauncherOnlyView: View {
                             rejected += 1
                             continue
                         }
-                        let access = url.startAccessingSecurityScopedResource()
-                        defer { if access { url.stopAccessingSecurityScopedResource() } }
                         let destination = target.appendingPathComponent(name)
                         guard !FileManager.default.fileExists(atPath: destination.path) else {
                             rejected += 1
@@ -460,6 +460,34 @@ struct LauncherOnlyView: View {
             }
             .overlay(Color.black.opacity(0.13))
             .allowsHitTesting(false)
+        }
+    }
+}
+
+
+private struct GameFilePicker: UIViewControllerRepresentable {
+    let onPicked: ([URL]) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPicked: onPicked) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // Import a local copy so the selected file stays readable after the picker closes.
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        picker.allowsMultipleSelection = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPicked: ([URL]) -> Void
+        init(onPicked: @escaping ([URL]) -> Void) { self.onPicked = onPicked }
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onPicked(urls)
+        }
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onPicked([])
         }
     }
 }

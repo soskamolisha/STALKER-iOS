@@ -8,9 +8,7 @@ on:
       - 'tools/xray_archive_probe.py'
       - 'tools/xray_chunk_scan.py'
       - 'tools/xray_zip_db_peek.py'
-      - 'tests/test_xray_archive_probe.py'
-      - 'tests/test_xray_chunk_scan.py'
-      - 'tests/test_xray_zip_db_peek.py'
+      - 'tests/test_xray_*.py'
       - '.github/workflows/xray-archive-tests.yml'
   workflow_dispatch:
 

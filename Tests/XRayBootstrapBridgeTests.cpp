@@ -711,6 +711,7 @@ int main() {
         assert(std::memcmp(decoded, directory_record, auto_size) == 0);
         assert(st_xray_archive_directory_auto_decrypt(
             handle, 0, decoded, 4, &auto_size, &key_used) == -6);
+        assert(auto_size == sizeof(directory_record) && key_used == -2);
         assert(key_used == -2 && auto_size == 0);
         // The production directory parser now supports compressed catalogs.
         assert(st_xray_archive_directory_count(handle, 0) == 1);
@@ -782,8 +783,12 @@ int main() {
         actual_size = 99;
         key_used = 99;
         assert(st_xray_archive_directory_auto_decrypt(
-            handle, 0, decoded, sizeof(record) - 1, &actual_size, &key_used) != 0);
-        assert(actual_size == 0 && key_used == -2);
+            handle, 0, decoded, sizeof(record) - 1, &actual_size, &key_used) == -6);
+        assert(actual_size == sizeof(record) && key_used == -2);
+        // The reported size is sufficient for a successful second attempt.
+        assert(st_xray_archive_directory_auto_decrypt(
+            handle, 0, decoded, actual_size, &actual_size, &key_used) == 0);
+        assert(actual_size == sizeof(record) && key_used == -1);
     }
     // Test both legacy encryption keys against actual compressed directory payloads.
     for (int key = 0; key < 2; ++key) {

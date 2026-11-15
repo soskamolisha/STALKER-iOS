@@ -7,6 +7,8 @@ on:
       - feature/trilogy-launcher-v3
     paths:
       - '.github/workflows/openxray-ios-experiment.yml'
+      - 'Sources/Native/**'
+      - 'project.yml'
 
 jobs:
   upstream-ios-compile:
@@ -25,6 +27,30 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-path
           git -C upstream rev-parse HEAD
+      - name: Check upstream build requirements and iOS compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root = Path("upstream")
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-requirements.txt"
+          cmake = root / "CMakeLists.txt"
+          with report.open("w") as output:
+              print("Upstream CMakeLists.txt:", cmake.exists(), file=output)
+              print("iOS-related CMake references:", file=output)
+              for path in root.rglob("*.cmake"):
+                  if len(path.parts) > 9:
+                      continue
+                  try:
+                      lines = path.read_text(errors="replace").splitlines()
+                  except OSError:
+                      continue
+                  for line_number, line in enumerate(lines, 1):
+                      if "IOS" in line or "iOS" in line or "APPLE" in line:
+                          print(f"{path}:{line_number}: {line[:180]}", file=output)
+              print("Launcher requires st_xray_embedded_run_with_resources export.", file=output)
+          print(report.read_text()[:12000])
+          PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
         continue-on-error: true
@@ -87,6 +113,7 @@ jobs:
         with:
           name: openxray-ios-arm64-diagnostics
           path: |
+            ${{ runner.temp }}/openxray-requirements.txt
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
             ${{ runner.temp }}/openxray-linkage.txt

@@ -842,6 +842,24 @@ int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
         if (!std::isfinite(low[axis]) || !std::isfinite(high[axis]) ||
             low[axis] > high[axis]) return -3;
     }
+    // Validate referenced collision vertices before passing the mesh to a renderer.
+    // Each vertex is three IEEE-754 floats; each triangle begins with three
+    // little-endian 32-bit vertex indices followed by material metadata.
+    for (uint32_t i = 0; i < vertex_count; ++i) {
+        const unsigned char* vertex = p + 36ull + uint64_t(i) * 12ull;
+        for (int axis = 0; axis < 3; ++axis) {
+            const uint32_t bits = memory_le32(vertex + axis * 4);
+            float coordinate = 0.0f;
+            std::memcpy(&coordinate, &bits, sizeof(coordinate));
+            if (!std::isfinite(coordinate)) return -3;
+        }
+    }
+    const uint64_t faces_offset = 36ull + uint64_t(vertex_count) * 12ull;
+    for (uint32_t i = 0; i < face_count; ++i) {
+        const unsigned char* face = p + faces_offset + uint64_t(i) * 16ull;
+        for (int corner = 0; corner < 3; ++corner)
+            if (memory_le32(face + corner * 4) >= vertex_count) return -3;
+    }
     *vertices = vertex_count;
     *triangles = face_count;
     std::memcpy(minimum_xyz, low, sizeof(low));

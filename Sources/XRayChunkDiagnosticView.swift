@@ -30,6 +30,11 @@ struct XRayChunkDiagnosticView: View {
                 let url = try result.get()
                 let securityScoped = url.startAccessingSecurityScopedResource()
                 defer { if securityScoped { url.stopAccessingSecurityScopedResource() } }
+                let lowerName = url.lastPathComponent.lowercased()
+                if [".db0", ".db1", ".db2", ".db3"].contains(where: lowerName.hasSuffix) {
+                    message = "X-Ray .db archive selected. This diagnostic does not yet parse .db directories."
+                    return
+                }
                 let handle = try FileHandle(forReadingFrom: url)
                 defer { try? handle.close() }
                 // FileHandle may return fewer bytes than requested before EOF.
@@ -48,14 +53,8 @@ struct XRayChunkDiagnosticView: View {
                     return
                 }
                 // ZIP files and .db archives are not generic X-Ray chunk streams.
-                let lowerName = url.lastPathComponent.lowercased()
                 if lowerName.hasSuffix(".zip") || data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
                     message = "ZIP archive detected. This diagnostic does not unpack ZIP files."
-                    return
-                }
-                if lowerName.hasSuffix(".db0") || lowerName.hasSuffix(".db1") ||
-                   lowerName.hasSuffix(".db2") || lowerName.hasSuffix(".db3") {
-                    message = "X-Ray .db archive detected. Its directory format is not supported by this chunk diagnostic."
                     return
                 }
                 chunks = try XRayChunkDiagnostics.scan(data)

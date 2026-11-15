@@ -385,27 +385,8 @@ struct TrilogyLauncherView: View {
                                         }
     }
 
-    private func gameCard(for game: GameEdition) -> some View {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ZStack(alignment: .bottomLeading) {
-                                    gameArtwork(for: game)
-                                    .frame(maxWidth: .infinity).frame(height: 245).clipped()
-                                    LinearGradient(colors: [.clear, .black.opacity(0.9)],
-                                                   startPoint: .top, endPoint: .bottom)
-                                    // Artwork contains its own visual treatment; keep text readable
-                                    // without placing a second oversized title over the illustration.
-                                    EmptyView() // Poster already includes its own game title
-                                }
-                                .frame(height: 245)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .strokeBorder(Color.yellow.opacity(0.42), lineWidth: 1)
-                                }
-                                Text(russian ? game.russianName : game.englishName)
-                                    .font(.headline).foregroundStyle(.yellow)
-                                Label(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.status[game.rawValue] == nil ? "arrow.down.circle" : "checkmark.circle.fill")
-                                    .font(.caption).foregroundStyle(resources.status[game.rawValue] == nil ? .gray : .green)
+    @ViewBuilder
+    private func gameDiagnostics(for game: GameEdition) -> some View {
                                 if showDiagnostics, let status = resources.status[game.rawValue] {
                                     Text(status).font(.caption).foregroundStyle(.green)
                                 }
@@ -441,6 +422,30 @@ struct TrilogyLauncherView: View {
                                 .buttonStyle(.bordered)
                                 .tint(.yellow)
                                 }
+    }
+
+    private func gameCard(for game: GameEdition) -> some View {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ZStack(alignment: .bottomLeading) {
+                                    gameArtwork(for: game)
+                                    .frame(maxWidth: .infinity).frame(height: 245).clipped()
+                                    LinearGradient(colors: [.clear, .black.opacity(0.9)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                    // Artwork contains its own visual treatment; keep text readable
+                                    // without placing a second oversized title over the illustration.
+                                    EmptyView() // Poster already includes its own game title
+                                }
+                                .frame(height: 245)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(Color.yellow.opacity(0.42), lineWidth: 1)
+                                }
+                                Text(russian ? game.russianName : game.englishName)
+                                    .font(.headline).foregroundStyle(.yellow)
+                                Label(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.status[game.rawValue] == nil ? "arrow.down.circle" : "checkmark.circle.fill")
+                                    .font(.caption).foregroundStyle(resources.status[game.rawValue] == nil ? .gray : .green)
+                                gameDiagnostics(for: game)
                                 if nativeRunInProgress && nativeRunningGame == game {
                                     ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
                                         .tint(.orange)

@@ -134,6 +134,35 @@ struct TrilogyLauncherView: View {
                                 if entryStatus == 0 {
                                     let firstPath = String(cString: entryName)
                                     archiveDetails += " [\(firstPath): \(realSize) B / \(storedSize) B]"
+                                    // Read only a small bounded sample; never load an
+                                    // entire large game asset during launcher diagnostics.
+                                    if realSize == storedSize {
+                                        let sampleSize = min(realSize, 4096)
+                                        if sampleSize > 0 {
+                                            var sample = [UInt8](repeating: 0, count: Int(sampleSize))
+                                            let readStatus = sample.withUnsafeMutableBytes { buffer in
+                                                st_xray_archive_file_read(
+                                                    handle, 0, 0, 0, buffer.baseAddress, sampleSize
+                                                )
+                                            }
+                                            archiveDetails += readStatus == 0
+                                                ? " [read \(sampleSize) B ✓]"
+                                                : " [read error \(readStatus)]"
+                                        }
+                                    } else if realSize > 0 && realSize <= 65536 {
+                                        // Compressed files use the native safe LZO decoder.
+                                        var decoded = [UInt8](repeating: 0, count: Int(realSize))
+                                        let decodeStatus = decoded.withUnsafeMutableBytes { buffer in
+                                            st_xray_archive_file_decompress(
+                                                handle, 0, 0, buffer.baseAddress, realSize
+                                            )
+                                        }
+                                        archiveDetails += decodeStatus == 0
+                                            ? " [LZO \(realSize) B ✓]"
+                                            : " [LZO error \(decodeStatus)]"
+                                    } else if realSize > 65536 {
+                                        archiveDetails += " [decode skipped: >64 KiB]"
+                                    }
                                 } else {
                                     archiveDetails += " [entry error \(entryStatus)]"
                                 }

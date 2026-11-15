@@ -475,8 +475,11 @@ jobs:
                           : initialized
                       if attached == 0 {
                           var archiveReports: [String] = []
-                          var decoded = [UInt8](repeating: 0, count: 8 * 1024 * 1024)
                           for archiveIndex in 0..<min(count, UInt32(8)) {
+                              // Keep each archive's memory and retry diagnostics independent.
+                              var decoded = [UInt8](repeating: 0, count: 256 * 1024)
+                              let initialCapacity = decoded.count
+                              var didRetry = false
                               var decodedBytes: UInt32 = 0
                               var keyUsed: Int32 = -2
                               var decodeResult = decoded.withUnsafeMutableBytes { buffer in
@@ -484,6 +487,7 @@ jobs:
                               }
                               if decodeResult == -6 && decodedBytes > UInt32(decoded.count) &&
                                  decodedBytes <= 64 * 1024 * 1024 {
+                                  didRetry = true
                                   decoded = [UInt8](repeating: 0, count: Int(decodedBytes))
                                   decodeResult = decoded.withUnsafeMutableBytes { buffer in
                                       xrayDecodeDirectory(engine, archiveIndex, buffer.baseAddress!, UInt32(buffer.count), &decodedBytes, &keyUsed)
@@ -571,7 +575,7 @@ jobs:
                                   }
                               }
                               let report = decodeResult == 0
-                                  ? "db[" + String(archiveIndex) + "]: " + String(decodedBytes) + " bytes, files " + String(fileCount) + firstFile + ", key " + (keyUsed == -1 ? "none" : keyUsed == 0 ? "worldwide" : keyUsed == 1 ? "Russian" : "unknown")
+                                  ? "db[" + String(archiveIndex) + "]: " + String(decodedBytes) + " bytes, files " + String(fileCount) + firstFile + ", buffer " + String(initialCapacity) + " -> " + String(decoded.count) + (didRetry ? " (retry)" : "") + ", key " + (keyUsed == -1 ? "none" : keyUsed == 0 ? "worldwide" : keyUsed == 1 ? "Russian" : "unknown")
                                   : "db[" + String(archiveIndex) + "]: error " + String(decodeResult) + (decodeResult == -6 ? " (needs " + String(decodedBytes) + " bytes)" : decodeResult == -4 ? " (LZO/key mismatch)" : decodeResult == -5 ? " (invalid decoded records)" : "")
                               archiveReports.append(report)
                           }

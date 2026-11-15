@@ -277,25 +277,33 @@ struct LauncherOnlyView: View {
                 }
             }
         }
-        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
-            switch result {
-            case .failure(let error):
-                importMessage = "Ошибка выбора: \\(error.localizedDescription)"
-            case .success(let url):
+        .sheet(isPresented: $importingGameFolder) {
+            GameFolderPicker { url in
+                importingGameFolder = false
+                guard let url else {
+                    importMessage = "Выбор папки отменён."
+                    return
+                }
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                 let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
                 do {
+                    var isDirectory: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+                          isDirectory.boolValue else {
+                        importMessage = "Выбранный объект не является папкой."
+                        return
+                    }
                     guard !FileManager.default.fileExists(atPath: target.path) else {
-                        importMessage = "Папка игры уже существует. Повторный импорт не перезаписывает файлы."
+                        importMessage = "Папка игры уже импортирована. Повторный импорт не перезаписывает файлы."
                         return
                     }
                     try FileManager.default.copyItem(at: url, to: target)
-                    importMessage = "Папка игры импортирована. Проверь запуск Тени Чернобыля."
+                    importMessage = "Папка игры скопирована целиком. Проверь запуск Тени Чернобыля."
                     launchCheckMessage = nil
                 } catch {
-                    importMessage = "Ошибка копирования: \\(error.localizedDescription)"
+                    importMessage = "Ошибка копирования папки: \(error.localizedDescription)"
                 }
             }
         }
@@ -488,6 +496,34 @@ private struct GameFilePicker: UIViewControllerRepresentable {
         }
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
             onPicked([])
+        }
+    }
+}
+
+
+private struct GameFolderPicker: UIViewControllerRepresentable {
+    let onPicked: (URL?) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPicked: onPicked) }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // Open the folder in place: iOS grants scoped access to its full contents.
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPicked: (URL?) -> Void
+        init(onPicked: @escaping (URL?) -> Void) { self.onPicked = onPicked }
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onPicked(urls.first)
+        }
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onPicked(nil)
         }
     }
 }

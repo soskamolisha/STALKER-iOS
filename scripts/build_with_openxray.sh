@@ -46,6 +46,21 @@ for symbol in _st_xray_embedded_run _st_xray_embedded_run_with_resources; do
     exit 1
   fi
 done
+# Package the verified device build only after the runtime exports pass.
+# This IPA is unsigned and requires the user's own signing/provisioning.
+ipa_dir="build-openxray/ipa"
+mkdir -p "$ipa_dir/Payload"
+rm -rf "$ipa_dir/Payload/STALKERiOSStarter.app"
+cp -R "build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app" "$ipa_dir/Payload/"
+ipa_output="$(pwd)/build-openxray/STALKERMobile-OpenXRay-unsigned.ipa"
+rm -f "$ipa_output"
+(cd "$ipa_dir" && /usr/bin/zip -q -r "$ipa_output" Payload)
+unzip -tq "$ipa_output" >/dev/null
+unzip -Z1 "$ipa_output" | grep -qx 'Payload/STALKERiOSStarter.app/STALKERiOSStarter' || {
+  echo "IPA is missing its executable" >&2
+  exit 1
+}
+echo "Unsigned device IPA: $ipa_output"
 echo "Both embedded X-Ray entry points are exported; gameplay still unverified."
 echo "Linked iOS app at build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
 echo "A successful link does NOT establish playable OpenXRay on iPhone."

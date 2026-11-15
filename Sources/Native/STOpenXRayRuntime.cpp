@@ -6,28 +6,20 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-// On Apple, resolve optional engine exports dynamically to avoid undefined
-// symbols in the standalone iOS app. On Linux, preserve weak references so
-// native tests can link their mock exports without -rdynamic.
+// Optional static engine exports: weak references allow the launcher to build
+// without an engine archive. When an archive is force-loaded, the linker can
+// resolve these symbols even if Release strips the dynamic symbol table.
 #if defined(__APPLE__)
-#include <dlfcn.h>
-using EmbeddedRun = int (*)(const char*);
-using EmbeddedRunWithResources = int (*)(const char*, const char*);
-static EmbeddedRun embedded_run() {
-    return reinterpret_cast<EmbeddedRun>(dlsym(RTLD_DEFAULT, "st_xray_embedded_run"));
-}
-static EmbeddedRunWithResources embedded_run_with_resources() {
-    return reinterpret_cast<EmbeddedRunWithResources>(
-        dlsym(RTLD_DEFAULT, "st_xray_embedded_run_with_resources"));
-}
+extern "C" int st_xray_embedded_run(const char*) __attribute__((weak_import));
+extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak_import));
 #else
 extern "C" int st_xray_embedded_run(const char*) __attribute__((weak));
 extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak));
+#endif
 static auto embedded_run() -> int (*)(const char*) { return st_xray_embedded_run; }
 static auto embedded_run_with_resources() -> int (*)(const char*, const char*) {
     return st_xray_embedded_run_with_resources;
 }
-#endif
 
 extern "C" int32_t st_openxray_runtime_linked(void) {
     return embedded_run() != nullptr ? 1 : 0;

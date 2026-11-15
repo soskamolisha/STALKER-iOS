@@ -105,6 +105,11 @@ int32_t st_xray_packed_level_chunk_info(STXRayHandle handle, const char* level_n
                                          uint32_t index, uint32_t* chunk_id,
                                          uint32_t* payload_offset, uint32_t* payload_size,
                                          int32_t* compressed);
+// Copy one decoded level chunk's raw payload (compressed chunks stay compressed).
+// Required size is reported even when capacity is insufficient. Maximum 64 MiB.
+int32_t st_xray_packed_level_chunk_read(STXRayHandle handle, const char* level_name,
+                                         uint32_t index, void* destination,
+                                         uint32_t capacity, uint32_t* actual_size);
 // Load and validate a packed collision mesh header and payload bounds.
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,

@@ -289,6 +289,10 @@ struct TrilogyLauncherView: View {
         .padding(.top, 8)
     }
 
+    @ViewBuilder
+    private func gameArtwork(for game: GameEdition) -> some View {
+    }
+
     private var launcherContent: some View {
         HStack(alignment: .top, spacing: 12) {
             sidebar
@@ -766,4 +770,5 @@ struct TrilogyLauncherView: View {
             }
         }
     }
-}
+}                                     gameArtwork(for: game)
+

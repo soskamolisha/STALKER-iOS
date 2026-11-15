@@ -123,6 +123,11 @@ int main() {
     assert(st_xray_memory_cform_info(unsupportedCollision, sizeof(unsupportedCollision),
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
 
+    std::vector<unsigned char> trailingCollision(collision, collision + sizeof(collision));
+    trailingCollision.push_back(0xCC);
+    assert(st_xray_memory_cform_info(trailingCollision.data(),
+        static_cast<uint32_t>(trailingCollision.size()),
+        &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
     assert(st_xray_memory_cform_info(collision, 35,
         &memoryVertices, &memoryFaces, memoryMin, memoryMax) == -3);
     assert(st_xray_memory_cform_info(nullptr, 0,

@@ -654,6 +654,8 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
     // The current reader supports only archives with a valid in-file data region.
     if (relative_offset > real_size || size > real_size - relative_offset) return -3;
     if (size != 0 && data_offset < 8) return -3;
+    // The whole file extent, not just the requested slice, must be outside metadata.
+    // Otherwise a small read could conceal a forged directory-overlapping entry.
     // Reject records pointing into the archive directory chunk itself.
     // The chunk header is eight bytes immediately before its payload.
     uint32_t chunk_id = 0, chunk_size = 0;
@@ -668,11 +670,11 @@ int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
         if (result != 0) return result;
         if (chunk_id == 1) {
             found_directory = true;
-            const uint64_t file_begin = static_cast<uint64_t>(data_offset) + relative_offset;
-            const uint64_t file_end = file_begin + size;
+            const uint64_t file_begin = data_offset;
+            const uint64_t file_end = file_begin + real_size;
             const uint64_t directory_begin = chunk_offset - 8;
             const uint64_t directory_end = chunk_offset + chunk_size;
-            if (size != 0 && file_begin < directory_end && file_end > directory_begin) return -3;
+            if (real_size != 0 && file_begin < directory_end && file_end > directory_begin) return -3;
             break;
         }
     }

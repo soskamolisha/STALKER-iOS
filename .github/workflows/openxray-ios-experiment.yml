@@ -97,7 +97,7 @@ jobs:
         id: sdl2
         continue-on-error: true
         run: |
-          set -o pipefail
+          set -euo pipefail
           git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
           cmake -S "$RUNNER_TEMP/sdl2" -B "$RUNNER_TEMP/sdl2-ios" -G Xcode \
             -DCMAKE_SYSTEM_NAME=iOS \
@@ -113,12 +113,21 @@ jobs:
           cmake --install "$RUNNER_TEMP/sdl2-ios" --config Release \
             2>&1 | tee "$RUNNER_TEMP/sdl2-install.log"
           find "$RUNNER_TEMP/ios-deps" -iname '*sdl*config*.cmake' -print
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
+          configs = list(prefix.rglob("SDL2Config.cmake")) + list(prefix.rglob("sdl2-config.cmake"))
+          if not configs:
+              raise SystemExit("SDL2 build finished without an installed CMake package")
+          print("Installed iPhone SDL2 package:", *configs)
+          PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
         if: steps.sdl2.outcome == 'success'
         continue-on-error: true
         run: |
-          set -o pipefail
+          set -euo pipefail
           cmake -S upstream -B "$RUNNER_TEMP/openxray-ios" -G Xcode \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=iphoneos \
@@ -135,7 +144,7 @@ jobs:
         id: compile
         continue-on-error: true
         run: |
-          set -o pipefail
+          set -euo pipefail
           TARGET="${{ github.event.inputs.build_target || 'xrCore' }}"
           echo "Compiling upstream target: $TARGET"
           if [ "$TARGET" = "all" ]; then
@@ -195,7 +204,7 @@ jobs:
           patterns = re.compile(r"(fatal error:| error:|CMake Error|Could NOT find|No such file or directory|unsupported|not supported|undefined symbol|ld:)", re.I)
           report = temp / "openxray-failure-summary.txt"
           with report.open("w") as out:
-              for name in ("openxray-configure.log", "openxray-compile.log"):
+              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "openxray-configure.log", "openxray-compile.log"):
                   log = temp / name
                   print(f"=== {name} ===", file=out)
                   if not log.exists():

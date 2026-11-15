@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Local diagnostic for a user-owned X-Ray .db archive; never uploads game data."""
+"""Local diagnostic for a user-owned X-Ray .db archive; never uploads game data.
+
+WARNING: OpenXRay LocatorAPI.cpp calls _decompressLZ from LzHuf.cpp for
+compressed directory chunks. LZO checks below are negative controls only,
+not a valid X-Ray directory decoder. A proper LZ-Huffman decoder is needed.
+"""
 import argparse
 import ctypes
 import ctypes.util
@@ -55,6 +60,7 @@ def run(path):
         if len(payload) != directory_length:
             raise ValueError("truncated directory")
     print("directory compressed bytes:", directory_length)
+    print("NOTE: X-Ray directory uses LzHuf _decompressLZ, NOT LZO; checks below are negative controls")
     libname = ctypes.util.find_library("lzo2")
     if not libname:
         print("liblzo2 unavailable: showing decrypted prefixes only")

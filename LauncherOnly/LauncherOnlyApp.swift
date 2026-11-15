@@ -30,6 +30,8 @@ private enum Edition: String, CaseIterable, Identifiable {
 }
 
 struct LauncherOnlyView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var resourcesRevision = 0
     @State private var section = "Главная"
     @State private var infoSection: String?
     @State private var settings = false
@@ -199,6 +201,10 @@ struct LauncherOnlyView: View {
                     }
                 }.padding(16)
             }
+        }
+        .onAppear { resourcesRevision += 1 }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { resourcesRevision += 1 }
         }
         .sheet(isPresented: Binding(
             get: { infoSection != nil },

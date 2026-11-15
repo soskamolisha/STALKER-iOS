@@ -51,28 +51,31 @@ int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,
 int32_t st_xray_archive_directory_decompress(STXRayHandle handle, uint32_t archive_index,
                                                void* destination, uint32_t capacity,
                                                uint32_t expected_size);
-// Count records in an uncompressed X-Ray directory without extracting files.
-// -4: compressed directory, -3: malformed directory, -2: directory not found.
+// Count records in a plain or LZO-compressed X-Ray directory without extracting files.
+// Compressed directories use bounded decoding with key autodetection.
 int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index);
 // Decode an LZO1X payload into an exactly sized caller-provided buffer.
 // Returns -4 for corrupt compressed data, -3 for invalid output size.
 int32_t st_xray_lzo_decompress(const void* source, uint32_t source_size,
                                void* destination, uint32_t destination_capacity,
                                uint32_t expected_size);
-// Parse one directory record in an uncompressed chunk 1.
-// Returns -4 if the directory chunk is compressed (decompression not implemented).
+// Parse one directory record from plain or LZO-compressed chunk 1.
 int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,
                                         uint32_t entry_index, char* name, uint32_t name_capacity,
                                         uint32_t* size_real, uint32_t* size_compressed,
                                         uint32_t* crc, uint32_t* data_offset);
 // Read bytes of an uncompressed directory entry's file from its absolute archive offset.
 // Returns -4 if file content is compressed and needs the X-Ray codec.
+// Find a file by its exact relative path in one archive directory.
+// Returns the entry index, or -2 if absent. The path must be normalized
+// with forward slashes; no absolute paths or parent traversal.
+int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
+                                   const char* relative_path);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);
-// Decode a compressed file entry from an uncompressed archive directory.
+// Decode a compressed file entry from a validated plain or decoded archive directory.
 // Caller supplies the full uncompressed output buffer. Maximum 64 MiB.
-// Does not yet support encrypted or compressed directory indexes.
 int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_index,
                                          uint32_t entry_index, void* destination,
                                          uint32_t destination_capacity);

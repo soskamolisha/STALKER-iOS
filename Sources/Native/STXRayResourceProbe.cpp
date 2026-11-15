@@ -245,6 +245,9 @@ extern "C" int32_t st_xray_probe_first_archive_directory_name(const char* utf8_p
             (nameLength >= 2 && name[1] == ':')) return -7;
         for (uint32_t i = 0; i < nameLength; ++i) {
             if (name[i] == 0 || name[i] == 92) return -7;
+            if (name[i] == '/' && (i + 1 == nameLength || name[i + 1] == '/')) return -7;
+            if (name[i] == '.' && (i == 0 || name[i - 1] == '/') &&
+                (i + 1 == nameLength || name[i + 1] == '/')) return -7;
             if (name[i] == '.' && i + 1 < nameLength && name[i + 1] == '.' &&
                 (i == 0 || name[i - 1] == '/') &&
                 (i + 2 == nameLength || name[i + 2] == '/')) return -7;

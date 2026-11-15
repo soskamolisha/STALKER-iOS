@@ -482,9 +482,8 @@ struct TrilogyLauncherView: View {
         }
     }
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
+    // Keep the main SwiftUI body small enough for the compiler to type-check.
+    private var launcherBackground: some View {
                 ZStack {
                     LinearGradient(colors: [Color(red: 0.035, green: 0.055, blue: 0.055),
                                              Color(red: 0.11, green: 0.13, blue: 0.10)],
@@ -531,6 +530,9 @@ struct TrilogyLauncherView: View {
                     LinearGradient(colors: [.black.opacity(0.65), .black.opacity(0.86)],
                                    startPoint: .top, endPoint: .bottom)
                 }.ignoresSafeArea()
+    }
+
+    private var launcherScrollContent: some View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
@@ -641,6 +643,13 @@ struct TrilogyLauncherView: View {
                     }
                     .padding()
                 }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                launcherBackground
+                launcherScrollContent
             }
             .sheet(isPresented: $showArchiveInspector) {
                 NavigationStack {

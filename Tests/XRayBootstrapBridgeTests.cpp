@@ -244,6 +244,18 @@ int main() {
     assert(st_xray_packed_level_info(handle, "zaton/level", &geometrySize, &collisionSize) == -1);
     assert(st_xray_packed_level_info(handle, "", &geometrySize, &collisionSize) == -1);
     assert(st_xray_packed_level_info(handle, "zaton", nullptr, &collisionSize) == -1);
+    assert(st_xray_packed_level_chunk_count(handle, "zaton") == -2);
+    assert(st_xray_packed_level_chunk_count(handle, "../zaton") == -1);
+    assert(st_xray_packed_level_chunk_count(handle, "") == -1);
+    uint32_t packedVertices = 0, packedTriangles = 0;
+    float packedMin[3] {}, packedMax[3] {};
+    assert(st_xray_packed_level_collision_info(handle, "zaton",
+        &packedVertices, &packedTriangles, packedMin, packedMax) == -2);
+    assert(st_xray_packed_level_collision_info(handle, "../zaton",
+        &packedVertices, &packedTriangles, packedMin, packedMax) == -1);
+    assert(st_xray_packed_level_collision_info(handle, "zaton",
+        nullptr, &packedTriangles, packedMin, packedMax) == -1);
+
     char levelBuffer[8] = {'U','N','T','O','U','C','H','D'};
     uint32_t levelBytes = 99;
     assert(st_xray_load_packed_level_file(

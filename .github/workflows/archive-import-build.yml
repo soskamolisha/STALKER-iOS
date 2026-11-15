@@ -84,6 +84,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
       - name: Build for physical iPhone (unsigned)
+        # Still build the app when unit-test compilation fails, so IPA diagnostics are independent.
+        if: success() || failure()
         run: |
           set -o pipefail
           xcodebuild -project STALKERiOSStarter.xcodeproj \
@@ -128,6 +130,8 @@ jobs:
             ${{ runner.temp }}/stalker-tests-build.log
           if-no-files-found: ignore
       - name: Package unsigned IPA
+        # A failed XCTest build should not prevent packaging a successfully built iPhone app.
+        if: success() || failure()
         run: |
           set -euo pipefail
           APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
@@ -137,6 +141,7 @@ jobs:
           (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" Payload)
           unzip -t "$RUNNER_TEMP/STALKERMobile-unsigned.ipa"
       - name: Upload unsigned IPA for external signing
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
           name: STALKERMobile-unsigned-ipa

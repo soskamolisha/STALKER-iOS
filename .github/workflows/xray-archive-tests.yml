@@ -1,0 +1,23 @@
+name: X-Ray archive probe tests
+
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'tools/xray_archive_probe.py'
+      - 'tests/test_xray_archive_probe.py'
+      - '.github/workflows/xray-archive-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  probe-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run archive probe regression tests
+        run: python -m unittest discover -s tests -p 'test_xray_archive_probe.py' -v

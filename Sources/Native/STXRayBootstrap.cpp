@@ -167,12 +167,18 @@ int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length) {
             record_size > length - position - 2) return -3;
         const uint32_t name_size = record_size - 16;
         const auto* name = data + position + 14;
-        if (name_size == 0 || name[0] == '/' || name[0] == '\\') return -3;
+        if (name_size == 0 || name[0] == '/' || name[0] == 92) return -3;
         for (uint32_t i = 0; i < name_size; ++i) {
-            if (name[i] == 0 || name[i] == '\\') return -3;
-            if (name[i] == '.' && i + 1 < name_size && name[i + 1] == '.' &&
-                (i == 0 || name[i - 1] == '/') &&
-                (i + 2 == name_size || name[i + 2] == '/')) return -3;
+            const unsigned char ch = name[i];
+            if (ch == 0 || ch == 92 || ch == ':' || ch < 32) return -3;
+            if (ch == '/' && (i == 0 || i + 1 == name_size || name[i - 1] == '/'))
+                return -3;
+            const bool segment_start = i == 0 || name[i - 1] == '/';
+            if (segment_start && ch == '.' &&
+                (i + 1 == name_size || name[i + 1] == '/' ||
+                 (i + 1 < name_size && name[i + 1] == '.' &&
+                  (i + 2 == name_size || name[i + 2] == '/'))))
+                return -3;
         }
         position += record_size + 2;
         ++count;

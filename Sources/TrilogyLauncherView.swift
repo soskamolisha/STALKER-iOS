@@ -6,7 +6,6 @@ struct TrilogyLauncherView: View {
     @AppStorage("stalker.language") private var language = "ru"
     @State private var selectedGame: GameEdition?
     @State private var showImporter = false
-    @State private var showArchiveImporter = false
     @StateObject private var resources = GameResourceStore()
     @State private var importError: String?
     @State private var isCopying = false
@@ -494,9 +493,9 @@ struct TrilogyLauncherView: View {
                         }
                         Button {
                             selectedGame = .shadow
-                            showArchiveImporter = true
+                            showImporter = true
                         } label: {
-                            Label(russian ? "Импорт gamedata.db" : "Import gamedata.db", systemImage: "square.and.arrow.down")
+                            Label(russian ? "Импорт всей папки игры" : "Import entire game folder", systemImage: "folder.badge.plus")
                         }
                         .buttonStyle(.bordered)
                         .tint(.yellow)
@@ -583,27 +582,6 @@ struct TrilogyLauncherView: View {
             .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("OK", role: .cancel) { importError = nil }
             } message: { Text(importError ?? "") }
-            .fileImporter(isPresented: $showArchiveImporter, allowedContentTypes: [.data, .item]) { result in
-                do {
-                    let file = try result.get()
-                    isCopying = true
-                    Task {
-                        defer { isCopying = false; selectedGame = nil }
-                        do {
-                            try await Task.detached(priority: .userInitiated) {
-                                try GameResourceImporter.copyArchive(file, gameID: "shadow")
-                            }.value
-                            await resources.refresh(gameID: "shadow")
-                            checkEngineResources(for: .shadow)
-                            showDiagnostics = true
-                        } catch {
-                            importError = error.localizedDescription
-                        }
-                    }
-                } catch {
-                    importError = error.localizedDescription
-                }
-            }
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
                 guard let selectedGame else { return }
                 do {
@@ -617,6 +595,10 @@ struct TrilogyLauncherView: View {
                                 try GameResourceImporter.copy(folder, gameID: edition)
                             }.value
                             await resources.refresh(gameID: edition)
+                            if let game = GameEdition(rawValue: edition) {
+                                checkEngineResources(for: game)
+                                showDiagnostics = true
+                            }
                         } catch {
                             importError = error.localizedDescription
                         }

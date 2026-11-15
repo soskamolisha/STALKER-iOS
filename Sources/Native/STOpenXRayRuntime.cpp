@@ -106,3 +106,17 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
 extern "C" int32_t st_openxray_runtime_resources_linked(void) {
     return embedded_run_with_resources() != nullptr ? 1 : 0;
 }
+
+extern "C" const char* st_openxray_runtime_status_message(int32_t status) {
+    switch (status) {
+        case 0: return "X-Ray runtime check passed (gameplay not yet verified)";
+        case -1: return "X-Ray engine entry is not linked";
+        case -2: return "Missing launch command or game folder";
+        case -3: return "X-Ray engine is already running";
+        case -4: return "X-Ray engine stopped with a native exception";
+        case -5: return "Resource-aware X-Ray engine is not linked";
+        case -6: return "Invalid or inaccessible game folder";
+        case -7: return "Missing, empty, or invalid fsgame.ltx";
+        default: return "X-Ray returned an unknown status";
+    }
+}

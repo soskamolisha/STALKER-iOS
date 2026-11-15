@@ -17,6 +17,7 @@ extern "C" uint32_t st_openxray_crc32(const void* data, uint32_t size) {
     for (uint32_t i = 0; i < size; ++i) sum += bytes[i];
     return sum; // Test double only: iOS links the real upstream CRC32.
 }
+extern "C" int32_t st_xray_probe_first_archive_directory(const char*, uint32_t*, uint32_t*, int32_t*);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -66,6 +67,10 @@ int main() {
       out.write(reinterpret_cast<const char*>(twoChunks), sizeof(twoChunks)); }
     assert(st_xray_probe_first_archive_chunks(root, &chunks) == 0);
     assert(chunks == 2);
+    uint32_t directoryIndex = 99, directorySize = 99;
+    int32_t directoryCompressed = -1;
+    assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == 0);
+    assert(directoryIndex == 0 && directorySize == 3 && directoryCompressed == 0);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == 0);
     assert(id == 2 && size == 4 && compressed == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 4, &actual) == 0);
@@ -111,6 +116,8 @@ int main() {
     assert(chunks == 1);
     assert(st_xray_probe_first_archive_chunk_info(root, 0, &id, &size, &compressed) == 0);
     assert(id == 1 && size == 3 && compressed == 1);
+    assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == 0);
+    assert(directoryIndex == 0 && directorySize == 3 && directoryCompressed == 1);
     assert(st_xray_probe_first_archive_chunk_read(root, 0, payload, 3, &actual) == -5);
     assert(actual == 0);
     assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -5);

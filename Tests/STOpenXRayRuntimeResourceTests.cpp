@@ -90,6 +90,16 @@ int main() {
     assert(std::fclose(nested) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(std::remove(nested_empty.c_str()) == 0);
+    assert(symlink("/etc/hosts", nested_empty.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(unlink(nested_empty.c_str()) == 0);
+    FILE* nested_content = std::fopen(nested_empty.c_str(), "wb");
+    assert(nested_content != nullptr);
+    assert(std::fputs("mock nested level", nested_content) >= 0);
+    assert(std::fclose(nested_content) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == 0);
+    assert(std::remove(nested_empty.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(rmdir(nested_dir.c_str()) == 0);
     // A nonempty regular file inside a loose gamedata directory is
     // sufficient for resource discovery (not proof of valid game data).

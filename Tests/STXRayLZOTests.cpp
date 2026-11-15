@@ -28,5 +28,15 @@ int main() {
                                   decoded, sizeof(decoded), originalSize + 1) != 0);
     assert(st_xray_lzo_decompress(compressed.data(), 1,
                                   decoded, sizeof(decoded), originalSize) != 0);
+    // Truncated and damaged packed directory data must never be accepted.
+    for (uint32_t length = 1; length < static_cast<uint32_t>(compressedSize); ++length) {
+        std::memset(decoded, 0, sizeof(decoded));
+        assert(st_xray_lzo_decompress(compressed.data(), length,
+                                      decoded, sizeof(decoded), originalSize) != 0);
+    }
+    std::vector<unsigned char> damaged(compressed.begin(), compressed.begin() + compressedSize);
+    damaged[0] ^= 0xff;
+    assert(st_xray_lzo_decompress(damaged.data(), static_cast<uint32_t>(damaged.size()),
+                                  decoded, sizeof(decoded), originalSize) != 0);
     return 0;
 }

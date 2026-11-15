@@ -58,4 +58,14 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: target), Data([1, 2, 3]))
     }
 
+    func testRejectsUnrecognizedArchiveSuffix() throws {
+        let manager = FileManager.default
+        let folder = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: folder) }
+        try Data([1]).write(to: folder.appendingPathComponent("gamedata.db0"))
+        try Data([2]).write(to: folder.appendingPathComponent("gamedata.dbBAD"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder))
+    }
+
 }

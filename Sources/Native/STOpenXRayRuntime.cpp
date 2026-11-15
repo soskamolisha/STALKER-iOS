@@ -3,6 +3,7 @@
 #include <cstring>
 #include <string>
 #include <cstddef>
+#include <cstdio>
 #include <sys/stat.h>
 #include <dirent.h>
 
@@ -74,6 +75,12 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     struct stat config_info {};
     if (lstat(config_path.c_str(), &config_info) != 0 ||
         !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
+    // Ensure the config is actually readable, not merely present in directory metadata.
+    FILE* config = std::fopen(config_path.c_str(), "rb");
+    if (!config) return -7;
+    const int first_byte = std::fgetc(config);
+    std::fclose(config);
+    if (first_byte == EOF) return -7;
     // A config alone is not enough to boot Shadow of Chernobyl.
     // Accept either loose gamedata or a nonempty base gamedata.db0 archive.
     // Later numbered archives alone cannot form a bootable base resource set.

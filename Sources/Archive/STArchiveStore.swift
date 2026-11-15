@@ -4,11 +4,13 @@ import Foundation
 /// Never modifies the source folder. Call off the main thread for large files.
 enum STArchiveStore {
     enum ImportError: LocalizedError {
+        case incompleteArchiveSet
         case noBaseArchive
         case invalidDestination
         case insufficientSpace
         var errorDescription: String? {
             switch self {
+            case .incompleteArchiveSet: return "Archive set has missing, duplicate, or empty files"
             case .noBaseArchive: return "gamedata.db0 was not found in the selected folder"
             case .invalidDestination: return "The destination folder is not safe"
             case .insufficientSpace: return "Not enough free space for game archives"
@@ -29,6 +31,11 @@ enum STArchiveStore {
 
         let report = try STArchiveInventory.scan(directory: source)
         guard report.hasBaseArchive else { throw ImportError.noBaseArchive }
+        guard report.missingNumbers.isEmpty,
+              !report.archives.contains(where: { $0.bytes == 0 }),
+              !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") }) else {
+            throw ImportError.incompleteArchiveSet
+        }
         let destination = try destinationRoot(fileManager: fileManager)
         let parent = destination.deletingLastPathComponent()
         let requiredBytes = report.archives.reduce(UInt64(0)) { partial, archive in

@@ -314,11 +314,7 @@ struct TrilogyLauncherView: View {
                                     }
     }
 
-    private var launcherContent: some View {
-        HStack(alignment: .top, spacing: 12) {
-            sidebar
-            HStack(alignment: .top, spacing: 12) {
-                        ForEach(GameEdition.allCases) { game in
+    private func gameCard(for game: GameEdition) -> some View {
                             VStack(alignment: .leading, spacing: 10) {
                                 ZStack(alignment: .bottomLeading) {
                                     gameArtwork(for: game)
@@ -481,6 +477,14 @@ struct TrilogyLauncherView: View {
                             .padding(10)
                             .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(.yellow.opacity(0.3), lineWidth: 1))
+    }
+
+    private var launcherContent: some View {
+        HStack(alignment: .top, spacing: 12) {
+            sidebar
+            HStack(alignment: .top, spacing: 12) {
+                        ForEach(GameEdition.allCases) { game in
+                            gameCard(for: game)
                         }
 
             }

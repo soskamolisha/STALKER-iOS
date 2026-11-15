@@ -474,7 +474,7 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
     if (length == 0 || length > 4096 || relative_path[0] == '/') return -1;
     for (size_t i = 0; i < length; ++i) {
         const char ch = relative_path[i];
-        if (ch == '\\\\' || ch == ':' || static_cast<unsigned char>(ch) < 32 ||
+        if (ch == static_cast<char>(92) || ch == ':' || static_cast<unsigned char>(ch) < 32 ||
             (ch == '/' && (i == 0 || i + 1 == length || relative_path[i - 1] == '/')))
             return -1;
         if ((i == 0 || relative_path[i - 1] == '/') && ch == '.' &&

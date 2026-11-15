@@ -38,7 +38,8 @@ int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length);
 // Returns key_used: -1 plain, 0 worldwide, 1 Russian.
 // Returns -4 if none of the three variants yields a valid LZO stream,
 // or -5 if LZO decoding succeeds but the directory records are invalid.
-// A too-small destination may also prevent successful LZO decoding.
+// Returns -6 if bounded retries find a valid directory larger than capacity.
+// The caller can retry with a larger output buffer (up to 64 MiB).
 int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
                                                  uint32_t archive_index,
                                                  void* destination, uint32_t capacity,

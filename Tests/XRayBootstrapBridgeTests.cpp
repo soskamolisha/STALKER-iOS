@@ -279,7 +279,27 @@ int main() {
         assert(st_xray_archive_directory_auto_decrypt(
             handle, 0, decoded, 4, &auto_size, &key_used) == -4);
         assert(key_used == -2 && auto_size == 0);
-        assert(st_xray_archive_directory_count(handle, 0) == -4);
+        // The production directory parser now supports compressed catalogs.
+        assert(st_xray_archive_directory_count(handle, 0) == 1);
+        char compressedName[32] {};
+        uint32_t decodedReal = 0, decodedPacked = 0, decodedCRC = 0, decodedOffset = 0;
+        assert(st_xray_archive_directory_entry(
+            handle, 0, 0, compressedName, sizeof(compressedName),
+            &decodedReal, &decodedPacked, &decodedCRC, &decodedOffset) == 0);
+        assert(std::strcmp(compressedName, "test.ltx") == 0);
+        assert(decodedReal == 4 && decodedPacked == 4 && decodedOffset == 42);
+        assert(st_xray_archive_find_file(handle, 0, "test.ltx") == 0);
+        assert(st_xray_archive_find_file(handle, 0, "missing.ltx") == -2);
+        uint32_t locatedArchive = 99, locatedEntry = 99;
+        assert(st_xray_find_resource(
+            handle, "test.ltx", &locatedArchive, &locatedEntry) == 0);
+        assert(locatedArchive == 0 && locatedEntry == 0);
+        uint32_t required = 0;
+        assert(st_xray_load_packed_resource(
+            handle, "test.ltx", nullptr, 0, &required) == -3);
+        assert(required == 4);
+        assert(st_xray_load_packed_resource(
+            handle, "missing.ltx", nullptr, 0, &required) == -2);
     }
     // Decoded catalog records must be validated before use.
     {

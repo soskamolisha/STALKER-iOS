@@ -102,7 +102,7 @@ jobs:
           from pathlib import Path
           import os, re
           temp = Path(os.environ["RUNNER_TEMP"])
-          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|The following build commands failed", re.I)
+          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|TEST BUILD FAILED|The following build commands failed|undefined symbols|ld: |clang: error:", re.I)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write("### iOS build diagnostics\n")
               for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
@@ -111,7 +111,8 @@ jobs:
                   if not file.exists():
                       summary.write("Not run\n")
                       continue
-                  lines = [line[:400] for line in file.read_text(errors="replace").splitlines()
+                  all_lines = file.read_text(errors="replace").splitlines()
+                  lines = [f"{index + 1}: {line[:600]}" for index, line in enumerate(all_lines)
                            if pattern.search(line)]
                   if lines:
                       summary.write("```text\n" + "\n".join(lines[:20]) + "\n```\n")

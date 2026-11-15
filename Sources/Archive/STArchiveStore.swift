@@ -38,6 +38,10 @@ enum STArchiveStore {
         }
         let destination = try destinationRoot(fileManager: fileManager)
         let parent = destination.deletingLastPathComponent()
+        // Never copy the imported folder onto itself.
+        guard source.standardizedFileURL.resolvingSymlinksInPath() != destination.standardizedFileURL.resolvingSymlinksInPath() else {
+            throw ImportError.invalidDestination
+        }
         let requiredBytes = report.archives.reduce(UInt64(0)) { partial, archive in
             let (sum, overflow) = partial.addingReportingOverflow(archive.bytes)
             return overflow ? UInt64.max : sum

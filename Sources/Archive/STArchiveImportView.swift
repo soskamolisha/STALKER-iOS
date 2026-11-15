@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 struct STArchiveImportView: View {
     @State private var showingImporter = false
     @State private var isImporting = false
+    @State private var pendingFolder: URL?
+    @State private var showingReplaceConfirmation = false
     @State private var importStatus: String?
     @State private var report: STArchiveInventory.Report?
     @State private var selectedFolder: String?
@@ -55,6 +57,22 @@ struct STArchiveImportView: View {
                     errorMessage = "No folder selected"
                     return
                 }
+                pendingFolder = folder
+                showingReplaceConfirmation = true
+            }
+        }
+        .confirmationDialog("Import game archives?", isPresented: $showingReplaceConfirmation, titleVisibility: .visible) {
+            Button("Copy archives into app") {
+                guard let folder = pendingFolder else { return }
+                beginImport(folder)
+            }
+            Button("Cancel", role: .cancel) { pendingFolder = nil }
+        } message: {
+            Text("Existing imported game archives will be replaced after the new set is copied successfully. Large archives may require substantial storage.")
+        }
+    }
+
+    private func beginImport(_ folder: URL) {
                 selectedFolder = folder.lastPathComponent
                 report = nil
                 errorMessage = nil
@@ -77,7 +95,5 @@ struct STArchiveImportView: View {
                         }
                     }
                 }
-            }
-        }
     }
 }

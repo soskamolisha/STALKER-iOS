@@ -76,6 +76,12 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
 // Returns 0 on success, -2 when absent, or another negative error.
 int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
                               uint32_t* archive_index, uint32_t* entry_index);
+// Load a named packed resource into caller-owned memory (up to 64 MiB).
+// Set actual_size to the required decoded size; -3 means buffer too small
+// or resource exceeds the safety limit. Does not handle loose files yet.
+int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_path,
+                                     void* destination, uint32_t capacity,
+                                     uint32_t* actual_size);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

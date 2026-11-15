@@ -18,6 +18,8 @@ extern "C" uint32_t st_openxray_crc32(const void* data, uint32_t size) {
     return sum; // Test double only: iOS links the real upstream CRC32.
 }
 extern "C" int32_t st_xray_probe_first_archive_directory(const char*, uint32_t*, uint32_t*, int32_t*);
+extern "C" int32_t st_xray_probe_first_archive_directory_read(const char*, void*, uint32_t, uint32_t*);
+extern "C" int32_t st_xray_probe_first_archive_directory_crc32(const char*, uint32_t*);
 int main() {
     uint32_t count = 99, levels = 99;
     uint64_t bytes = 99;
@@ -71,6 +73,13 @@ int main() {
     int32_t directoryCompressed = -1;
     assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == 0);
     assert(directoryIndex == 0 && directorySize == 3 && directoryCompressed == 0);
+    char directoryPayload[4] = {};
+    uint32_t directoryActual = 99;
+    assert(st_xray_probe_first_archive_directory_read(root, directoryPayload, 2, &directoryActual) == -6);
+    assert(directoryActual == 0);
+    assert(st_xray_probe_first_archive_directory_read(root, directoryPayload, 4, &directoryActual) == 0);
+    assert(directoryActual == 3 && std::string(directoryPayload, 3) == "abc");
+    assert(st_xray_probe_first_archive_directory_crc32(root, &crc) == 0 && crc == 294);
     assert(st_xray_probe_first_archive_chunk_info(root, 1, &id, &size, &compressed) == 0);
     assert(id == 2 && size == 4 && compressed == 0);
     assert(st_xray_probe_first_archive_chunk_read(root, 1, payload, 4, &actual) == 0);
@@ -117,12 +126,18 @@ int main() {
       out.write(reinterpret_cast<const char*>(delayedDirectory), sizeof(delayedDirectory)); }
     assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == 0);
     assert(directoryIndex == 1 && directorySize == 3 && directoryCompressed == 1);
+    assert(st_xray_probe_first_archive_directory_read(root, directoryPayload, 4, &directoryActual) == -5);
+    assert(directoryActual == 0);
+    assert(st_xray_probe_first_archive_directory_crc32(root, &crc) == -5 && crc == 0);
     // Missing directory is distinct from an unreadable or malformed archive.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char noDirectory[] = {7,0,0,0,1,0,0,0,'x'};
       out.write(reinterpret_cast<const char*>(noDirectory), sizeof(noDirectory)); }
     assert(st_xray_probe_first_archive_directory(root, &directoryIndex, &directorySize, &directoryCompressed) == -2);
     assert(directoryIndex == 0 && directorySize == 0 && directoryCompressed == 0);
+    assert(st_xray_probe_first_archive_directory_read(root, directoryPayload, 4, &directoryActual) == -2);
+    assert(directoryActual == 0);
+    assert(st_xray_probe_first_archive_directory_crc32(root, &crc) == -2 && crc == 0);
     // A compressed chunk must be indexed but not returned as raw decoded data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};

@@ -110,6 +110,13 @@ int32_t st_xray_packed_level_chunk_info(STXRayHandle handle, const char* level_n
 int32_t st_xray_packed_level_chunk_read(STXRayHandle handle, const char* level_name,
                                          uint32_t index, void* destination,
                                          uint32_t capacity, uint32_t* actual_size);
+// Decode one LZO-compressed geometry chunk, or copy an uncompressed chunk.
+// expected_size must match the decompressed size for compressed chunks.
+// On success actual_size is the decoded length; output remains unchanged on failure.
+int32_t st_xray_packed_level_chunk_decode(STXRayHandle handle, const char* level_name,
+                                           uint32_t index, void* destination,
+                                           uint32_t capacity, uint32_t expected_size,
+                                           uint32_t* actual_size);
 // Load and validate a packed collision mesh header and payload bounds.
 int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* level_name,
                                             uint32_t* vertices, uint32_t* triangles,

@@ -67,9 +67,13 @@ enum STArchiveStore {
             }
             let originalSize = (attributes[.size] as? NSNumber)?.uint64Value
             guard originalSize == archive.bytes else { throw ImportError.sourceChanged }
+            let originalModified = attributes[.modificationDate] as? Date
             try fileManager.copyItem(at: from, to: to)
             let copiedSize = (try fileManager.attributesOfItem(atPath: to.path)[.size] as? NSNumber)?.uint64Value
-            let currentSourceSize = (try fileManager.attributesOfItem(atPath: from.path)[.size] as? NSNumber)?.uint64Value
+            let currentAttributes = try fileManager.attributesOfItem(atPath: from.path)
+            let currentSourceSize = (currentAttributes[.size] as? NSNumber)?.uint64Value
+            let currentModified = currentAttributes[.modificationDate] as? Date
+            guard originalModified == currentModified else { throw ImportError.sourceChanged }
             guard currentSourceSize == archive.bytes else { throw ImportError.sourceChanged }
             guard copiedSize == archive.bytes else {
                 throw CocoaError(.fileReadCorruptFile)

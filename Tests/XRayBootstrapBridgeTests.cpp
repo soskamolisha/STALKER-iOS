@@ -731,6 +731,27 @@ int main() {
         assert(st_xray_load_packed_level_file(handle, "zaton", 0,
             loadedGeometry, 1, &loadedSize) == -3);
         assert(loadedSize == sizeof(packedGeometry));
+        // Corrupt geometry chunk length: the packed inspector must reject it.
+        {
+            std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);
+            corrupt.seekp(8 + directoryBytes + 4);
+            const unsigned char badSize[4] = {255,255,255,127};
+            corrupt.write(reinterpret_cast<const char*>(badSize), 4);
+        }
+        assert(st_xray_packed_level_chunk_count(handle, "zaton") == -3);
+        // Restore geometry and corrupt collision bounds with a NaN.
+        {
+            std::fstream corrupt(archive, std::ios::binary | std::ios::in | std::ios::out);
+            corrupt.seekp(8 + directoryBytes + 4);
+            const unsigned char goodSize[4] = {2,0,0,0};
+            corrupt.write(reinterpret_cast<const char*>(goodSize), 4);
+            corrupt.seekp(8 + directoryBytes + sizeof(packedGeometry) + 12);
+            const unsigned char nanBits[4] = {0,0,192,127};
+            corrupt.write(reinterpret_cast<const char*>(nanBits), 4);
+        }
+        assert(st_xray_packed_level_chunk_count(handle, "zaton") == 1);
+        assert(st_xray_packed_level_collision_info(handle, "zaton",
+            &packedVertices, &packedTriangles, packedMinimum, packedMaximum) == -3);
     }
     st_xray_shutdown(handle);
     assert(st_xray_level_count(handle) == 0);

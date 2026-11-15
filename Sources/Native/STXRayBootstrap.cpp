@@ -181,6 +181,7 @@ int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length) {
                 return -3;
         }
         position += record_size + 2;
+        if (count >= 65536) return -3;
         ++count;
     }
     return count;
@@ -662,8 +663,9 @@ int32_t st_xray_archive_file_decompress(STXRayHandle handle, uint32_t archive_in
 int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_path,
                                      void* destination, uint32_t capacity,
                                      uint32_t* actual_size) {
-    if (!handle || !relative_path || !actual_size) return -1;
+    if (!actual_size) return -1;
     *actual_size = 0;
+    if (!handle || !relative_path) return -1;
     uint32_t archive = 0, entry = 0;
     const int32_t found = st_xray_find_resource(handle, relative_path, &archive, &entry);
     if (found != 0) return found;

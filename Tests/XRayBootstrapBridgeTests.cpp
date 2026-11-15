@@ -236,6 +236,12 @@ int main() {
         file.write(reinterpret_cast<const char*>(badOffset), 4);
     }
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == -3);
+    char protectedBuffer[4] = {'S', 'A', 'F', 'E'};
+    uint32_t protectedSize = 0;
+    assert(st_xray_load_packed_resource(
+        handle, "test.ltx", protectedBuffer, sizeof(protectedBuffer), &protectedSize) == -3);
+    assert(protectedSize == 4);
+    assert(std::memcmp(protectedBuffer, "SAFE", 4) == 0);
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
         file.seekp(30);

@@ -129,6 +129,10 @@ int main() {
         file.write(reinterpret_cast<const char*>(padding), sizeof(padding));
         file.write("DATA", 4);
     }
+    // Keep the second archive structurally valid but empty until the override test.
+    { std::ofstream empty(secondArchive, std::ios::binary | std::ios::trunc);
+      const unsigned char header[8] = {1,0,0,0, 0,0,0,0};
+      empty.write(reinterpret_cast<const char*>(header), sizeof(header)); }
     char entryName[32] {};
     uint32_t realSize = 0, compressedSize = 0, entryCRC = 0, dataOffset = 0;
     assert(st_xray_archive_directory_entry(handle, 0, 0, entryName, sizeof(entryName),
@@ -181,9 +185,10 @@ int main() {
     assert(st_xray_load_packed_resource(
         handle, "test.ltx", loadedResource, sizeof(loadedResource), &loadedSize) == 0);
     assert(loadedSize == 4 && std::memcmp(loadedResource, "NEW!", 4) == 0);
-    // Restore the original test fixture for subsequent archive tests.
+    // Restore a valid empty directory so later lookups fall back to db0.
     { std::ofstream restore(secondArchive, std::ios::binary | std::ios::trunc);
-      restore << "fixture2"; }
+      const unsigned char header[8] = {1,0,0,0, 0,0,0,0};
+      restore.write(reinterpret_cast<const char*>(header), sizeof(header)); }
     assert(st_xray_find_resource(handle, "test.ltx", &resourceArchive, &resourceEntry) == 0);
     assert(resourceArchive == 0 && resourceEntry == 0);
     assert(st_xray_load_packed_resource(

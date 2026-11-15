@@ -8,12 +8,14 @@ enum STArchiveStore {
         case noBaseArchive
         case invalidDestination
         case insufficientSpace
+        case sourceChanged
         var errorDescription: String? {
             switch self {
             case .incompleteArchiveSet: return "Archive set has missing, duplicate, or empty files"
             case .noBaseArchive: return "gamedata.db0 was not found in the selected folder"
             case .invalidDestination: return "The destination folder is not safe"
             case .insufficientSpace: return "Not enough free space for game archives"
+            case .sourceChanged: return "A source archive changed while copying; import was cancelled"
             }
         }
     }
@@ -63,8 +65,12 @@ enum STArchiveStore {
             guard attributes[.type] as? FileAttributeType == .typeRegular else {
                 throw ImportError.invalidDestination
             }
+            let originalSize = (attributes[.size] as? NSNumber)?.uint64Value
+            guard originalSize == archive.bytes else { throw ImportError.sourceChanged }
             try fileManager.copyItem(at: from, to: to)
             let copiedSize = (try fileManager.attributesOfItem(atPath: to.path)[.size] as? NSNumber)?.uint64Value
+            let currentSourceSize = (try fileManager.attributesOfItem(atPath: from.path)[.size] as? NSNumber)?.uint64Value
+            guard currentSourceSize == archive.bytes else { throw ImportError.sourceChanged }
             guard copiedSize == archive.bytes else {
                 throw CocoaError(.fileReadCorruptFile)
             }

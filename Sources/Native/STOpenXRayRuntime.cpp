@@ -84,10 +84,30 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
         DIR* loose = opendir(loose_path.c_str());
         if (loose) {
             while (struct dirent* item = readdir(loose)) {
-                if (std::strcmp(item->d_name, ".") != 0 &&
-                    std::strcmp(item->d_name, "..") != 0) {
+                if (std::strcmp(item->d_name, ".") == 0 ||
+                    std::strcmp(item->d_name, "..") == 0) continue;
+                const std::string item_path = loose_path + "/" + item->d_name;
+                struct stat item_info {};
+                // Only actual nonempty files or nonempty directories count;
+                // symlinks and empty placeholder files are not game data.
+                if (lstat(item_path.c_str(), &item_info) != 0) continue;
+                if (S_ISREG(item_info.st_mode) && item_info.st_size > 0) {
                     has_game_data = true;
                     break;
+                }
+                if (S_ISDIR(item_info.st_mode)) {
+                    DIR* child = opendir(item_path.c_str());
+                    if (child) {
+                        while (struct dirent* nested = readdir(child)) {
+                            if (std::strcmp(nested->d_name, ".") != 0 &&
+                                std::strcmp(nested->d_name, "..") != 0) {
+                                has_game_data = true;
+                                break;
+                            }
+                        }
+                        closedir(child);
+                    }
+                    if (has_game_data) break;
                 }
             }
             closedir(loose);

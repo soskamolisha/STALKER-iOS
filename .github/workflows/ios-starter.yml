@@ -75,6 +75,10 @@ jobs:
           /tmp/stalker-xray-bootstrap-tests
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
           /tmp/stalker-native-resource-probe-tests
+          # Compile upstream miniLZO as C, then exercise the production C++ wrapper.
+          cc -std=c99 -O2 -I Sources/Native/Upstream -c Sources/Native/Upstream/minilzo.c -o /tmp/stalker-minilzo.o
+          c++ -std=c++17 -Wall -Wextra -Werror -I Sources/Native Sources/Native/STXRayLZO.cpp Tests/STXRayLZOTests.cpp /tmp/stalker-minilzo.o -o /tmp/stalker-minilzo-tests
+          /tmp/stalker-minilzo-tests
           # Verify the native controls and geometry bridge on every push,
           # without invoking a paid macOS/iPhoneOS runner.
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests

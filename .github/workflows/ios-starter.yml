@@ -219,7 +219,7 @@ jobs:
           path: XRayLinkSmoke-unsigned.ipa
           retention-days: 14
   launcher-native-bridge-ipa:
-    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' || github.event.head_commit.message == 'Report imported X-Ray archive inventory' || github.event.head_commit.message == 'Fix Swift archive inventory diagnostic string' || github.event.head_commit.message == 'Link native X-Ray resource bootstrap into launcher' || github.event.head_commit.message == 'Wire X-Ray archive chunk inspector into iOS launcher' || github.event.head_commit.message == 'Build X-Ray chunk metadata diagnostics on iPhone' || github.event.head_commit.message == 'Link bounded X-Ray chunk payload reader into launcher' || github.event.head_commit.message == 'Verify hardened X-Ray payload reader on iOS' || github.event.head_commit.message == 'Verify hardened X-Ray archive indexer on iOS' || github.event.head_commit.message == 'Build upstream CRC32 archive payload probe on iOS' || github.event.head_commit.message == 'Display native X-Ray archive CRC diagnostic on iPhone' || github.event.head_commit.message == 'Show X-Ray archive directory chunk on iPhone' || github.event.head_commit.message == 'Show native X-Ray directory CRC on iPhone' || github.event.head_commit.message == 'Verify X-Ray directory payload reader in iOS launcher' || github.event.head_commit.message == 'Show X-Ray directory entry count on iPhone' || github.event.head_commit.message == 'Display first validated X-Ray archive filename on iPhone' || github.event.head_commit.message == 'List first three validated X-Ray archive filenames on iPhone' || github.event.head_commit.message == 'Link miniLZO resource bridge into experimental launcher IPA' }}
+    if: ${{ github.event.head_commit.message == 'Build STALKER launcher with native X-Ray bridge IPA' || github.event.head_commit.message == 'Add Shadow of Chernobyl resource preflight to X-Ray launcher' || github.event.head_commit.message == 'Add Shadow of Chernobyl folder importer to X-Ray launcher' || github.event.head_commit.message == 'Fix Swift source line breaks in folder importer' || github.event.head_commit.message == 'Fix resource import SwiftUI view placement' || github.event.head_commit.message == 'Show X-Ray diagnostics on selected game screen' || github.event.head_commit.message == 'Validate nonempty X-Ray config in launcher' || github.event.head_commit.message == 'Fix launcher folder importer workflow YAML' || github.event.head_commit.message == 'Embed upstream OpenXRay CRC32 into STALKER launcher IPA' || github.event.head_commit.message == 'Verify embedded OpenXRay CRC32 symbol in launcher IPA' || github.event.head_commit.message == 'Integrate upstream OpenXRay math sample into iOS launcher' || github.event.head_commit.message == 'Fix stripped release binary X-Ray symbol verification' || github.event.head_commit.message == 'Tighten Shadow of Chernobyl resource archive detection' || github.event.head_commit.message == 'Report imported X-Ray archive inventory' || github.event.head_commit.message == 'Fix Swift archive inventory diagnostic string' || github.event.head_commit.message == 'Link native X-Ray resource bootstrap into launcher' || github.event.head_commit.message == 'Wire X-Ray archive chunk inspector into iOS launcher' || github.event.head_commit.message == 'Build X-Ray chunk metadata diagnostics on iPhone' || github.event.head_commit.message == 'Link bounded X-Ray chunk payload reader into launcher' || github.event.head_commit.message == 'Verify hardened X-Ray payload reader on iOS' || github.event.head_commit.message == 'Verify hardened X-Ray archive indexer on iOS' || github.event.head_commit.message == 'Build upstream CRC32 archive payload probe on iOS' || github.event.head_commit.message == 'Display native X-Ray archive CRC diagnostic on iPhone' || github.event.head_commit.message == 'Show X-Ray archive directory chunk on iPhone' || github.event.head_commit.message == 'Show native X-Ray directory CRC on iPhone' || github.event.head_commit.message == 'Verify X-Ray directory payload reader in iOS launcher' || github.event.head_commit.message == 'Show X-Ray directory entry count on iPhone' || github.event.head_commit.message == 'Display first validated X-Ray archive filename on iPhone' || github.event.head_commit.message == 'List first three validated X-Ray archive filenames on iPhone' || github.event.head_commit.message == 'Link miniLZO resource bridge into experimental launcher IPA' || github.event.head_commit.message == 'Show LZO archive directory decoding status in experimental launcher' }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -330,6 +330,16 @@ jobs:
           private func xrayProbeDirectoryEntries(_ path: UnsafePointer<CChar>, _ entries: UnsafeMutablePointer<UInt32>) -> Int32
           @_silgen_name("st_xray_probe_first_archive_directory_name")
           private func xrayProbeDirectoryName(_ path: UnsafePointer<CChar>, _ index: UInt32, _ destination: UnsafeMutablePointer<CChar>, _ capacity: UInt32) -> Int32
+          @_silgen_name("st_xray_create")
+          private func xrayCreate() -> UnsafeMutableRawPointer?
+          @_silgen_name("st_xray_destroy")
+          private func xrayDestroy(_ handle: UnsafeMutableRawPointer?)
+          @_silgen_name("st_xray_initialize")
+          private func xrayInitialize(_ handle: UnsafeMutableRawPointer?, _ edition: Int32) -> Int32
+          @_silgen_name("st_xray_attach_resources")
+          private func xrayAttachResources(_ handle: UnsafeMutableRawPointer?, _ path: UnsafePointer<CChar>) -> Int32
+          @_silgen_name("st_xray_archive_directory_auto_decompress")
+          private func xrayDecodeDirectory(_ handle: UnsafeMutableRawPointer?, _ archive: UInt32, _ destination: UnsafeMutableRawPointer, _ capacity: UInt32, _ actual: UnsafeMutablePointer<UInt32>) -> Int32
           enum XRayStatus {
               static var nativeResourceProbe: String {
                   let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -404,13 +414,33 @@ jobs:
                   let directoryNameStatus = sampleNames.isEmpty
                       ? ", file names unavailable"
                       : ", sample files: " + sampleNames.joined(separator: "; ")
+                  var lzoStatus = ", LZO directory: not checked"
+                  if result == 0, let engine = xrayCreate() {
+                      defer { xrayDestroy(engine) }
+                      let initialized = xrayInitialize(engine, 0)
+                      let attached = initialized == 0
+                          ? root.path.withCString { xrayAttachResources(engine, $0) }
+                          : initialized
+                      if attached == 0 {
+                          var decodedBytes: UInt32 = 0
+                          var decoded = [UInt8](repeating: 0, count: 8 * 1024 * 1024)
+                          let decodeResult = decoded.withUnsafeMutableBytes { buffer in
+                              xrayDecodeDirectory(engine, 0, buffer.baseAddress!, UInt32(buffer.count), &decodedBytes)
+                          }
+                          lzoStatus = decodeResult == 0
+                              ? ", LZO directory decoded: " + String(decodedBytes) + " bytes"
+                              : ", LZO directory unavailable (" + String(decodeResult) + ")"
+                      } else {
+                          lzoStatus = ", LZO resources unavailable (" + String(attached) + ")"
+                      }
+                  }
                   let directoryStatus = directoryResult == 0
                       ? ". Directory chunk: " + String(directoryIndex) + ", size: " + String(directorySize) + ", compressed: " + String(directoryCompressed) + directoryCRCStatus + directoryReadStatus + directoryEntriesStatus + directoryNameStatus
                       : ". Directory chunk: unavailable (" + String(directoryResult) + ")"
                   let firstInfo = infoResult == 0 ? ", first chunk ID: " + String(firstID) + ", size: " + String(firstSize) + ", compressed: " + String(firstCompressed) + crcStatus : ""
                   let chunkStatus = chunkResult == 0 ? "First archive chunks: " + String(chunks) + firstInfo + directoryStatus : "First archive chunk scan: unavailable (" + String(chunkResult) + ")"
                   return result == 0
-                      ? "Native X-Ray resources: READY, archives: " + String(count) + ", bytes: " + String(bytes) + ", loose levels: " + String(levels) + ". " + chunkStatus
+                      ? "Native X-Ray resources: READY, archives: " + String(count) + ", bytes: " + String(bytes) + ", loose levels: " + String(levels) + ". " + chunkStatus + lzoStatus
                       : "Native X-Ray resources: NOT READY (code " + String(result) + ")"
               }
               static var xrMathCheck: String {

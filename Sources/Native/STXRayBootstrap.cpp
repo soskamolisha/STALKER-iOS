@@ -483,10 +483,8 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
               (i + 2 == length || relative_path[i + 2] == '/'))))
             return -1;
     }
-    const int32_t count = st_xray_archive_directory_count(handle, archive_index);
-    if (count < 0) return count;
-    // A compressed directory is decoded only once per lookup rather than
-    // re-running LZO/key autodetection for every entry in a large archive.
+    // Locate the directory before decoding; do not decompress the same
+    // compressed index once for counting and again for path lookup.
     uint32_t directory_chunk = 0, directory_size = 0;
     uint64_t directory_offset = 0;
     int32_t compressed = 0;
@@ -507,7 +505,8 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
         const int32_t status = st_xray_archive_directory_auto_decrypt(
             handle, archive_index, decoded.data(), max_directory, &actual, &key);
         if (status != 0) return status;
-        if (st_xray_validate_directory_records(decoded.data(), actual) != count) return -3;
+        const int32_t count = st_xray_validate_directory_records(decoded.data(), actual);
+        if (count < 0) return count;
         uint32_t cursor = 0;
         for (int32_t index = 0; index < count; ++index) {
             const uint32_t length = static_cast<uint32_t>(decoded[cursor]) |
@@ -520,6 +519,8 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
         }
         return -2;
     }
+    const int32_t count = st_xray_archive_directory_count(handle, archive_index);
+    if (count < 0) return count;
     // Directory entries are validated before exposing names.
     for (int32_t index = 0; index < count; ++index) {
         char name[4097] {};

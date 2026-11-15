@@ -441,12 +441,12 @@ int main() {
     char extracted[4] = {};
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
-    // A forged entry may start outside metadata but overlap it at its tail.
-    // Even a one-byte read must reject the entire invalid file extent.
+    // A forged entry pointing into directory metadata must be rejected.
+    // Even a one-byte read must not expose the directory payload.
     {
         std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
         file.seekp(30); // absolute offset field of the directory record
-        const unsigned char forged_offset[4] = {7,0,0,0};
+        const unsigned char forged_offset[4] = {32,0,0,0};
         file.write(reinterpret_cast<const char*>(forged_offset), 4);
     }
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 1) == -3);

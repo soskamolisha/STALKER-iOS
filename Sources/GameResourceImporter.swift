@@ -211,8 +211,16 @@ enum GameResourceImporter {
         }
         var bytes: Int64 = 0
         while let file = files.nextObject() as? URL {
-            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-            if values.isRegularFile == true { bytes += Int64(values.fileSize ?? 0) }
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey])
+            // A game folder must not contain links that escape the selected tree.
+            // Reject links rather than following or silently dropping them.
+            if values.isSymbolicLink == true { throw ImportFailure.unsafeSymlink }
+            if values.isRegularFile == true {
+                let size = Int64(values.fileSize ?? 0)
+                let (total, overflow) = bytes.addingReportingOverflow(size)
+                guard size >= 0, !overflow else { throw ImportFailure.invalidFolder }
+                bytes = total
+            }
         }
         return bytes
     }
@@ -242,7 +250,7 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, invalidArchive, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
+        case invalidEdition, invalidFolder, invalidArchive, unsafeSymlink, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
         var errorDescription: String? {
             switch self {
             case .invalidFilesystemConfig: return "Invalid fsgame.ltx filesystem configuration"
@@ -251,6 +259,7 @@ enum GameResourceImporter {
             case .invalidEdition: return "Unsupported game edition"
             case .invalidFolder: return "Select an extracted game folder"
             case .invalidArchive: return "Select a nonempty original gamedata.dbN file"
+            case .unsafeSymlink: return "Game folder contains symbolic links; import regular files instead"
             case .insufficientStorage: return "Not enough free storage on this device"
             case .missingResources: return "No recognizable X-Ray game resources found"
             case .tooManyFiles: return "Too many files to validate safely"

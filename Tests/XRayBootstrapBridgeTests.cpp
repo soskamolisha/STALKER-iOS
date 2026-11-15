@@ -171,6 +171,15 @@ int main() {
     assert(st_xray_memory_cform_info(collision, sizeof(collision),
         &memoryVertices, &memoryFaces, memoryMin, nullptr) == -1);
 
+    // Collision meshes with no faces need no index buffer.
+    float vertexOnlyXYZ[3] = {-1.0f, -1.0f, -1.0f};
+    uint32_t vertexOnlyCount = 99, faceOnlyCount = 99;
+    assert(st_xray_memory_cform_mesh(collision, sizeof(collision),
+        vertexOnlyXYZ, 1, nullptr, 0, &vertexOnlyCount, &faceOnlyCount) == 0);
+    assert(vertexOnlyCount == 1 && faceOnlyCount == 0);
+    assert(vertexOnlyXYZ[0] == 0.0f && vertexOnlyXYZ[1] == 0.0f &&
+           vertexOnlyXYZ[2] == 0.0f);
+
     // A complete triangle references three vertices by zero-based index.
     // Reject out-of-range references without changing the previous result.
     std::vector<unsigned char> triangleCollision(collision, collision + sizeof(collision));

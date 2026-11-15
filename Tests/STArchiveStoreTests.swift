@@ -45,4 +45,17 @@ final class STArchiveStoreTests: XCTestCase {
         }
     }
 
+    func testRejectsSymlinkedBaseArchive() throws {
+        let manager = FileManager.default
+        let folder = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? manager.removeItem(at: folder) }
+        let target = folder.appendingPathComponent("actual.db")
+        try Data([1, 2, 3]).write(to: target)
+        try manager.createSymbolicLink(at: folder.appendingPathComponent("gamedata.db0"),
+                                       withDestinationURL: target)
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder))
+        XCTAssertEqual(try Data(contentsOf: target), Data([1, 2, 3]))
+    }
+
 }

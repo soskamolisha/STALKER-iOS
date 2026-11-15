@@ -155,7 +155,7 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                 destination, size);
 }
 int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length) {
-    if (!bytes || length == 0 || length > 64u * 1024u * 1024u) return -3;
+    if (!bytes || length == 0 || length > 8u * 1024u * 1024u) return -3;
     const auto* data = static_cast<const unsigned char*>(bytes);
     uint32_t position = 0;
     int32_t count = 0;
@@ -551,9 +551,10 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
 }
 int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
                               uint32_t* archive_index, uint32_t* entry_index) {
-    if (!handle || !relative_path || !archive_index || !entry_index) return -1;
+    if (!archive_index || !entry_index) return -1;
     *archive_index = 0;
     *entry_index = 0;
+    if (!handle || !relative_path) return -1;
     const int32_t count = st_xray_archive_count(handle);
     if (count < 0) return count;
     for (int32_t index = count; index > 0; --index) {

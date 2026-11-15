@@ -25,5 +25,24 @@ int main() {
            == STALKER_CHUNK_INVALID_ARGUMENT);
     assert(stalker_next_chunk(invalid, sizeof(invalid), &offset, nullptr)
            == STALKER_CHUNK_INVALID_ARGUMENT);
+    // Scanning from a nonzero offset must report absolute payload positions.
+    offset = 10;
+    assert(stalker_next_chunk(bytes, sizeof(bytes), &offset, &info) == STALKER_CHUNK_OK);
+    assert(info.id == 2 && info.payload_offset == 18 && offset == sizeof(bytes));
+
+    // Truncated header leaves offset unchanged.
+    offset = 0;
+    const uint8_t partial[] = {1, 2, 3};
+    assert(stalker_next_chunk(partial, sizeof(partial), &offset, &info)
+           == STALKER_CHUNK_TRUNCATED);
+    assert(offset == 0);
+
+    // Invalid offset and missing data are rejected without dereferencing.
+    offset = sizeof(bytes) + 1;
+    assert(stalker_next_chunk(bytes, sizeof(bytes), &offset, &info)
+           == STALKER_CHUNK_INVALID_ARGUMENT);
+    offset = 0;
+    assert(stalker_next_chunk(nullptr, 1, &offset, &info)
+           == STALKER_CHUNK_INVALID_ARGUMENT);
     return 0;
 }

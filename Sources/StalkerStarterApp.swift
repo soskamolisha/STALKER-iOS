@@ -5,7 +5,32 @@ import UniformTypeIdentifiers
 struct StalkerStarterApp: App {
     var body: some Scene {
         WindowGroup {
+            STLauncherArchiveHost()
+                .preferredColorScheme(.dark)
+        }
+    }
+}
+
+/// Adds an archive-import entry without modifying the existing trilogy launcher.
+private struct STLauncherArchiveHost: View {
+    @State private var showingArchiveImport = false
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
             TrilogyLauncherView()
+            Button {
+                showingArchiveImport = true
+            } label: {
+                Label("Импорт файлов", systemImage: "folder.badge.plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .padding(.top, 12)
+            .padding(.trailing, 16)
+            .accessibilityIdentifier("archiveImportButton")
+        }
+        .sheet(isPresented: $showingArchiveImport) {
+            STArchiveImportView()
                 .preferredColorScheme(.dark)
         }
     }

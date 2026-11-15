@@ -32,6 +32,10 @@ jobs:
           assert "STArchiveImportView()" in app
           assert "STArchiveStore.importArchives(from: folder)" in importer
           assert "STArchiveInventory.scan(directory: destination)" in importer
+          assert "st_xray_create()" in importer
+          assert "st_xray_attach_resources(handle, $0)" in importer
+          assert "st_openxray_runtime_preflight($0)" in importer
+          assert "st_openxray_runtime_resources_linked()" in importer
           assert "moveItem(at: staging, to: destination)" in store
           print("Archive import entry, persistence, and status wiring found")
           PY

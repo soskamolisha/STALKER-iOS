@@ -93,8 +93,29 @@ jobs:
               print("Launcher requires st_xray_embedded_run_with_resources export.", file=output)
           print(report.read_text()[:12000])
           PY
+      - name: Build SDL2 for iPhone ARM64
+        id: sdl2
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
+          cmake -S "$RUNNER_TEMP/sdl2" -B "$RUNNER_TEMP/sdl2-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-configure.log"
+          cmake --build "$RUNNER_TEMP/sdl2-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-build.log"
+          cmake --install "$RUNNER_TEMP/sdl2-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-install.log"
+          find "$RUNNER_TEMP/ios-deps" -iname '*sdl*config*.cmake' -print
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
+        if: steps.sdl2.outcome == 'success'
         continue-on-error: true
         run: |
           set -o pipefail
@@ -105,6 +126,7 @@ jobs:
             -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
             -DBUILD_SHARED_LIBS=OFF \
             -DXRAY_USE_LUAJIT=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -191,6 +213,7 @@ jobs:
         if: always()
         run: |
           echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "SDL2 iOS outcome: ${{ steps.sdl2.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Static library inspection: ${{ steps.inspect.outcome }}" >> "$GITHUB_STEP_SUMMARY"
@@ -202,6 +225,9 @@ jobs:
         with:
           name: openxray-ios-arm64-diagnostics
           path: |
+            ${{ runner.temp }}/sdl2-configure.log
+            ${{ runner.temp }}/sdl2-build.log
+            ${{ runner.temp }}/sdl2-install.log
             ${{ runner.temp }}/openxray-abi-audit.txt
             ${{ runner.temp }}/openxray-requirements.txt
             ${{ runner.temp }}/openxray-configure.log
@@ -223,6 +249,7 @@ jobs:
       - name: Mark experiment unsuccessful if configure or compile failed
         if: always()
         run: |
+          test "${{ steps.sdl2.outcome }}" = "success"
           test "${{ steps.configure.outcome }}" = "success"
           test "${{ steps.compile.outcome }}" = "success"
           test "${{ steps.inspect.outcome }}" = "success"

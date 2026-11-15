@@ -555,6 +555,22 @@ int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
     *archive_index = 0;
     *entry_index = 0;
     if (!handle || !relative_path) return -1;
+    // Validate the path before scanning archives, including an empty set.
+    // Otherwise malformed paths could incorrectly be reported as missing.
+    const size_t length = strnlen(relative_path, 4097);
+    if (length == 0 || length > 4096 || relative_path[0] == '/') return -1;
+    for (size_t i = 0; i < length; ++i) {
+        const char ch = relative_path[i];
+        if (ch == static_cast<char>(92) || ch == ':' ||
+            static_cast<unsigned char>(ch) < 32 ||
+            (ch == '/' && (i == 0 || i + 1 == length || relative_path[i - 1] == '/')))
+            return -1;
+        if ((i == 0 || relative_path[i - 1] == '/') && ch == '.' &&
+            (i + 1 == length || relative_path[i + 1] == '/' ||
+             (i + 1 < length && relative_path[i + 1] == '.' &&
+              (i + 2 == length || relative_path[i + 2] == '/'))))
+            return -1;
+    }
     const int32_t count = st_xray_archive_count(handle);
     if (count < 0) return count;
     for (int32_t index = count; index > 0; --index) {

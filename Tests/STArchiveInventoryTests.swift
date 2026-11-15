@@ -1,0 +1,49 @@
+import Foundation
+import XCTest
+@testable import STALKERiOSStarter
+
+final class STArchiveInventoryTests: XCTestCase {
+    private func withDirectory(_ body: (URL) throws -> Void) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try body(directory)
+    }
+
+    func testEmptyDirectoryReportsMissingBase() throws {
+        try withDirectory { directory in
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertTrue(report.archives.isEmpty)
+            XCTAssertFalse(report.hasBaseArchive)
+        }
+    }
+
+    func testContiguousArchives() throws {
+        try withDirectory { directory in
+            for name in ["gamedata.db0", "gamedata.db1"] {
+                try Data([0x01, 0x02]).write(to: directory.appendingPathComponent(name))
+            }
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertEqual(report.archives.map(\.number), [0, 1])
+            XCTAssertTrue(report.missingNumbers.isEmpty)
+            XCTAssertTrue(report.hasBaseArchive)
+        }
+    }
+
+    func testMissingIndex() throws {
+        try withDirectory { directory in
+            try Data([1]).write(to: directory.appendingPathComponent("gamedata.db0"))
+            try Data([1]).write(to: directory.appendingPathComponent("gamedata.db2"))
+            XCTAssertEqual(try STArchiveInventory.scan(directory: directory).missingNumbers, [1])
+        }
+    }
+
+    func testRejectsSymlink() throws {
+        try withDirectory { directory in
+            let target = directory.appendingPathComponent("target")
+            try Data([1]).write(to: target)
+            try FileManager.default.createSymbolicLink(at: directory.appendingPathComponent("gamedata.db0"), withDestinationURL: target)
+            XCTAssertFalse(try STArchiveInventory.scan(directory: directory).hasBaseArchive)
+        }
+    }
+}

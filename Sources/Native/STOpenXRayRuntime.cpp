@@ -55,9 +55,8 @@ extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
 #endif
 }
 
-extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
-                                                             const char* resource_root) {
-    if (!command_line || !resource_root || !resource_root[0]) return -2;
+extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
+    if (!resource_root || !resource_root[0]) return -2;
     // The upstream resource-aware entry requires an absolute filesystem root.
     // Reject relative paths here instead of relying on upstream behavior.
     if (resource_root[0] != '/') return -6;
@@ -73,6 +72,19 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     // Never silently call the old entry: it cannot receive the imported root.
     const auto run = embedded_run_with_resources();
     if (!run) return -5;
+    const std::string config_path = std::string(resource_root) + "/fsgame.ltx";
+    struct stat config_info {};
+    if (lstat(config_path.c_str(), &config_info) != 0 ||
+        !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
+    return 0;
+}
+
+extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
+                                                             const char* resource_root) {
+    if (!command_line) return -2;
+    const int32_t readiness = st_openxray_runtime_preflight(resource_root);
+    if (readiness != 0) return readiness;
+    const auto run = embedded_run_with_resources();
     if (runtime_active.test_and_set(std::memory_order_acquire)) return -3;
     struct ReleaseFlag {
         ~ReleaseFlag() { runtime_active.clear(std::memory_order_release); }
@@ -80,10 +92,6 @@ extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_li
     // The embedded engine needs a real filesystem config, not merely
     // gamedata archives. Validate again at the native boundary to cover
     // non-Swift callers and races after UI preflight.
-    const std::string config_path = std::string(resource_root) + "/fsgame.ltx";
-    struct stat config_info {};
-    if (lstat(config_path.c_str(), &config_info) != 0 ||
-        !S_ISREG(config_info.st_mode) || config_info.st_size <= 0) return -7;
 #if defined(__cpp_exceptions)
     try {
         return run(command_line, resource_root);

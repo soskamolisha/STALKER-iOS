@@ -467,6 +467,18 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
     }
     return -2;
 }
+// X-Ray assets are typically addressed case-insensitively. Limit folding to
+// ASCII so arbitrary high-bit bytes in archive names are not reinterpreted.
+static bool st_xray_asset_path_equal(const char* left, const char* right, size_t size) {
+    for (size_t i = 0; i < size; ++i) {
+        unsigned char a = static_cast<unsigned char>(left[i]);
+        unsigned char b = static_cast<unsigned char>(right[i]);
+        if (a >= 'A' && a <= 'Z') a = static_cast<unsigned char>(a + ('a' - 'A'));
+        if (b >= 'A' && b <= 'Z') b = static_cast<unsigned char>(b + ('a' - 'A'));
+        if (a != b) return false;
+    }
+    return true;
+}
 int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
                                    const char* relative_path) {
     if (!handle || !relative_path) return -1;
@@ -512,8 +524,10 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
             const uint32_t length = static_cast<uint32_t>(decoded[cursor]) |
                                     (static_cast<uint32_t>(decoded[cursor + 1]) << 8);
             const uint32_t name_length = length - 16;
-            if (name_length == std::strlen(relative_path) &&
-                std::memcmp(decoded.data() + cursor + 14, relative_path, name_length) == 0)
+            if (name_length == length &&
+                st_xray_asset_path_equal(
+                    reinterpret_cast<const char*>(decoded.data() + cursor + 14),
+                    relative_path, name_length))
                 return index;
             cursor += length + 2;
         }
@@ -529,7 +543,7 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
             handle, archive_index, static_cast<uint32_t>(index),
             name, sizeof(name), &real, &packed, &crc, &offset);
         if (status != 0) return status;
-        if (std::strcmp(name, relative_path) == 0) return index;
+        if (std::strlen(name) == length && st_xray_asset_path_equal(name, relative_path, length)) return index;
     }
     return -2;
 }

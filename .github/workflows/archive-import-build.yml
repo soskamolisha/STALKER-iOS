@@ -44,6 +44,17 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
           xcodegen --version
+      - name: Verify XCTest excludes standalone C++ probes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          project = Path("STALKERiOSStarter.xcodeproj/project.pbxproj").read_text()
+          # Standalone native probes belong to dedicated C++ workflows, not XCTest.
+          forbidden = [p.name for p in Path("Tests").glob("*.cpp") if p.name in project]
+          if forbidden:
+              raise SystemExit("Unexpected C++ probe references in Xcode project: " + ", ".join(forbidden))
+          print("Xcode project contains no standalone Tests/*.cpp probes")
+          PY
       - name: Swift syntax preflight
         run: |
           set -euo pipefail

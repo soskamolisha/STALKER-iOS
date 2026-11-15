@@ -678,8 +678,8 @@ int32_t st_xray_load_packed_resource(STXRayHandle handle, const char* relative_p
     constexpr uint32_t max_resource = 64u * 1024u * 1024u;
     if (real > max_resource || real > capacity) return -3;
     // An archive may be replaced or truncated after the catalog was read.
-    // Keep the caller's output untouched until the file data has passed
-    // the native bounds checks performed by the individual readers.
+    // Each read rechecks archive bounds; compressed reads additionally stage
+    // decoded bytes before writing to the caller's destination.
     if (real == 0) {
         // Even empty entries must have a valid in-archive data offset.
         if (stored != 0 || offset < 8) return -3;

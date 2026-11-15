@@ -1032,6 +1032,29 @@ int32_t st_xray_packed_level_collision_info(STXRayHandle handle, const char* lev
     return st_xray_memory_cform_info(
         bytes.data(), actual, vertices, triangles, minimum_xyz, maximum_xyz);
 }
+int32_t st_xray_packed_level_collision_mesh(STXRayHandle handle, const char* level_name,
+                                            float* xyz, uint32_t vertex_capacity,
+                                            uint32_t* indices, uint32_t triangle_capacity,
+                                            uint32_t* vertex_count, uint32_t* triangle_count) {
+    if (!vertex_count || !triangle_count) return -1;
+    *vertex_count = 0;
+    *triangle_count = 0;
+    uint32_t geometry = 0, collision = 0;
+    const int32_t status = st_xray_packed_level_info(
+        handle, level_name, &geometry, &collision);
+    if (status != 0) return status;
+    if (collision == 0) return -2;
+    if (collision > 64u * 1024u * 1024u) return -3;
+    std::vector<unsigned char> bytes(collision);
+    uint32_t actual = 0;
+    const int32_t loaded = st_xray_load_packed_level_file(
+        handle, level_name, 1, bytes.data(), collision, &actual);
+    if (loaded != 0) return loaded;
+    if (actual != collision) return -3;
+    return st_xray_memory_cform_mesh(
+        bytes.data(), actual, xyz, vertex_capacity, indices,
+        triangle_capacity, vertex_count, triangle_count);
+}
 int32_t st_xray_level_count(STXRayHandle handle) {
     if (!handle) return -1;
     return static_cast<int32_t>(static_cast<XRayBootstrap*>(handle)->looseLevels().size());

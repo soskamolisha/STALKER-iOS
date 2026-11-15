@@ -349,7 +349,7 @@ int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_in
             // Decode the real directory using the existing safe LZO + key
             // auto-detection path. Cap memory to avoid unbounded allocations
             // on iOS; callers can distinguish oversized directories (-4).
-            constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+            constexpr uint32_t initial_directory = 256u * 1024u;
             std::vector<unsigned char> decoded(initial_directory);
             uint32_t actual = 0;
             int32_t key = -2;
@@ -401,7 +401,7 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
         if (compressed) {
             // Use the same bounded, validated LZO/key path as directory_count.
             // Do not expose paths from a partially decoded directory.
-            constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+            constexpr uint32_t initial_directory = 256u * 1024u;
             std::vector<unsigned char> decoded(initial_directory);
             uint32_t actual = 0;
             int32_t key = -2;
@@ -558,7 +558,7 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
     }
     if (!has_directory) return -2;
     if (compressed) {
-        constexpr uint32_t initial_directory = 8u * 1024u * 1024u;
+        constexpr uint32_t initial_directory = 256u * 1024u;
         std::vector<unsigned char> decoded(initial_directory);
         uint32_t actual = 0;
         int32_t key = -2;

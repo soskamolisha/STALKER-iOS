@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <vector>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -89,6 +90,19 @@ int main() {
       out.write(reinterpret_cast<const char*>(trailing), sizeof(trailing)); }
     assert(st_xray_probe_first_archive_chunks(root, &chunks) == -4);
     assert(chunks == 0);
+    // Enforce the 64 KiB payload ceiling even when the caller has a larger buffer.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char header[] = {4,0,0,0,1,0,1,0};
+      out.write(reinterpret_cast<const char*>(header), sizeof(header));
+      const std::string oversized(65537, 'x');
+      out.write(oversized.data(), oversized.size()); }
+    assert(st_xray_probe_first_archive_chunks(root, &chunks) == 0);
+    assert(chunks == 1);
+    std::vector<char> largePayload(65537);
+    assert(st_xray_probe_first_archive_chunk_read(root, 0, largePayload.data(), 65537, &actual) == -6);
+    assert(actual == 0);
+    assert(st_xray_probe_first_archive_chunk_crc32(root, 0, &crc) == -6);
+    assert(crc == 0);
     // A compressed chunk must be indexed but not returned as raw decoded data.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char compressedHeader[] = {1,0,0,128,3,0,0,0,'a','b','c'};

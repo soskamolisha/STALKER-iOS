@@ -532,6 +532,26 @@ int32_t st_xray_archive_find_file(STXRayHandle handle, uint32_t archive_index,
     }
     return -2;
 }
+int32_t st_xray_find_resource(STXRayHandle handle, const char* relative_path,
+                              uint32_t* archive_index, uint32_t* entry_index) {
+    if (!handle || !relative_path || !archive_index || !entry_index) return -1;
+    *archive_index = 0;
+    *entry_index = 0;
+    const int32_t count = st_xray_archive_count(handle);
+    if (count < 0) return count;
+    for (int32_t index = count; index > 0; --index) {
+        const int32_t entry = st_xray_archive_find_file(
+            handle, static_cast<uint32_t>(index - 1), relative_path);
+        if (entry >= 0) {
+            *archive_index = static_cast<uint32_t>(index - 1);
+            *entry_index = static_cast<uint32_t>(entry);
+            return 0;
+        }
+        // Missing files are expected; malformed archive indexes are not.
+        if (entry != -2) return entry;
+    }
+    return -2;
+}
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size) {

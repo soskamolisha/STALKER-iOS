@@ -110,3 +110,30 @@ extern "C" int32_t st_xray_probe_first_archive_chunk_crc32(const char* utf8_path
     *crc = st_openxray_crc32(payload, size);
     return 0;
 }
+
+/* Find X-Ray's directory chunk (ID 1) without decoding or trusting its payload. */
+extern "C" int32_t st_xray_probe_first_archive_directory(const char* utf8_path,
+                                                            uint32_t* chunk_index,
+                                                            uint32_t* payload_size,
+                                                            int32_t* compressed) {
+    if (!utf8_path || !chunk_index || !payload_size || !compressed) return -1;
+    *chunk_index = 0;
+    *payload_size = 0;
+    *compressed = 0;
+    stalker::XRayBootstrap bootstrap;
+    if (!bootstrap.initialize(stalker::GameEdition::shadow) ||
+        !bootstrap.attachResources(utf8_path) ||
+        bootstrap.packedArchiveNames().empty()) return -3;
+    const std::string archive = bootstrap.resourceRoot() + "/" +
+                                bootstrap.packedArchiveNames().front();
+    std::vector<stalker::ChunkEntry> entries;
+    if (!stalker::indexXRayChunks(archive, entries, 65536)) return -4;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        if (entries[i].id != 1) continue;
+        *chunk_index = static_cast<uint32_t>(i);
+        *payload_size = entries[i].size;
+        *compressed = entries[i].compressed ? 1 : 0;
+        return 0;
+    }
+    return -2;
+}

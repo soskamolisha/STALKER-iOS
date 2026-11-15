@@ -69,6 +69,10 @@ int main() {
     assert(std::fclose(zip) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
     assert(std::remove(zip_path.c_str()) == 0);
+    const std::string loose_path = test_root + "/gamedata";
+    assert(mkdir(loose_path.c_str(), 0700) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(rmdir(loose_path.c_str()) == 0);
     const std::string archive_path = test_root + "/gamedata.db0";
     FILE* archive = std::fopen(archive_path.c_str(), "wb");
     assert(archive != nullptr);

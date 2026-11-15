@@ -40,9 +40,6 @@ struct STArchiveImportView: View {
                 if let nativeArchiveStatus {
                     Text(nativeArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 }
-                Button("Проверить файлы") { refreshStoredArchives() }
-                    .disabled(isImporting)
-                    .buttonStyle(.bordered)
                 Button("Выбрать папку игры") { showingImporter = true }
                     .disabled(isImporting)
                     .buttonStyle(.borderedProminent)

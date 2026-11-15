@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 @main
 struct LauncherOnlyApp: App {
@@ -24,6 +25,8 @@ struct LauncherOnlyView: View {
     @State private var section = "Главная"
     @State private var infoSection: String?
     @State private var settings = false
+    @State private var importingGameFolder = false
+    @State private var importMessage: String?
     @State private var selectedGame: Edition?
     @State private var launchCheckMessage: String?
     @AppStorage("launcher.showWheel") private var showWheel = true
@@ -203,6 +206,17 @@ struct LauncherOnlyView: View {
                         Text(infoSection ?? "STALKER Mobile")
                             .font(.title2.bold()).foregroundStyle(.yellow)
                         Text(sectionDescription)
+                        if infoSection == "Импорт ресурсов" {
+                            Button("Выбрать папку Тени Чернобыля") {
+                                importingGameFolder = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.yellow)
+                            if let importMessage {
+                                Text(importMessage).font(.footnote)
+                                    .foregroundStyle(.white)
+                            }
+                        }
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white.opacity(0.85))
                         if infoSection == "О проекте" {
@@ -294,6 +308,28 @@ struct LauncherOnlyView: View {
                 }
             }
         }
+        .fileImporter(isPresented: $importingGameFolder, allowedContentTypes: [.folder]) { result in
+            switch result {
+            case .failure(let error):
+                importMessage = "Ошибка выбора: \\(error.localizedDescription)"
+            case .success(let url):
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                let target = documents.appendingPathComponent("ShadowOfChernobyl", isDirectory: true)
+                do {
+                    guard !FileManager.default.fileExists(atPath: target.path) else {
+                        importMessage = "Папка игры уже существует. Повторный импорт не перезаписывает файлы."
+                        return
+                    }
+                    try FileManager.default.copyItem(at: url, to: target)
+                    importMessage = "Папка игры импортирована. Проверь запуск Тени Чернобыля."
+                    launchCheckMessage = nil
+                } catch {
+                    importMessage = "Ошибка копирования: \\(error.localizedDescription)"
+                }
+            }
+        }
         .sheet(isPresented: $settings) {
             NavigationStack {
                 Form {
@@ -316,7 +352,7 @@ struct LauncherOnlyView: View {
     private var sectionDescription: String {
         switch infoSection {
         case "Импорт ресурсов":
-            return "Импорт игровых файлов будет доступен после проверки безопасного подключения ресурсов. В этой версии импорт отключён."
+            return "Выбери папку с fsgame.ltx и gamedata.db* или gamedata. Файлы копируются в хранилище приложения."
         case "Сохранения":
             return "Сохранений пока нет. Этот лаунчер не запускает игры и не создаёт игровые сохранения."
         default:

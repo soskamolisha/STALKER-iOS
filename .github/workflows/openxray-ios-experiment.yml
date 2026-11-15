@@ -93,8 +93,15 @@ jobs:
               print("Launcher requires st_xray_embedded_run_with_resources export.", file=output)
           print(report.read_text()[:12000])
           PY
+      - name: Restore iPhone SDL2 build cache
+        id: sdlcache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ios-deps
+          key: sdl2-2.30.12-iphoneos-arm64-ios17-${{ runner.os }}-v1
       - name: Build SDL2 for iPhone ARM64
         id: sdl2
+        if: steps.sdlcache.outputs.cache-hit != 'true'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -136,9 +143,29 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a") as env:
               print(f"SDL2_DIR={configs[0].parent}", file=env)
           PY
+      - name: Discover installed iOS SDL2 package
+        id: sdlready
+        if: steps.sdlcache.outputs.cache-hit == 'true' || steps.sdl2.outcome == 'success'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, subprocess
+          prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
+          configs = list(prefix.rglob("SDL2Config.cmake")) + list(prefix.rglob("sdl2-config.cmake"))
+          libs = list(prefix.rglob("libSDL2.a"))
+          if not configs or not libs:
+              raise SystemExit("Cached or built SDL2 package is incomplete")
+          if not any("arm64" in subprocess.run(["xcrun", "lipo", "-info", str(lib)],
+                      capture_output=True, text=True).stdout for lib in libs):
+              raise SystemExit("SDL2 package lacks iPhone ARM64 binary")
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              print(f"SDL2_DIR={configs[0].parent}", file=env)
+          print("Using SDL2 CMake config:", configs[0])
+          PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
-        if: steps.sdl2.outcome == 'success'
+        if: steps.sdlready.outcome == 'success'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -238,7 +265,7 @@ jobs:
         run: |
           echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "SDL2 CMake package: ${SDL2_DIR:-not installed}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.sdl2.outcome }}" != "success" ]; then
+          if [ "${{ steps.sdlready.outcome }}" != "success" ]; then
             echo "### Blocker: SDL2 iPhone ARM64 build failed" >> "$GITHUB_STEP_SUMMARY"
             echo "Inspect sdl2-configure.log / sdl2-build.log / sdl2-install.log in diagnostics." >> "$GITHUB_STEP_SUMMARY"
           elif [ "${{ steps.configure.outcome }}" != "success" ]; then
@@ -248,7 +275,7 @@ jobs:
             echo "### Blocker: upstream C++ compilation failed" >> "$GITHUB_STEP_SUMMARY"
             echo "Inspect openxray-compile.log for the first compiler errors." >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "SDL2 iOS outcome: ${{ steps.sdl2.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "SDL2 iOS outcome: ${{ steps.sdlready.outcome }} (cache hit: ${{ steps.sdlcache.outputs.cache-hit }})" >> "$GITHUB_STEP_SUMMARY"
           echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Static library inspection: ${{ steps.inspect.outcome }}" >> "$GITHUB_STEP_SUMMARY"
@@ -284,7 +311,7 @@ jobs:
       - name: Mark experiment unsuccessful if configure or compile failed
         if: always()
         run: |
-          test "${{ steps.sdl2.outcome }}" = "success"
+          test "${{ steps.sdlready.outcome }}" = "success"
           test "${{ steps.configure.outcome }}" = "success"
           test "${{ steps.compile.outcome }}" = "success"
           test "${{ steps.inspect.outcome }}" = "success"

@@ -96,6 +96,17 @@ int32_t st_xray_packed_level_info(STXRayHandle handle, const char* level_name,
 int32_t st_xray_load_packed_level_file(STXRayHandle handle, const char* level_name,
                                         int32_t member, void* destination,
                                         uint32_t capacity, uint32_t* actual_size);
+// Inspect an already decoded X-Ray geometry chunk stream in memory.
+// Chunk payload offsets are relative to the supplied byte buffer.
+int32_t st_xray_memory_chunk_count(const void* bytes, uint32_t size);
+int32_t st_xray_memory_chunk_info(const void* bytes, uint32_t size,
+                                  uint32_t index, uint32_t* chunk_id,
+                                  uint32_t* payload_offset, uint32_t* payload_size,
+                                  int32_t* compressed);
+// Validate a decoded 36-byte collision header and its vertex/triangle payload.
+int32_t st_xray_memory_cform_info(const void* bytes, uint32_t size,
+                                  uint32_t* vertices, uint32_t* triangles,
+                                  float* minimum_xyz, float* maximum_xyz);
 int32_t st_xray_archive_file_read(STXRayHandle handle, uint32_t archive_index,
                                   uint32_t entry_index, uint32_t relative_offset,
                                   void* destination, uint32_t size);

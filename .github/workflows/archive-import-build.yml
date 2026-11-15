@@ -48,10 +48,12 @@ jobs:
         run: |
           set -euo pipefail
           # Parse every app Swift file before the more expensive simulator build.
-          find Sources -type f -name '*.swift' -print0 | while IFS= read -r -d '' source; do
-            echo "Checking Swift syntax: $source"
-            xcrun swiftc -frontend -parse "$source"
-          done
+          {
+            find Sources Tests -type f -name '*.swift' -print0 | while IFS= read -r -d '' source; do
+              echo "Checking Swift syntax: $source"
+              xcrun swiftc -frontend -parse "$source"
+            done
+          } 2>&1 | tee "$RUNNER_TEMP/stalker-swift-syntax.log"
       - name: Build for iOS Simulator (unsigned)
         run: |
           set -o pipefail
@@ -90,7 +92,7 @@ jobs:
           pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|The following build commands failed", re.I)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write("### iOS build diagnostics\n")
-              for filename in ("stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
+              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
                   summary.write(f"\n**{filename}**\n")
                   file = temp / filename
                   if not file.exists():
@@ -109,6 +111,7 @@ jobs:
         with:
           name: STALKERMobile-build-logs
           path: |
+            ${{ runner.temp }}/stalker-swift-syntax.log
             ${{ runner.temp }}/stalker-simulator-build.log
             ${{ runner.temp }}/stalker-device-build.log
             ${{ runner.temp }}/stalker-tests-build.log

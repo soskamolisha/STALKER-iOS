@@ -119,6 +119,25 @@ struct TrilogyLauncherView: View {
                             archiveDetails += russian
                                 ? " [каталог: \(recordCount) записей]"
                                 : " [directory: \(recordCount) records]"
+                            if recordCount > 0 {
+                                var entryName = [CChar](repeating: 0, count: 4097)
+                                var realSize: UInt32 = 0
+                                var storedSize: UInt32 = 0
+                                var crc: UInt32 = 0
+                                var dataOffset: UInt32 = 0
+                                let entryStatus = entryName.withUnsafeMutableBufferPointer { pointer in
+                                    st_xray_archive_directory_entry(
+                                        handle, 0, 0, pointer.baseAddress, UInt32(pointer.count),
+                                        &realSize, &storedSize, &crc, &dataOffset
+                                    )
+                                }
+                                if entryStatus == 0 {
+                                    let firstPath = String(cString: entryName)
+                                    archiveDetails += " [\(firstPath): \(realSize) B / \(storedSize) B]"
+                                } else {
+                                    archiveDetails += " [entry error \(entryStatus)]"
+                                }
+                            }
                         } else if recordCount == -4 {
                             archiveDetails += russian
                                 ? " [каталог сжат: требуется декодирование]"

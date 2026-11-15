@@ -36,6 +36,9 @@ int32_t st_xray_directory_decrypt(void* data, uint32_t size, int32_t key_variant
 int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length);
 // Try plain, worldwide-key and Russian-key LZO directory decoding in that order.
 // Returns key_used: -1 plain, 0 worldwide, 1 Russian.
+// Returns -4 if none of the three variants yields a valid LZO stream,
+// or -5 if LZO decoding succeeds but the directory records are invalid.
+// A too-small destination may also prevent successful LZO decoding.
 int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
                                                  uint32_t archive_index,
                                                  void* destination, uint32_t capacity,

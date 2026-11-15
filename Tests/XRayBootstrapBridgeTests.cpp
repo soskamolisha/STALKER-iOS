@@ -18,6 +18,44 @@ int main() {
         8,0,0,0x80, 1,0,0,0, 0xCC
     };
     assert(st_xray_memory_chunk_count(geometry, sizeof(geometry)) == 2);
+    // 100 distinct archive layouts: 1..100 chunks with alternating compressed
+    // flags and varying payload lengths. Validate every index and its bounds.
+    for (uint32_t chunkTotal = 1; chunkTotal <= 100; ++chunkTotal) {
+        std::vector<unsigned char> stream;
+        std::vector<uint32_t> expectedOffsets;
+        std::vector<uint32_t> expectedSizes;
+        for (uint32_t j = 0; j < chunkTotal; ++j) {
+            const uint32_t payload = j % 7;
+            const uint32_t rawID = (j + 1) | ((j % 2) ? 0x80000000u : 0u);
+            expectedOffsets.push_back(static_cast<uint32_t>(stream.size()) + 8);
+            expectedSizes.push_back(payload);
+            for (uint32_t shift = 0; shift < 32; shift += 8)
+                stream.push_back(static_cast<unsigned char>(rawID >> shift));
+            for (uint32_t shift = 0; shift < 32; shift += 8)
+                stream.push_back(static_cast<unsigned char>(payload >> shift));
+            stream.insert(stream.end(), payload, static_cast<unsigned char>(j));
+        }
+        assert(st_xray_memory_chunk_count(stream.data(),
+            static_cast<uint32_t>(stream.size())) == static_cast<int32_t>(chunkTotal));
+        for (uint32_t j = 0; j < chunkTotal; ++j) {
+            uint32_t id = 0, offset = 0, length = 0;
+            int32_t isCompressed = -1;
+            assert(st_xray_memory_chunk_info(stream.data(),
+                static_cast<uint32_t>(stream.size()), j,
+                &id, &offset, &length, &isCompressed) == 0);
+            assert(id == j + 1 && offset == expectedOffsets[j] &&
+                   length == expectedSizes[j] && isCompressed == static_cast<int32_t>(j % 2));
+        }
+        uint32_t id = 0, offset = 0, length = 0;
+        int32_t isCompressed = -1;
+        assert(st_xray_memory_chunk_info(stream.data(),
+            static_cast<uint32_t>(stream.size()), chunkTotal,
+            &id, &offset, &length, &isCompressed) == -2);
+        // Truncated last chunk header or payload must never be accepted.
+        assert(st_xray_memory_chunk_count(stream.data(),
+            static_cast<uint32_t>(stream.size() - 1)) == -3);
+    }
+
     uint32_t memoryID = 0, memoryOffset = 0, memorySize = 0;
     int32_t memoryCompressed = -1;
     assert(st_xray_memory_chunk_info(geometry, sizeof(geometry), 0,

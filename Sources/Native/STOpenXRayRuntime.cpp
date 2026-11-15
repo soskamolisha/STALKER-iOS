@@ -99,8 +99,12 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
                     DIR* child = opendir(item_path.c_str());
                     if (child) {
                         while (struct dirent* nested = readdir(child)) {
-                            if (std::strcmp(nested->d_name, ".") != 0 &&
-                                std::strcmp(nested->d_name, "..") != 0) {
+                            if (std::strcmp(nested->d_name, ".") == 0 ||
+                                std::strcmp(nested->d_name, "..") == 0) continue;
+                            const std::string nested_path = item_path + "/" + nested->d_name;
+                            struct stat nested_info {};
+                            if (lstat(nested_path.c_str(), &nested_info) == 0 &&
+                                S_ISREG(nested_info.st_mode) && nested_info.st_size > 0) {
                                 has_game_data = true;
                                 break;
                             }

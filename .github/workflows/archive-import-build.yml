@@ -21,6 +21,20 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Verify launcher archive-import integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          app = Path("Sources/StalkerStarterApp.swift").read_text()
+          importer = Path("Sources/Archive/STArchiveImportView.swift").read_text()
+          store = Path("Sources/Archive/STArchiveStore.swift").read_text()
+          assert "STLauncherArchiveHost()" in app
+          assert "STArchiveImportView()" in app
+          assert "STArchiveStore.importArchives(from: folder)" in importer
+          assert "STArchiveInventory.scan(directory: destination)" in importer
+          assert "moveItem(at: staging, to: destination)" in store
+          print("Archive import entry, persistence, and status wiring found")
+          PY
       - name: Build for iOS Simulator (unsigned)
         run: |
           set -o pipefail

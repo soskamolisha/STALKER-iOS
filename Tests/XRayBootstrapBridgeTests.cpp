@@ -441,6 +441,22 @@ int main() {
     char extracted[4] = {};
     assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     assert(std::memcmp(extracted, "DATA", 4) == 0);
+    // A forged entry may start outside metadata but overlap it at its tail.
+    // Even a one-byte read must reject the entire invalid file extent.
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(30); // absolute offset field of the directory record
+        const unsigned char forged_offset[4] = {7,0,0,0};
+        file.write(reinterpret_cast<const char*>(forged_offset), 4);
+    }
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 1) == -3);
+    {
+        std::fstream file(archive, std::ios::binary | std::ios::in | std::ios::out);
+        file.seekp(30);
+        const unsigned char restored_offset[4] = {42,0,0,0};
+        file.write(reinterpret_cast<const char*>(restored_offset), 4);
+    }
+    assert(st_xray_archive_file_read(handle, 0, 0, 0, extracted, 4) == 0);
     // Metadata probes must not decompress game assets or allocate their bodies.
     uint32_t probeReal = 99, probeStored = 99;
     assert(st_xray_packed_resource_info(handle, "test.ltx", &probeReal, &probeStored) == 0);

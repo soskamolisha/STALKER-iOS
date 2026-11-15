@@ -70,6 +70,10 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     if (root_length > 1 && resource_root[root_length - 1] == '/') return -6;
     struct stat root_info;
     if (lstat(resource_root, &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;
+    // The sandbox may expose a directory that is not readable by the engine.
+    DIR* root_probe = opendir(resource_root);
+    if (!root_probe) return -6;
+    closedir(root_probe);
     // Never silently call the old entry: it cannot receive the imported root.
     const std::string config_path = std::string(resource_root) + "/fsgame.ltx";
     struct stat config_info {};

@@ -721,6 +721,24 @@ int main() {
         int32_t packedChunkCompressed = -1;
         assert(st_xray_packed_level_chunk_info(handle, "zaton", 0,
             &packedChunkID, &packedChunkOffset, &packedChunkSize, &packedChunkCompressed) == 0);
+        unsigned char payload[2] = {0,0};
+        uint32_t payloadBytes = 99;
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
+            payload, sizeof(payload), &payloadBytes) == 0);
+        assert(payloadBytes == 2 && payload[0] == 0xAA && payload[1] == 0xBB);
+        payload[0] = 0xEE;
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
+            payload, 1, &payloadBytes) == -3);
+        assert(payloadBytes == 2 && payload[0] == 0xEE);
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 1,
+            payload, sizeof(payload), &payloadBytes) == -2);
+        assert(payloadBytes == 0);
+        assert(st_xray_packed_level_chunk_read(handle, "../zaton", 0,
+            payload, sizeof(payload), &payloadBytes) == -1);
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
+            payload, sizeof(payload), nullptr) == -1);
+        assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
+            nullptr, 2, &payloadBytes) == -1);
         assert(packedChunkID == 7 && packedChunkOffset == 8 &&
                packedChunkSize == 2 && packedChunkCompressed == 0);
         assert(st_xray_packed_level_chunk_info(handle, "zaton", 1,

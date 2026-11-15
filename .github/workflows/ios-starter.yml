@@ -81,7 +81,9 @@ jobs:
           /tmp/stalker-minilzo-tests
           # Exercise packed archive and compressed geometry on every Linux push.
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/XRayLevelFiles.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayLevelInspection.cpp Sources/Native/XRayCFormHeader.cpp Sources/Native/STXRayBootstrap.cpp Sources/Native/STXRayLZO.cpp Sources/Native/STXRayCrypto.cpp Tests/XRayBootstrapBridgeTests.cpp /tmp/stalker-minilzo.o -I Sources/Native/Upstream -o /tmp/stalker-xray-bridge-linux-tests
+          echo "::group::X-Ray packed archive bridge regression"
           /tmp/stalker-xray-bridge-linux-tests
+          echo "::endgroup::"
           # Verify the native controls and geometry bridge on every push,
           # without invoking a paid macOS/iPhoneOS runner.
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/STInput.cpp Tests/InputTests.cpp -o /tmp/stalker-input-tests

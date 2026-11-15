@@ -726,6 +726,22 @@ int main() {
         assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
             payload, sizeof(payload), &payloadBytes) == 0);
         assert(payloadBytes == 2 && payload[0] == 0xAA && payload[1] == 0xBB);
+        uint32_t decodedChunkBytes = 99;
+        unsigned char decodedChunk[2] = {0,0};
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
+            decodedChunk, sizeof(decodedChunk), 2, &decodedChunkBytes) == 0);
+        assert(decodedChunkBytes == 2 && decodedChunk[0] == 0xAA && decodedChunk[1] == 0xBB);
+        decodedChunk[0] = 0xEE;
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
+            decodedChunk, sizeof(decodedChunk), 1, &decodedChunkBytes) == -3);
+        assert(decodedChunk[0] == 0xEE);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
+            decodedChunk, 1, 2, &decodedChunkBytes) == -3);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 1,
+            decodedChunk, sizeof(decodedChunk), 2, &decodedChunkBytes) == -2);
+        assert(st_xray_packed_level_chunk_decode(handle, "zaton", 0,
+            decodedChunk, sizeof(decodedChunk), 2, nullptr) == -1);
+
         payload[0] = 0xEE;
         assert(st_xray_packed_level_chunk_read(handle, "zaton", 0,
             payload, 1, &payloadBytes) == -3);

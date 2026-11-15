@@ -6,20 +6,27 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-// Optional static engine exports: weak references allow the launcher to build
-// without an engine archive. When an archive is force-loaded, the linker can
-// resolve these symbols even if Release strips the dynamic symbol table.
+// Resolve optional exports at runtime in the standalone iOS launcher.
+// The actual engine must export these C entry points when it is integrated.
 #if defined(__APPLE__)
-extern "C" int st_xray_embedded_run(const char*) __attribute__((weak_import));
-extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak_import));
+#include <dlfcn.h>
+using EmbeddedRun = int (*)(const char*);
+using EmbeddedRunWithResources = int (*)(const char*, const char*);
+static EmbeddedRun embedded_run() {
+    return reinterpret_cast<EmbeddedRun>(dlsym(RTLD_DEFAULT, "st_xray_embedded_run"));
+}
+static EmbeddedRunWithResources embedded_run_with_resources() {
+    return reinterpret_cast<EmbeddedRunWithResources>(
+        dlsym(RTLD_DEFAULT, "st_xray_embedded_run_with_resources"));
+}
 #else
 extern "C" int st_xray_embedded_run(const char*) __attribute__((weak));
 extern "C" int st_xray_embedded_run_with_resources(const char*, const char*) __attribute__((weak));
-#endif
 static auto embedded_run() -> int (*)(const char*) { return st_xray_embedded_run; }
 static auto embedded_run_with_resources() -> int (*)(const char*, const char*) {
     return st_xray_embedded_run_with_resources;
 }
+#endif
 
 extern "C" int32_t st_openxray_runtime_linked(void) {
     return embedded_run() != nullptr ? 1 : 0;

@@ -784,5 +784,5 @@ struct TrilogyLauncherView: View {
             }
         }
     }
-}                                     gameArtwork(for: game)
+}
 

@@ -44,20 +44,18 @@ def main():
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Archive validation failed: {error}", file=sys.stderr)
         return 1
-    if not has_defined_export(symbols, "_st_xray_embedded_run"):
-        print("Missing st_xray_embedded_run export", file=sys.stderr)
-        return 1
-    if args.require_resources and not has_defined_export(
-        symbols, "_st_xray_embedded_run_with_resources"
-    ):
-        print("Missing st_xray_embedded_run_with_resources export; "
-              "archive cannot receive imported game root", file=sys.stderr)
-        return 1
+    # A legacy entry alone cannot receive the imported game root.
+    # Always require the resource-aware entry for the iOS integration path.
+    required = ["_st_xray_embedded_run", "_st_xray_embedded_run_with_resources"]
+    for symbol in required:
+        if not has_defined_export(symbols, symbol):
+            print(f"Missing {symbol[1:]} export; archive cannot run imported "
+                  "Shadow of Chernobyl resources", file=sys.stderr)
+            return 1
     # The entry symbol is weak in the launcher bridge; a static archive
     # therefore requires force-loading or the linker may omit the engine.
     print("Validated arm64 OpenXRay archive and embedded entry symbol.")
-    if args.require_resources:
-        print("Validated resource-aware entry export (runtime behavior remains unverified).")
+    print("Validated resource-aware entry export (runtime behavior remains unverified).")
     # xcodebuild receives the flag as one build-setting argument.
     print(f"Xcode OTHER_LDFLAGS: -Wl,-force_load,{archive}")
     print("WARNING: upstream platform dependencies and game execution remain unverified.")

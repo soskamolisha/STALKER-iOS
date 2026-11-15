@@ -33,7 +33,7 @@ enum STArchiveStore {
         guard report.hasBaseArchive else { throw ImportError.noBaseArchive }
         guard report.missingNumbers.isEmpty,
               !report.archives.contains(where: { $0.bytes == 0 }),
-              !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") }) else {
+              !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") || $0.hasPrefix("Not a regular file:") || $0.hasPrefix("Unrecognized archive name:") }) else {
             throw ImportError.incompleteArchiveSet
         }
         let destination = try destinationRoot(fileManager: fileManager)

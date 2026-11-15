@@ -113,6 +113,18 @@ int main() {
     assert(directoryEntries == 0);
     assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == -7);
 
+    // Reject parent-directory traversal even when the record is structurally valid.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char traversal[] = {
+          1,0,0,0, 26,0,0,0,
+          24,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          '.','.','/','e','v','i','l','x', 0,0,0,0
+      };
+      out.write(reinterpret_cast<const char*>(traversal), sizeof(traversal)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
+    assert(directoryEntries == 0);
+    assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == -7);
+
     // Two adjacent chunks must retain their own offsets and payload boundaries.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoChunks[] = {

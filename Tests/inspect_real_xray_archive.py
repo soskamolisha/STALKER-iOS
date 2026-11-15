@@ -3,12 +3,23 @@
 import argparse
 import os
 import struct
+import zipfile
 import sys
 
 def inspect(path):
-    size = os.path.getsize(path)
+    archive_zip = zipfile.ZipFile(path) if path.lower().endswith(".zip") else None
+    if archive_zip:
+        members = [i for i in archive_zip.infolist() if os.path.basename(i.filename).lower().startswith("gamedata.db") and not i.filename.startswith("__MACOSX/")]
+        if len(members) != 1:
+            print("ERROR: expected exactly one gamedata.db archive in ZIP")
+            return 1
+        size = members[0].file_size
+        stream_context = archive_zip.open(members[0])
+    else:
+        size = os.path.getsize(path)
+        stream_context = open(path, "rb")
     print(f"archive={os.path.basename(path)} bytes={size}")
-    with open(path, "rb") as stream:
+    with stream_context as stream:
         offset = 0
         for index in range(4096):
             if offset == size:
@@ -34,6 +45,6 @@ def inspect(path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("archive", help="Path to locally owned gamedata.db0")
+    parser.add_argument("archive", help="Path to locally owned gamedata.db0 or gamedata.db0.zip")
     args = parser.parse_args()
     sys.exit(inspect(args.archive))

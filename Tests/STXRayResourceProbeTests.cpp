@@ -83,6 +83,18 @@ int main() {
       const unsigned char malformedDirectory[] = {1,0,0,0,3,0,0,0,'a','b','c'};
       out.write(reinterpret_cast<const char*>(malformedDirectory), sizeof(malformedDirectory)); }
     assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
+    // A valid first entry must not hide malformed trailing directory data.
+    { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
+      const unsigned char mixedDirectory[] = {
+          1,0,0,0, 22,0,0,0,
+          20,0, 0,0,0,0,0,0,0,0,0,0,0,0,
+          't','e','s','t', 0,0,0,0,
+          2,0,0,0, 3,0,0,0, 'x','y','z'
+      };
+      out.write(reinterpret_cast<const char*>(mixedDirectory), sizeof(mixedDirectory)); }
+    assert(st_xray_probe_first_archive_directory_entries(root, &directoryEntries) == -7);
+    assert(st_xray_probe_first_archive_directory_name(root, 0, directoryName, sizeof(directoryName)) == -7);
+
     // Two adjacent chunks must retain their own offsets and payload boundaries.
     { std::ofstream out(archive, std::ios::binary | std::ios::trunc);
       const unsigned char twoChunks[] = {

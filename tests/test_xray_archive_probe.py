@@ -1,4 +1,4 @@
-"""Unit tests for the read-only archive probe (no game assets required)."""
+"""Unit tests for read-only archive probe, using synthetic data only."""
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -15,7 +15,7 @@ class ArchiveProbeTests(unittest.TestCase):
     def test_non_zip_binary(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "gamedata.db0"
-            path.write_bytes(b"\\x01\\x02\\x03\\x04" + b"test-data")
+            path.write_bytes(bytes([1, 2, 3, 4]) + b"test-data")
             info = module.inspect(path)
             self.assertFalse(info["zip_container"])
             self.assertEqual(info["size_bytes"], 13)
@@ -32,6 +32,15 @@ class ArchiveProbeTests(unittest.TestCase):
             self.assertEqual(info["zip_entries"], 1)
             self.assertEqual(info["zip_first_entries"][0]["name"], "gamedata.db0")
             self.assertEqual(info["zip_total_uncompressed_bytes"], 9)
+            self.assertEqual(info["db_member_candidates"][0]["name"], "gamedata.db0")
+
+    def test_no_db_members(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "sample.zip"
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("readme.txt", "hello")
+            info = module.inspect(path)
+            self.assertEqual(info["db_member_candidates"], [])
 
     def test_empty_file(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -40,6 +49,10 @@ class ArchiveProbeTests(unittest.TestCase):
             info = module.inspect(path)
             self.assertEqual(info["size_bytes"], 0)
             self.assertNotIn("first_u32_le", info)
+
+    def test_invalid_sample_size(self):
+        with self.assertRaises(ValueError):
+            module.inspect(Path("unused.db0"), sample_size=0)
 
     def test_missing_file(self):
         with self.assertRaises(FileNotFoundError):

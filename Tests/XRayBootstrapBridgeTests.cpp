@@ -68,6 +68,20 @@ int main() {
         &memoryID, &memoryOffset, &memorySize, &memoryCompressed) == -2);
     assert(st_xray_memory_chunk_count(geometry, sizeof(geometry) - 1) == -3);
     assert(st_xray_memory_chunk_count(nullptr, 0) == -1);
+    // Boundary cases: empty input, short headers, oversized payload claims,
+    // maximum valid chunk count and the first count beyond the safety limit.
+    const unsigned char shortHeader[7] = {1,0,0,0,0,0,0};
+    assert(st_xray_memory_chunk_count(shortHeader, sizeof(shortHeader)) == -3);
+    const unsigned char oversizedPayload[8] = {1,0,0,0,255,255,255,255};
+    assert(st_xray_memory_chunk_count(oversizedPayload, sizeof(oversizedPayload)) == -3);
+    std::vector<unsigned char> maxChunks(65536u * 8u, 0);
+    for (uint32_t j = 0; j < 65536u; ++j) maxChunks[j * 8u] = 1;
+    assert(st_xray_memory_chunk_count(maxChunks.data(),
+        static_cast<uint32_t>(maxChunks.size())) == 65536);
+    maxChunks.insert(maxChunks.end(), {1,0,0,0,0,0,0,0});
+    assert(st_xray_memory_chunk_count(maxChunks.data(),
+        static_cast<uint32_t>(maxChunks.size())) == -3);
+
     const unsigned char collision[] = {
         4,0,0,0, 1,0,0,0, 0,0,0,0,
         0,0,0,0, 0,0,0,0, 0,0,0,0,

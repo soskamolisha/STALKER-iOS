@@ -1,4 +1,4 @@
-name: X-Ray archive probe tests
+name: X-Ray archive diagnostics tests
 
 on:
   push:
@@ -6,7 +6,9 @@ on:
       - feature/trilogy-launcher-v3
     paths:
       - 'tools/xray_archive_probe.py'
+      - 'tools/xray_chunk_scan.py'
       - 'tests/test_xray_archive_probe.py'
+      - 'tests/test_xray_chunk_scan.py'
       - '.github/workflows/xray-archive-tests.yml'
   workflow_dispatch:
 
@@ -19,5 +21,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run archive probe regression tests
-        run: python -m unittest discover -s tests -p 'test_xray_archive_probe.py' -v
+      - name: Run archive diagnostic regression tests
+        run: python -m unittest discover -s tests -p 'test_xray_*.py' -v

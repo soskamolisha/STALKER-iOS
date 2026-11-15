@@ -23,6 +23,25 @@ extern "C" int32_t st_xray_probe_shadow_resources(const char* utf8_path,
     return 0;
 }
 
+
+/* Identify the exact archive selected by the existing first-archive probes.
+   Callers can distinguish gamedata.db0 from other archive files. */
+extern "C" int32_t st_xray_probe_first_archive_name(const char* utf8_path,
+                                                       char* destination,
+                                                       uint32_t capacity) {
+    if (!utf8_path || !destination || capacity == 0) return -1;
+    destination[0] = 0;
+    stalker::XRayBootstrap bootstrap;
+    if (!bootstrap.initialize(stalker::GameEdition::shadow) ||
+        !bootstrap.attachResources(utf8_path)) return -3;
+    const auto& names = bootstrap.packedArchiveNames();
+    if (names.empty()) return -2;
+    const auto& name = names.front();
+    if (name.size() >= capacity) return -6;
+    std::memcpy(destination, name.c_str(), name.size() + 1);
+    return 0;
+}
+
 extern "C" int32_t st_xray_probe_first_archive_chunks(const char* utf8_path,
                                                         uint32_t* chunk_count) {
     if (!utf8_path || !chunk_count) return -1;

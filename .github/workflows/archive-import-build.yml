@@ -79,7 +79,7 @@ jobs:
           from pathlib import Path
           import os, re
           temp = Path(os.environ["RUNNER_TEMP"])
-          pattern = re.compile(r"(^|\\s)(error:|fatal error:)|BUILD FAILED|The following build commands failed", re.I)
+          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|The following build commands failed", re.I)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write("### iOS build diagnostics\\n")
               for filename in ("stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):

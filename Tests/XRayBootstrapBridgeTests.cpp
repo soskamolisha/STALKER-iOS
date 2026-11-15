@@ -177,6 +177,22 @@ int main() {
         static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 0,
         meshIndices, 1, &meshVertices, &meshTriangles) == -3);
     assert(meshVertices == 0 && meshTriangles == 0 && meshXYZ[0] == 123.0f);
+    // Invalid index-buffer capacity and null buffers cannot write partial meshes.
+    meshIndices[0] = 99;
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
+        meshIndices, 0, &meshVertices, &meshTriangles) == -3);
+    assert(meshVertices == 0 && meshTriangles == 0 && meshIndices[0] == 99);
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), nullptr, 1,
+        meshIndices, 1, &meshVertices, &meshTriangles) == -1);
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
+        nullptr, 1, &meshVertices, &meshTriangles) == -1);
+    assert(st_xray_memory_cform_mesh(triangleCollision.data(),
+        static_cast<uint32_t>(triangleCollision.size()), meshXYZ, 1,
+        meshIndices, 1, nullptr, &meshTriangles) == -1);
+
     const uint32_t faceStart = 36 + 12;
     triangleCollision[faceStart] = 1; // vertex index 1 is out of range
     memoryVertices = 99;

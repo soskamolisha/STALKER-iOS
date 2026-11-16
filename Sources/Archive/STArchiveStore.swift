@@ -84,7 +84,14 @@ enum STArchiveStore {
         // The native runtime preflight requires fsgame.ltx at ImportedGame root.
         // Do not follow symlinks or silently import an empty configuration.
         let configSource = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
-        if fileManager.fileExists(atPath: configSource.path) {
+        // Check the directory entry itself: FileManager attributes may follow a
+        // symbolic link, which must not be accepted as an imported config.
+        let configEntry = try? configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
+        if configEntry != nil {
+            guard configEntry?.isSymbolicLink == false,
+                  configEntry?.isRegularFile == true else {
+                throw ImportError.invalidDestination
+            }
             let configAttributes = try fileManager.attributesOfItem(atPath: configSource.path)
             guard configAttributes[.type] as? FileAttributeType == .typeRegular,
                   let configSize = (configAttributes[.size] as? NSNumber)?.uint64Value,

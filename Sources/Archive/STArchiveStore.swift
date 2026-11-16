@@ -162,8 +162,11 @@ enum STArchiveStore {
         let configSource = sourceConfig
         // Check the directory entry itself: FileManager attributes may follow a
         // symbolic link, which must not be accepted as an imported config.
-        let sourceEntries = try fileManager.contentsOfDirectory(atPath: configSource.deletingLastPathComponent().path)
-        if sourceEntries.contains("fsgame.ltx") {
+        // Files may grant access to Data without granting access to its parent.
+        // An unreadable optional parent config must not abort a valid archive
+        // import; an existing configuration is preserved from the prior import.
+        let sourceEntries = try? fileManager.contentsOfDirectory(atPath: configSource.deletingLastPathComponent().path)
+        if sourceEntries?.contains("fsgame.ltx") == true {
             let configEntry = try configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
             guard configEntry.isSymbolicLink == false,
                   configEntry.isRegularFile == true else {

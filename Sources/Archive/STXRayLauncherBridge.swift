@@ -71,7 +71,14 @@ final class STXRayLauncherBridge {
         guard readiness == 0 else { return readiness }
         let argsFile = root.appendingPathComponent("ios_args.txt")
         let arguments: String
-        if let bytes = try? Data(contentsOf: argsFile),
+        let argsAttributes = try? argsFile.resourceValues(forKeys: [
+            .isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey
+        ])
+        if argsAttributes?.isSymbolicLink == false,
+           argsAttributes?.isRegularFile == true,
+           let fileSize = argsAttributes?.fileSize,
+           fileSize > 0, fileSize <= 4096,
+           let bytes = try? Data(contentsOf: argsFile),
            bytes.count <= 4096, !bytes.contains(0),
            let text = String(data: bytes, encoding: .utf8),
            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

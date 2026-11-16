@@ -55,7 +55,7 @@ struct STXRayEngineStatusView: View {
             Button(isChecking ? "Проверка…" : "Проверить движок и файлы игры") {
                 refresh()
             }
-            .disabled(isChecking)
+            .disabled(isChecking || isLaunching)
             .buttonStyle(.borderedProminent)
         }
         .padding()
@@ -70,6 +70,7 @@ struct STXRayEngineStatusView: View {
     private func launchGame() {
         guard edition == 0, canLaunch, !isLaunching, !isChecking else { return }
         isLaunching = true
+        needsRecheck = false
         canLaunch = false
         launchResult = "Передача управления встроенному X-Ray…"
         let root = gameRoot
@@ -81,6 +82,7 @@ struct STXRayEngineStatusView: View {
                     ? "X-Ray завершил работу (код 0). Успешный запуск игры не подтверждён."
                     : "X-Ray вернул код \(result): " +
                       String(cString: st_openxray_runtime_status_message(result))
+                needsRecheck = false
                 refresh()
             }
         }
@@ -88,6 +90,8 @@ struct STXRayEngineStatusView: View {
 
     private func refresh() {
         guard !isLaunching else {
+            // A scene-phase refresh may arrive while native X-Ray owns the
+            // resources. Run one fresh scan only after the engine returns.
             needsRecheck = true
             return
         }

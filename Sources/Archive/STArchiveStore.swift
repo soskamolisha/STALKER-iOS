@@ -69,7 +69,12 @@ enum STArchiveStore {
             return overflow ? UInt64.max : sum
         }
         // Include the optional original config in the capacity estimate.
-        let sourceConfig = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        // The working iOS port stores fsgame.ltx beside Data, not inside it.
+        // Prefer a config inside Data when provided; otherwise use its parent.
+        let dataConfig = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let parentConfig = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let sourceConfig = fileManager.fileExists(atPath: dataConfig.path)
+            ? dataConfig : parentConfig
         let configBytes = ((try? fileManager.attributesOfItem(atPath: sourceConfig.path))?[.size] as? NSNumber)?.uint64Value ?? 0
         let (totalRequired, sizeOverflow) = requiredBytes.addingReportingOverflow(configBytes)
         guard !sizeOverflow else { throw ImportError.insufficientSpace }
@@ -149,10 +154,10 @@ enum STArchiveStore {
         // Preserve the original X-Ray filesystem configuration alongside archives.
         // The native runtime preflight requires fsgame.ltx at ImportedGame root.
         // Do not follow symlinks or silently import an empty configuration.
-        let configSource = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let configSource = sourceConfig
         // Check the directory entry itself: FileManager attributes may follow a
         // symbolic link, which must not be accepted as an imported config.
-        let sourceEntries = try fileManager.contentsOfDirectory(atPath: gameSource.path)
+        let sourceEntries = try fileManager.contentsOfDirectory(atPath: configSource.deletingLastPathComponent().path)
         if sourceEntries.contains("fsgame.ltx") {
             let configEntry = try configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
             guard configEntry.isSymbolicLink == false,

@@ -34,6 +34,7 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
   -scheme STALKERiOSStarter -configuration Debug \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build-openxray CODE_SIGNING_ALLOWED=NO \
+  GCC_PREPROCESSOR_DEFINITIONS="$(inherited) ST_XRAY_STATIC_ENGINE_ADAPTER=1" \
   OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive -Wl,-u,_st_xray_embedded_run_with_resources -Wl,-exported_symbol,_st_xray_embedded_run_with_resources" build
 # A successful link alone is insufficient: the launcher resolves the resource-
 # aware entry with dlsym(RTLD_DEFAULT), so it must remain exported by the app.

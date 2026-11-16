@@ -11,6 +11,7 @@ on:
       - 'Sources/Native/STChunks.h'
       - 'Tests/STChunksRegression.cpp'
       - 'Sources/Archive/**'
+      - 'Scripts/test-archive-inventory-macos.sh'
       - 'Tests/STArchiveInventoryTests.swift'
       - 'project.yml'
       - '.github/workflows/ios-minilzo.yml'
@@ -23,6 +24,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Verify archive inventory on macOS
+        run: bash Scripts/test-archive-inventory-macos.sh
       - name: Build MiniLZO for physical iPhone
         run: bash Scripts/build-ios-minilzo.sh
       - name: Verify real MiniLZO roundtrip on macOS host

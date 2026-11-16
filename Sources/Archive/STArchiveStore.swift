@@ -99,10 +99,11 @@ enum STArchiveStore {
         let configSource = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
         // Check the directory entry itself: FileManager attributes may follow a
         // symbolic link, which must not be accepted as an imported config.
-        let configEntry = try? configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
-        if configEntry != nil {
-            guard configEntry?.isSymbolicLink == false,
-                  configEntry?.isRegularFile == true else {
+        let sourceEntries = try fileManager.contentsOfDirectory(atPath: source.path)
+        if sourceEntries.contains("fsgame.ltx") {
+            let configEntry = try configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
+            guard configEntry.isSymbolicLink == false,
+                  configEntry.isRegularFile == true else {
                 throw ImportError.invalidDestination
             }
             let configAttributes = try fileManager.attributesOfItem(atPath: configSource.path)

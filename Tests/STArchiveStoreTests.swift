@@ -318,4 +318,14 @@ final class STArchiveStoreTests: XCTestCase {
         }
     }
 
+    func testNativePreflightRejectsRenamedZipBase() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("[filesystem]".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+        try Data([0x50, 0x4B, 0x03, 0x04]).write(to: root.appendingPathComponent("gamedata.db0"))
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
+    }
+
 }

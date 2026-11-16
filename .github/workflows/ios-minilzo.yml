@@ -82,8 +82,9 @@ jobs:
           test -d "$APP"
           test -f "$APP/STALKERiOSStarter"
           xcrun lipo -info "$APP/STALKERiOSStarter"
+          xcrun nm "$APP/STALKERiOSStarter" > "$RUNNER_TEMP/stalker-lzo-symbols.txt"
           for symbol in _st_chunk_decode_lzo _lzo1x_decompress_safe _st_lzo1x_available; do
-            if ! xcrun nm "$APP/STALKERiOSStarter" | awk '{print $NF}' | grep -Fxq "$symbol"; then
+            if ! awk -v expected="$symbol" '$NF == expected { found = 1 } END { exit !found }' "$RUNNER_TEMP/stalker-lzo-symbols.txt"; then
               echo "::error::Missing linked symbol: $symbol"
               exit 1
             fi

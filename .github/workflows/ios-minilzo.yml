@@ -10,6 +10,8 @@ on:
       - 'Sources/Native/STChunks.cpp'
       - 'Sources/Native/STChunks.h'
       - 'Tests/STChunksRegression.cpp'
+      - 'Sources/Archive/**'
+      - 'Tests/STArchiveInventoryTests.swift'
       - 'project.yml'
       - '.github/workflows/ios-minilzo.yml'
   pull_request:

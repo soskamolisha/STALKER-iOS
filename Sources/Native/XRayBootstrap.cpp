@@ -66,8 +66,8 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
         unsigned char signature[4] {};
         const size_t read = std::fread(signature, 1, sizeof(signature), candidate);
         std::fclose(candidate);
-        if (read != sizeof(signature)) continue;
-        if (signature[0] == 0x50 && signature[1] == 0x4b &&
+        if (read == 0) continue;
+        if (read == sizeof(signature) && signature[0] == 0x50 && signature[1] == 0x4b &&
             ((signature[2] == 0x03 && signature[3] == 0x04) ||
              (signature[2] == 0x05 && signature[3] == 0x06) ||
              (signature[2] == 0x07 && signature[3] == 0x08))) continue;

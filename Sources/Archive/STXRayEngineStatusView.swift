@@ -68,8 +68,9 @@ struct STXRayEngineStatusView: View {
     }
 
     private func launchGame() {
-        guard canLaunch, !isLaunching else { return }
+        guard edition == 0, canLaunch, !isLaunching, !isChecking else { return }
         isLaunching = true
+        canLaunch = false
         launchResult = "Передача управления встроенному X-Ray…"
         let root = gameRoot
         DispatchQueue.global(qos: .userInitiated).async {
@@ -80,11 +81,16 @@ struct STXRayEngineStatusView: View {
                     ? "X-Ray завершил работу (код 0). Успешный запуск игры не подтверждён."
                     : "X-Ray вернул код \(result): " +
                       String(cString: st_openxray_runtime_status_message(result))
+                refresh()
             }
         }
     }
 
     private func refresh() {
+        guard !isLaunching else {
+            needsRecheck = true
+            return
+        }
         guard !isChecking else {
             needsRecheck = true
             return
@@ -108,7 +114,7 @@ struct STXRayEngineStatusView: View {
                 switch result {
                 case .success(let snapshot):
                     summary = snapshot.statusText
-                    canLaunch = snapshot.prerequisitesPresent && snapshot.resourceEngineLinked
+                    canLaunch = edition == 0 && snapshot.prerequisitesPresent && snapshot.resourceEngineLinked && !isLaunching
                     failedArchives = snapshot.unreadableArchives.isEmpty ? "" : "Не удалось прочитать: " + snapshot.unreadableArchives.prefix(5).joined(separator: ", ")
                     engineDetails = snapshot.resourceEngineLinked ? "Ресурсный интерфейс X-Ray обнаружен; запуск не проверен" : "Исполняемый движок X-Ray не подключён"
                     let checked = zip(snapshot.archiveNames, snapshot.directoryRecordCounts)

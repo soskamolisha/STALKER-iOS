@@ -3,6 +3,62 @@ import XCTest
 @testable import STALKERiOSStarter
 
 final class STArchiveStoreTests: XCTestCase {
+    func testImportsCompletePortAppDataLayout() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let app = root.appendingPathComponent("StalkerMobile.app")
+        let data = app.appendingPathComponent("Data")
+        let loose = data.appendingPathComponent("gamedata/configs", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame")
+        try fm.createDirectory(at: loose, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([1, 2, 3]).write(to: data.appendingPathComponent("gamedata.db0"))
+        try Data([4, 5]).write(to: data.appendingPathComponent("gamedata.db1"))
+        try Data("config".utf8).write(to: app.appendingPathComponent("fsgame.ltx"))
+        try Data("settings".utf8).write(to: loose.appendingPathComponent("system.ltx"))
+
+        let result = try STArchiveStore.importArchives(from: app, destinationOverride: destination)
+        XCTAssertEqual(result.archives.count, 2)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("fsgame.ltx")),
+                       Data("config".utf8))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata/configs/system.ltx")),
+                       Data("settings".utf8))
+    }
+
+    func testImportsDataFolderWithParentConfig() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let app = root.appendingPathComponent("StalkerMobile.app")
+        let data = app.appendingPathComponent("Data")
+        let destination = root.appendingPathComponent("ImportedGame")
+        try fm.createDirectory(at: data, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([1]).write(to: data.appendingPathComponent("gamedata.db0"))
+        try Data("parent config".utf8).write(to: app.appendingPathComponent("fsgame.ltx"))
+        _ = try STArchiveStore.importArchives(from: data, destinationOverride: destination)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("fsgame.ltx")),
+                       Data("parent config".utf8))
+    }
+
+    func testRejectsSymlinkInsideLooseGamedataWithoutReplacingOldFiles() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = root.appendingPathComponent("source")
+        let loose = source.appendingPathComponent("gamedata/configs")
+        let destination = root.appendingPathComponent("ImportedGame")
+        try fm.createDirectory(at: loose, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([9]).write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([1]).write(to: source.appendingPathComponent("gamedata.db0"))
+        let external = root.appendingPathComponent("external.ltx")
+        try Data("outside".utf8).write(to: external)
+        try fm.createSymbolicLink(at: loose.appendingPathComponent("unsafe.ltx"),
+                                  withDestinationURL: external)
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), Data([9]))
+    }
+
     func testImportsArchivesAndConfigIntoIsolatedDestination() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)

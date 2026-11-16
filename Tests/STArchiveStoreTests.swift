@@ -380,6 +380,26 @@ final class STArchiveStoreTests: XCTestCase {
             resourceEngineLinked: true,
             preflightStatus: 0
         )
+        let looseWithCorruptArchive = STXRayLauncherBridge.Snapshot(
+            archiveNames: ["gamedata.db0"],
+            archiveBytes: 1024,
+            directoryRecordCounts: [-4],
+            looseDataPresent: true,
+            nativeEngineLinked: true,
+            resourceEngineLinked: true,
+            preflightStatus: 0
+        )
+        XCTAssertFalse(looseWithCorruptArchive.prerequisitesPresent)
+        let looseOnly = STXRayLauncherBridge.Snapshot(
+            archiveNames: [],
+            archiveBytes: 0,
+            directoryRecordCounts: [],
+            looseDataPresent: true,
+            nativeEngineLinked: true,
+            resourceEngineLinked: true,
+            preflightStatus: 0
+        )
+        XCTAssertTrue(looseOnly.prerequisitesPresent)
         XCTAssertFalse(corruptDespitePreflight.prerequisitesPresent)
         XCTAssertFalse(corruptDespitePreflight.allArchiveDirectoriesReadable)
         XCTAssertTrue(corruptDespitePreflight.statusText.contains("повреждены"))

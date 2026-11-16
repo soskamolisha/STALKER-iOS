@@ -46,4 +46,23 @@ final class STArchiveInventoryTests: XCTestCase {
             XCTAssertFalse(try STArchiveInventory.scan(directory: directory).hasBaseArchive)
         }
     }
+    func testZipIsNotCountedAsGameArchive() throws {
+        try withDirectory { directory in
+            try Data([0x50, 0x4B, 0x03, 0x04]).write(
+                to: directory.appendingPathComponent("gamedata.db0.zip"))
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertFalse(report.hasBaseArchive)
+            XCTAssertTrue(report.warnings.contains { $0.contains("Extract ZIP") })
+        }
+    }
+
+    func testEmptyArchiveIsNotCountedAsBase() throws {
+        try withDirectory { directory in
+            try Data().write(to: directory.appendingPathComponent("gamedata.db0"))
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertFalse(report.hasBaseArchive)
+            XCTAssertTrue(report.warnings.contains { $0.contains("Empty archive") })
+        }
+    }
+
 }

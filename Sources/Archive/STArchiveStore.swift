@@ -130,6 +130,22 @@ enum STArchiveStore {
             }
         }
 
+        // A new archive-only import must not silently discard the valid
+        // filesystem configuration from an earlier import. This matters when
+        // users import large numbered archives in a separate Files operation.
+        let stagedConfig = staging.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let previousConfig = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        if !fileManager.fileExists(atPath: stagedConfig.path),
+           fileManager.fileExists(atPath: previousConfig.path) {
+            let entry = try previousConfig.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey])
+            guard entry.isSymbolicLink == false,
+                  entry.isRegularFile == true,
+                  (entry.fileSize ?? 0) > 0 else {
+                throw ImportError.invalidDestination
+            }
+            try fileManager.copyItem(at: previousConfig, to: stagedConfig)
+        }
+
         // Preserve any previously imported game until the new set is fully staged.
         if fileManager.fileExists(atPath: destination.path) {
             let backup = parent.appendingPathComponent(".stalker-backup-\(UUID().uuidString)", isDirectory: true)

@@ -28,9 +28,9 @@ jobs:
             -o /tmp/stchunks-regression
       - name: Compile native regression with real LZO1X
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \\
-            -DST_HAVE_LZO1X=1 -fsanitize=address,undefined -fno-omit-frame-pointer \\
-            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp Sources/Native/STLZOAdapter.cpp \\
+          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
+            -DST_HAVE_LZO1X=1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp Sources/Native/STLZOAdapter.cpp \
             -llzo2 -o /tmp/stchunks-lzo-regression
       - name: Run native chunk regression
         env:

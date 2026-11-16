@@ -268,25 +268,19 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 --branch v1.1.1 https://github.com/xiph/theora.git "$RUNNER_TEMP/libtheora"
-          cmake -S "$RUNNER_TEMP/libtheora" -B "$RUNNER_TEMP/theora-ios" -G Xcode \
-            -DCMAKE_SYSTEM_NAME=iOS \
-            -DCMAKE_OSX_SYSROOT=iphoneos \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
-            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
-            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
-            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
-            -DVORBIS_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbis.a" \
-            -DVORBIS_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
-            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
-            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos -f clang)"
+          export AR="$(xcrun -f ar)"
+          export RANLIB="$(xcrun -f ranlib)"
+          export CFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -O2 -I$RUNNER_TEMP/ios-deps/include"
+          export LDFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -L$RUNNER_TEMP/ios-deps/lib"
+          cd "$RUNNER_TEMP/libtheora"
+          ./autogen.sh --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" \
+            --disable-shared --enable-static --disable-examples --disable-oggtest \
+            --disable-vorbistest --disable-asm \
             2>&1 | tee "$RUNNER_TEMP/theora-configure.log"
-          cmake --build "$RUNNER_TEMP/theora-ios" --config Release --parallel 3 \
-            2>&1 | tee "$RUNNER_TEMP/theora-build.log"
-          cmake --install "$RUNNER_TEMP/theora-ios" --config Release \
-            2>&1 | tee "$RUNNER_TEMP/theora-install.log"
+          make -j3 2>&1 | tee "$RUNNER_TEMP/theora-build.log"
+          make install 2>&1 | tee "$RUNNER_TEMP/theora-install.log"
           test -s "$RUNNER_TEMP/ios-deps/lib/libtheora.a"
           test -f "$RUNNER_TEMP/ios-deps/include/theora/theora.h"
           xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/libtheora.a" | grep -q arm64

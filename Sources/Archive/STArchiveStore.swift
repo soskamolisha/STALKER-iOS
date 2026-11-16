@@ -6,6 +6,7 @@ enum STArchiveStore {
     enum ImportError: LocalizedError {
         case incompleteArchiveSet
         case noBaseArchive
+        case compressedArchive
         case invalidDestination
         case insufficientSpace
         case sourceChanged
@@ -13,6 +14,7 @@ enum STArchiveStore {
             switch self {
             case .incompleteArchiveSet: return "Набор архивов неполный: есть пропущенные, повторяющиеся, пустые или неподходящие файлы"
             case .noBaseArchive: return "В выбранной папке не найден gamedata.db0"
+            case .compressedArchive: return "Найден ZIP-архив gamedata.db0.zip. Сначала распакуй его в приложении «Файлы»: X-Ray нужен исходный gamedata.db0 без .zip"
             case .invalidDestination: return "Небезопасная папка или файл для импорта"
             case .insufficientSpace: return "Недостаточно свободного места для игровых архивов"
             case .sourceChanged: return "Исходный архив изменился во время копирования; импорт остановлен"
@@ -32,7 +34,13 @@ enum STArchiveStore {
         defer { if granted { source.stopAccessingSecurityScopedResource() } }
 
         let report = try STArchiveInventory.scan(directory: source)
-        guard report.hasBaseArchive else { throw ImportError.noBaseArchive }
+        if !report.hasBaseArchive {
+            let entries = try fileManager.contentsOfDirectory(atPath: source.path)
+            if entries.contains(where: { $0.lowercased() == "gamedata.db0.zip" }) {
+                throw ImportError.compressedArchive
+            }
+            throw ImportError.noBaseArchive
+        }
         guard report.missingNumbers.isEmpty,
               !report.archives.contains(where: { $0.bytes == 0 }),
               !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") || $0.hasPrefix("Not a regular file:") || $0.hasPrefix("Unrecognized archive name:") }) else {

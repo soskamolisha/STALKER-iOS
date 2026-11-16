@@ -5,6 +5,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    HEADER_SEARCH_PATHS: "$(inherited) $(ST_LZO_HEADER_PATH)"
+    GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) $(ST_LZO_DEFINES)"
     CLANG_CXX_LANGUAGE_STANDARD: "c++17"
     SWIFT_OBJC_BRIDGING_HEADER: "Sources/Native/Bridge.h"
     TARGETED_DEVICE_FAMILY: "1"
@@ -38,7 +40,7 @@ targets:
         # Optional upstream OpenXRay static archive. Leave unset for the
         # lightweight launcher; never treat the archive as a playable engine.
         # A weak entry reference alone will not pull objects from a .a file.
-        OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS)"
+        OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS) $(ST_LZO_LINK_FLAGS)"
 
   STArchiveTests:
     type: bundle.unit-test

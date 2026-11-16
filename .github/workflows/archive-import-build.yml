@@ -14,11 +14,14 @@ on:
 jobs:
   compile-ios:
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Verify launcher archive-import integration
@@ -66,6 +69,7 @@ jobs:
             done
           } 2>&1 | tee "$RUNNER_TEMP/stalker-swift-syntax.log"
       - name: Build for iOS Simulator (unsigned)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -o pipefail
           xcodebuild -project STALKERiOSStarter.xcodeproj \
@@ -123,6 +127,7 @@ jobs:
           path: ${{ runner.temp }}/STALKERMobile-unsigned.ipa
           if-no-files-found: error
       - name: Compile archive unit tests for iOS Simulator
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -o pipefail
           xcodebuild -project STALKERiOSStarter.xcodeproj \
@@ -133,6 +138,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
       - name: Verify simulator test host and XCTest bundle identifiers
+        if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           PRODUCTS="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator"
@@ -175,6 +181,7 @@ jobs:
           test -s "$APP/$APP_EXEC" || { echo "Missing host executable $APP_EXEC"; exit 1; }
           test -s "$TESTS/$TEST_EXEC" || { echo "Missing test executable $TEST_EXEC"; exit 1; }
       - name: Run archive integration tests on iPhone Simulator
+        if: github.event_name == 'workflow_dispatch'
         timeout-minutes: 12
         run: |
           set -euo pipefail

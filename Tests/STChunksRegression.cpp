@@ -99,6 +99,10 @@ int main() {
         sizeof(nestedScratch), &nestedSize, &children, &childId,
         nullptr, nullptr) == 0);
     assert(nestedSize == child.size() && children == 1 && childId == 19);
+    assert(st_chunk_scan_decoded_children_lzo(parent.data(),
+        static_cast<uint32_t>(parent.size()), 0, nestedScratch,
+        sizeof(nestedScratch), &nestedSize, &children, &childId) == 0);
+    assert(children == 1 && childId == 19);
     const auto compressedParent = chunk(0x80000009u, child);
     assert(st_chunk_scan_decoded_children(compressedParent.data(),
         static_cast<uint32_t>(compressedParent.size()), 0, nestedScratch,
@@ -205,6 +209,11 @@ int main() {
         nestedLzoScratch, sizeof(nestedLzoScratch), &nestedDecodedSize,
         &nestedChildCount, &nestedFirstID, st_lzo1x_decode, nullptr) == 0);
     assert(nestedDecodedSize == nestedOriginal.size());
+    assert(st_chunk_scan_decoded_children_lzo(nestedLzoParent.data(),
+        static_cast<uint32_t>(nestedLzoParent.size()), 0,
+        nestedLzoScratch, sizeof(nestedLzoScratch), &nestedDecodedSize,
+        &nestedChildCount, &nestedFirstID) == 0);
+    assert(nestedChildCount == 1 && nestedFirstID == 19);
     assert(nestedChildCount == 1 && nestedFirstID == 19);
     assert(st_chunk_scan_decoded_children(nestedLzoParent.data(),
         static_cast<uint32_t>(nestedLzoParent.size()), 0,

@@ -42,6 +42,9 @@ enum STArchiveStore {
             if report.warnings.contains(where: { $0.hasPrefix("ZIP content detected in ") || $0.hasPrefix("Extract ZIP before importing:") }) {
                 throw ImportError.compressedArchive
             }
+            if report.warnings.contains(where: { $0.hasPrefix("Empty archive:") || $0.hasPrefix("Not a regular file:") }) {
+                throw ImportError.incompleteArchiveSet
+            }
             throw ImportError.noBaseArchive
         }
         guard report.missingNumbers.isEmpty,

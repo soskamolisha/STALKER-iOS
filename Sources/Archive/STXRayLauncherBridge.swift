@@ -48,8 +48,13 @@ final class STXRayLauncherBridge {
         guard st_xray_initialize(handle, edition) == 0 else {
             throw BridgeError.initializationFailed
         }
+        let preflight = root.path.withCString { st_openxray_runtime_preflight($0) }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else {
-            throw BridgeError.resourcesUnavailable
+            return Snapshot(archiveNames: [], archiveBytes: 0,
+                            looseDataPresent: false,
+                            nativeEngineLinked: st_openxray_runtime_linked() == 1,
+                            resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,
+                            preflightStatus: preflight == 0 ? -8 : preflight)
         }
 
         let count = st_xray_archive_count(handle)
@@ -72,7 +77,7 @@ final class STXRayLauncherBridge {
             looseDataPresent: st_xray_has_loose_data(handle) == 1,
             nativeEngineLinked: st_openxray_runtime_linked() == 1,
             resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,
-            preflightStatus: root.path.withCString { st_openxray_runtime_preflight($0) }
+            preflightStatus: preflight
         )
     }
 }

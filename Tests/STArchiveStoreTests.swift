@@ -73,6 +73,38 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
     }
 
+    func testArchiveOnlyReimportPreservesExistingXRayConfig() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let config = Data("[filesystem]".utf8)
+        try config.write(to: destination.appendingPathComponent("fsgame.ltx"))
+        try Data([9]).write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([1, 2, 3]).write(to: source.appendingPathComponent("gamedata.db0"))
+        _ = try STArchiveStore.importArchives(from: source, destinationOverride: destination)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("fsgame.ltx")), config)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), Data([1, 2, 3]))
+    }
+
+    func testArchiveOnlyReimportRejectsUnsafeExistingConfig() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([9]).write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data().write(to: destination.appendingPathComponent("fsgame.ltx"))
+        try Data([1, 2]).write(to: source.appendingPathComponent("gamedata.db0"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), Data([9]))
+    }
+
     func testExplainsZipWrappedBaseArchive() throws {
         let manager = FileManager.default
         let folder = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)

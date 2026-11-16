@@ -249,4 +249,38 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), original)
     }
 
+
+    func testNativePreflightRejectsZipInsteadOfBaseArchive() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("[filesystem]".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+        try Data([0x50, 0x4B, 0x03, 0x04]).write(to: root.appendingPathComponent("gamedata.db0.zip"))
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
+    }
+
+    func testNativePreflightRejectsSymlinkedBaseArchive() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("[filesystem]".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+        let target = root.appendingPathComponent("real.db")
+        try Data([1, 2, 3]).write(to: target)
+        try fm.createSymbolicLink(at: root.appendingPathComponent("gamedata.db0"),
+                                  withDestinationURL: target)
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
+    }
+
+    func testNativePreflightRejectsEmptyBaseArchive() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("[filesystem]".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+        try Data().write(to: root.appendingPathComponent("gamedata.db0"))
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
+    }
+
 }

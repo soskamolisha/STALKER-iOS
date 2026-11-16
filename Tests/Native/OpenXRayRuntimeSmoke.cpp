@@ -42,6 +42,27 @@ int main() {
     fs::create_directories(base / "gamedata");
     { std::ofstream data(base / "gamedata" / "test.ltx"); data << "test"; }
     expect(st_openxray_runtime_preflight(root.c_str()), -5, "loose resources but engine missing");
+    // The importer rejects unsafe symlinks; the native boundary must do so too.
+    const auto external = fs::temp_directory_path() / ("stalker-external-" + std::to_string(std::rand()));
+    fs::create_directories(external);
+    fs::create_directory_symlink(base, external / "linked-game");
+    expect(st_openxray_runtime_preflight((external / "linked-game").string().c_str()), -6,
+           "symlinked resource root");
+    fs::remove(external / "linked-game");
+    fs::remove_all(external);
+    fs::remove(base / "gamedata" / "test.ltx");
+    expect(st_openxray_runtime_preflight(root.c_str()), -8, "empty loose gamedata");
+    { std::ofstream empty(base / "gamedata" / "empty.ltx"); }
+    expect(st_openxray_runtime_preflight(root.c_str()), -8, "empty loose file");
+    fs::remove(base / "gamedata" / "empty.ltx");
+    fs::remove(base / "gamedata");
+    { std::ofstream data(base / "gamedata.db0"); data << "valid placeholder"; }
+    fs::remove(base / "fsgame.ltx");
+    fs::create_symlink(base / "gamedata.db0", base / "fsgame.ltx");
+    expect(st_openxray_runtime_preflight(root.c_str()), -7, "symlinked config");
+    fs::remove(base / "fsgame.ltx");
+    { std::ofstream config(base / "fsgame.ltx"); }
+    expect(st_openxray_runtime_preflight(root.c_str()), -7, "empty config");
     fs::remove_all(base);
     std::puts("PASS: native X-Ray bridge validation (no embedded engine)");
 }

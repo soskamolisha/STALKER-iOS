@@ -28,19 +28,19 @@ if [[ "$archive" == *[[:space:]]* ]]; then
   exit 1
 fi
 xcodegen generate
-# Force-load the archive and preserve both C entry points for dlsym(RTLD_DEFAULT).
+# Force-load the archive and preserve the mandatory resource-aware entry for dlsym(RTLD_DEFAULT).
 # The final link may still fail due to missing upstream libraries/frameworks.
 xcodebuild -project STALKERiOSStarter.xcodeproj \
   -scheme STALKERiOSStarter -configuration Debug \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build-openxray CODE_SIGNING_ALLOWED=NO \
-  OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive -Wl,-u,_st_xray_embedded_run -Wl,-u,_st_xray_embedded_run_with_resources -Wl,-exported_symbol,_st_xray_embedded_run -Wl,-exported_symbol,_st_xray_embedded_run_with_resources" build
-# A successful link alone is insufficient: the launcher resolves these entry
-# points with dlsym(RTLD_DEFAULT), so they must remain exported by the app.
+  OPENXRAY_ARCHIVE_LINK_FLAGS="-Wl,-force_load,$archive -Wl,-u,_st_xray_embedded_run_with_resources -Wl,-exported_symbol,_st_xray_embedded_run_with_resources" build
+# A successful link alone is insufficient: the launcher resolves the resource-
+# aware entry with dlsym(RTLD_DEFAULT), so it must remain exported by the app.
 app_binary="build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app/STALKERiOSStarter"
 test -s "$app_binary" || { echo "Missing linked iOS executable: $app_binary" >&2; exit 1; }
 symbols="$(xcrun nm -gU "$app_binary")"
-for symbol in _st_xray_embedded_run _st_xray_embedded_run_with_resources; do
+for symbol in _st_xray_embedded_run_with_resources; do
   if ! grep -Eq "[[:space:]]T[[:space:]]${symbol}$" <<< "$symbols"; then
     echo "Missing exported runtime symbol: ${symbol}; dlsym cannot start the engine" >&2
     exit 1
@@ -61,6 +61,6 @@ unzip -Z1 "$ipa_output" | grep -qx 'Payload/STALKERiOSStarter.app/STALKERiOSStar
   exit 1
 }
 echo "Unsigned device IPA: $ipa_output"
-echo "Both embedded X-Ray entry points are exported; gameplay still unverified."
+echo "Resource-aware X-Ray entry is exported; gameplay still unverified."
 echo "Linked iOS app at build-openxray/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
 echo "A successful link does NOT establish playable OpenXRay on iPhone."

@@ -4,6 +4,7 @@
 #include <cctype>
 #include <algorithm>
 #include <limits>
+#include <cstdio>
 #include <sys/stat.h>
 
 namespace stalker {
@@ -17,9 +18,9 @@ bool isXRayArchiveName(const std::string& name) {
     const std::string prefix = "gamedata.db";
     if (name.compare(0, prefix.size(), prefix) != 0) return false;
     const std::string suffix = name.substr(prefix.size());
-    if (suffix.empty() || suffix.size() > 2) return false;
+    if (suffix.empty() || suffix.size() > 4) return false;
     for (unsigned char c : suffix) {
-        if (!std::isalnum(c) || c > 127) return false;
+        if (c < '0' || c > '9') return false;
     }
     return true;
 }
@@ -59,6 +60,17 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
         const std::string path = root + "/" + name;
         struct stat info {};
         if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) continue;
+        // A ZIP renamed to gamedata.dbN must not enter the native archive catalog.
+        FILE* candidate = std::fopen(path.c_str(), "rb");
+        if (!candidate) continue;
+        unsigned char signature[4] {};
+        const size_t read = std::fread(signature, 1, sizeof(signature), candidate);
+        std::fclose(candidate);
+        if (read != sizeof(signature)) continue;
+        if (signature[0] == 0x50 && signature[1] == 0x4b &&
+            ((signature[2] == 0x03 && signature[3] == 0x04) ||
+             (signature[2] == 0x05 && signature[3] == 0x06) ||
+             (signature[2] == 0x07 && signature[3] == 0x08))) continue;
         if (result.count == std::numeric_limits<std::uint32_t>::max()) break;
         const auto size = static_cast<std::uint64_t>(info.st_size);
         if (size > std::numeric_limits<std::uint64_t>::max() - result.bytes) break;

@@ -102,12 +102,24 @@ int main() {
     assert(engine.packedArchiveBytes() == 11);
     assert(engine.packedArchiveNames()[0] == "gamedata.db0");
     assert(engine.packedArchiveNames()[1] == "gamedata.db2");
+    // The catalog must sort numeric archive indices rather than filenames.
+    { std::ofstream tenth(root + "/gamedata.db10", std::ios::binary); tenth << "tenth"; }
+    engine.shutdown();
+    assert(engine.initialize(GameEdition::shadow));
+    assert(engine.attachResources(root));
+    assert(engine.packedArchiveCount() == 3);
+    assert(engine.packedArchiveBytes() == 16);
+    assert(engine.packedArchiveNames().size() == 3);
+    assert(engine.packedArchiveNames()[0] == "gamedata.db0");
+    assert(engine.packedArchiveNames()[1] == "gamedata.db2");
+    assert(engine.packedArchiveNames()[2] == "gamedata.db10");
     engine.shutdown();
     assert(engine.packedArchiveCount() == 0);
     assert(engine.packedArchiveBytes() == 0);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db2").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db3").c_str()) == 0);
+    assert(std::remove((root + "/gamedata.db10").c_str()) == 0);
     assert(std::remove((root + "/gamedata.dba").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db1").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db.backup").c_str()) == 0);

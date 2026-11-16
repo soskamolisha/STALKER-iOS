@@ -10,6 +10,26 @@ if [[ ! -f "$1" ]]; then
   echo "Missing OpenXRay archive or artifact ZIP: $1" >&2
   exit 1
 fi
+# A standalone StalkerMobile IPA executable is MH_EXECUTE, not a linkable
+# static engine archive. Reject it before requiring Xcode or starting a build.
+python3 - "$1" <<'PY'
+import pathlib
+import struct
+import sys
+path = pathlib.Path(sys.argv[1])
+if path.suffix.lower() == ".zip":
+    sys.exit(0)
+with path.open("rb") as stream:
+    header = stream.read(16)
+if len(header) >= 16 and header[:4] in (b"\\xcf\\xfa\\xed\\xfe", b"\\xfe\\xed\\xfa\\xcf"):
+    endian = "<" if header[:4] == b"\\xcf\\xfa\\xed\\xfe" else ">"
+    filetype = struct.unpack_from(endian + "I", header, 12)[0]
+    if filetype == 2:
+        sys.exit("Standalone Mach-O MH_EXECUTE cannot be linked as an OpenXRay "
+                 "static engine. Supply a rebuilt arm64 .a exporting "
+                 "st_xray_embedded_run_with_resources; copying StalkerMobile "
+                 "from the working IPA does not produce an embedded engine.")
+PY
 input="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 archive="$input"
 # Refuse to perform a paid-platform build on an unsupported host.

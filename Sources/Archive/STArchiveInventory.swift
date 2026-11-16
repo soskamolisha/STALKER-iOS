@@ -26,7 +26,7 @@ enum STArchiveInventory {
         var archives: [Archive] = []
         var warnings: [String] = []
         var seen: Set<Int> = []
-        for url in urls {
+        for url in urls.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
             let name = url.lastPathComponent
             let prefix = "gamedata.db"
             guard name.lowercased().hasPrefix(prefix) else { continue }
@@ -51,6 +51,19 @@ enum STArchiveInventory {
             }
             let size = UInt64(max(0, values.fileSize ?? 0))
             if size == 0 { warnings.append("Empty archive: \(name)"); continue }
+            // Reject ZIP containers renamed to gamedata.dbN. Only read a tiny
+            // signature; never load a potentially multi-gigabyte archive.
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            let signature = try handle.read(upToCount: 4) ?? Data()
+            if signature.count >= 4 &&
+                signature[0] == 0x50 && signature[1] == 0x4B &&
+                ((signature[2] == 0x03 && signature[3] == 0x04) ||
+                 (signature[2] == 0x05 && signature[3] == 0x06) ||
+                 (signature[2] == 0x07 && signature[3] == 0x08)) {
+                warnings.append("ZIP content detected in \\(name); extract it first")
+                continue
+            }
             seen.insert(number)
             archives.append(Archive(number: number, filename: name, bytes: size))
         }

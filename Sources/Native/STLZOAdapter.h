@@ -11,6 +11,14 @@ int32_t st_lzo1x_decode(const uint8_t *source, uint32_t source_size,
                        uint8_t *destination, uint32_t capacity,
                        uint32_t *decoded_size, void *context);
 
+// Decode a top-level X-Ray chunk, using LZO1X only when its compression
+// flag is set. Plain chunks are copied without requiring LZO.
+// -4 means LZO support is not linked; -7 means decompression failed.
+int32_t st_chunk_decode_lzo(const uint8_t *bytes, uint32_t length,
+                            uint32_t index, uint8_t *destination,
+                            uint32_t destination_capacity,
+                            uint32_t *decoded_size);
+
 #ifdef __cplusplus
 }
 #endif

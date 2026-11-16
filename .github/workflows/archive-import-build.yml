@@ -130,6 +130,18 @@ jobs:
             ${{ runner.temp }}/stalker-device-build.log
             ${{ runner.temp }}/stalker-tests-build.log
           if-no-files-found: ignore
+      - name: Verify physical iPhone app binary and bundle
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          test -s "$APP/STALKERiOSStarter"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist"
+          file "$APP/STALKERiOSStarter"
+          lipo -archs "$APP/STALKERiOSStarter" | grep -qw arm64
+          echo "Verified nonempty arm64 iPhone app executable"
       - name: Package unsigned IPA
         # A failed XCTest build should not prevent packaging a successfully built iPhone app.
         if: success() || failure()

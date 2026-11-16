@@ -7,6 +7,9 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
+#if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+#include <lzo/lzo1x.h>
+#endif
 
 static void append32(std::vector<uint8_t>& data, uint32_t value) {
     for (unsigned i = 0; i < 4; ++i)
@@ -106,6 +109,31 @@ int main() {
     decodedSize = 99;
     assert(st_lzo1x_decode(compressed.data() + 8, 3, output,
                            sizeof(output), &decodedSize, nullptr) == -4);
+    assert(decodedSize == 0);
+#endif
+#if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+    // Real LZO1X round-trip: generate a valid compressed payload, pass it
+    // through the chunk boundary, and verify byte-for-byte output.
+    assert(lzo_init() == LZO_E_OK);
+    const std::vector<uint8_t> original(512, 0x5A);
+    std::vector<uint8_t> compressedPayload(original.size() + original.size() / 16 + 64 + 3);
+    std::vector<uint8_t> work(LZO1X_1_MEM_COMPRESS);
+    lzo_uint compressedLength = static_cast<lzo_uint>(compressedPayload.size());
+    assert(lzo1x_1_compress(original.data(), static_cast<lzo_uint>(original.size()),
+                           compressedPayload.data(), &compressedLength,
+                           work.data()) == LZO_E_OK);
+    compressedPayload.resize(static_cast<size_t>(compressedLength));
+    const auto lzoChunk = chunk(0x8000002Au, compressedPayload);
+    std::vector<uint8_t> restored(original.size());
+    decodedSize = 0;
+    assert(st_chunk_decode(lzoChunk.data(), static_cast<uint32_t>(lzoChunk.size()),
+                           0, restored.data(), static_cast<uint32_t>(restored.size()),
+                           &decodedSize, st_lzo1x_decode, nullptr) == 0);
+    assert(decodedSize == original.size() && restored == original);
+    decodedSize = 99;
+    assert(st_chunk_decode(lzoChunk.data(), static_cast<uint32_t>(lzoChunk.size()),
+                           0, restored.data(), 16, &decodedSize,
+                           st_lzo1x_decode, nullptr) == -7);
     assert(decodedSize == 0);
 #endif
     return 0;

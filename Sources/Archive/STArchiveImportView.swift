@@ -151,16 +151,16 @@ struct STArchiveImportView: View {
 
     private func refreshStoredArchives() {
         do {
-            let destination = try STArchiveStore.destinationRoot()
+            let filesDestination = try STArchiveStore.destinationRoot()
             // Create the Files-visible destination before the first import.
             // Folder picking can be disabled by some iOS document providers;
             // users can then copy original game files into this folder manually.
-            if !FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+            if !FileManager.default.fileExists(atPath: filesDestination.path) {
+                try FileManager.default.createDirectory(at: filesDestination, withIntermediateDirectories: true)
             }
-            let activeRoot = try XRayGameResourcePaths.root(for: "shadow")
-            let saved = try STArchiveInventory.scan(directory: activeRoot)
-            let config = activeRoot.appendingPathComponent("fsgame.ltx", isDirectory: false)
+            let destination = try XRayGameResourcePaths.root(for: "shadow")
+            let saved = try STArchiveInventory.scan(directory: destination)
+            let config = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
             // Match the native lstat-based preflight: a symlinked config
             // must never appear valid in the import screen.
             let configValues = try? config.resourceValues(forKeys: [

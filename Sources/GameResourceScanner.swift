@@ -78,7 +78,9 @@ enum GameResourceScanner {
             bytes += size
             let relativePath = String(file.standardizedFileURL.path.dropFirst(folder.standardizedFileURL.path.count + 1)).lowercased()
             if relativePath.hasPrefix("gamedata/") && size > 0 { hasLooseGameFile = true }
-            guard file.deletingLastPathComponent().standardizedFileURL == folder.standardizedFileURL,
+            // Files providers may return the same directory URL with or without
+            // a trailing slash. Compare paths, not URL directory hints.
+            guard file.deletingLastPathComponent().standardizedFileURL.path == folder.standardizedFileURL.path,
                   isArchiveName(name) else { continue }
             archiveCount += 1
             archiveBytes += size

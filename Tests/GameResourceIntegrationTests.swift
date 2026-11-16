@@ -90,6 +90,21 @@ final class GameResourceIntegrationTests: XCTestCase {
         }
     }
 
+    func testDirectoryURLHintsDoNotHideRootArchivesOrCountNestedBackups() throws {
+        try withFolders { _, destination, _ in
+            let backup = destination.appendingPathComponent("backup", isDirectory: true)
+            try fm.createDirectory(at: backup, withIntermediateDirectories: true)
+            try Data([1]).write(to: destination.appendingPathComponent("gamedata.db0"))
+            try Data([9]).write(to: backup.appendingPathComponent("gamedata.db1"))
+            for hint in [true, false] {
+                let url = URL(fileURLWithPath: destination.path, isDirectory: hint)
+                let inventory = try XCTUnwrap(GameResourceScanner.scan(url))
+                XCTAssertTrue(inventory.detected)
+                XCTAssertEqual(inventory.archiveCount, 1)
+            }
+        }
+    }
+
     func testSymlinkedArchiveDoesNotProduceImportedStatus() throws {
         try withFolders { root, destination, _ in
             let outside = root.appendingPathComponent("outside.db0")

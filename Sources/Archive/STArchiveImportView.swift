@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 /// after verifying the existing screen structure.
 struct STArchiveImportView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingImporter = false
     @State private var isImporting = false
     @State private var pendingFolder: URL?
@@ -42,7 +43,7 @@ struct STArchiveImportView: View {
                 if let nativeArchiveStatus {
                     Text(nativeArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 }
-                if let importedRoot = try? STArchiveStore.destinationRoot() {
+                if let importedRoot = try? XRayGameResourcePaths.root(for: "shadow") {
                     STXRayEngineStatusView(edition: 0, gameRoot: importedRoot)
                         .id(importedRevision)
                 }
@@ -82,6 +83,9 @@ struct STArchiveImportView: View {
             .padding()
         }
         .onAppear { refreshStoredArchives() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active && !isImporting { refreshStoredArchives() }
+        }
         .interactiveDismissDisabled(isImporting)
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             switch result {
@@ -110,7 +114,7 @@ struct STArchiveImportView: View {
 
     private func inspectEngineReadiness() {
         do {
-            let root = try STArchiveStore.destinationRoot()
+            let root = try XRayGameResourcePaths.root(for: "shadow")
             let result = root.path.withCString { st_openxray_runtime_preflight($0) }
             let nativeMessage = String(cString: st_openxray_runtime_status_message(result))
             let linked = st_openxray_runtime_resources_linked() == 1
@@ -122,7 +126,7 @@ struct STArchiveImportView: View {
 
     private func inspectNativeArchives() {
         do {
-            let root = try STArchiveStore.destinationRoot()
+            let root = try XRayGameResourcePaths.root(for: "shadow")
             guard let handle = st_xray_create() else {
                 nativeArchiveStatus = "Не удалось создать диагностический экземпляр X-Ray"
                 return
@@ -153,11 +157,10 @@ struct STArchiveImportView: View {
             // users can then copy original game files into this folder manually.
             if !FileManager.default.fileExists(atPath: destination.path) {
                 try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-                storedArchiveStatus = "Папка ImportedGame создана. Скопируй сюда игровые файлы через «Файлы» или выбери папку для импорта."
-                return
             }
-            let saved = try STArchiveInventory.scan(directory: destination)
-            let config = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
+            let activeRoot = try XRayGameResourcePaths.root(for: "shadow")
+            let saved = try STArchiveInventory.scan(directory: activeRoot)
+            let config = activeRoot.appendingPathComponent("fsgame.ltx", isDirectory: false)
             // Match the native lstat-based preflight: a symlinked config
             // must never appear valid in the import screen.
             let configValues = try? config.resourceValues(forKeys: [
@@ -214,3 +217,4 @@ struct STArchiveImportView: View {
                 }
     }
 }
+

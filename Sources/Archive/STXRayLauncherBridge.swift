@@ -63,6 +63,29 @@ final class STXRayLauncherBridge {
         }
     }
 
+    /// Invoke the real embedded engine only after it has been linked.
+    /// This call blocks until the engine returns; never call on the UI thread.
+    static func launchImportedShadowOfChernobyl(root: URL) -> Int32 {
+        guard st_openxray_runtime_resources_linked() == 1 else { return -5 }
+        let readiness = root.path.withCString { st_openxray_runtime_preflight($0) }
+        guard readiness == 0 else { return readiness }
+        let argsFile = root.appendingPathComponent("ios_args.txt")
+        let arguments: String
+        if let bytes = try? Data(contentsOf: argsFile),
+           bytes.count <= 4096, !bytes.contains(0),
+           let text = String(data: bytes, encoding: .utf8),
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            arguments = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            arguments = "-soc -nointro -nosplash"
+        }
+        return arguments.withCString { command in
+            root.path.withCString { path in
+                st_openxray_runtime_run_with_resources(command, path)
+            }
+        }
+    }
+
     static func inspect(root: URL, edition: Int32 = 0) throws -> Snapshot {
         guard (0...2).contains(edition) else { throw BridgeError.initializationFailed }
         guard let handle = st_xray_create() else { throw BridgeError.allocationFailed }

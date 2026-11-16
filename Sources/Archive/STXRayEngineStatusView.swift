@@ -13,6 +13,7 @@ struct STXRayEngineStatusView: View {
                 .appendingPathComponent("ImportedGame", isDirectory: true)
     }
 
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isChecking = false
     @State private var summary = "Проверка X-Ray ещё не выполнена"
     @State private var archiveDetails = ""
@@ -34,6 +35,11 @@ struct STXRayEngineStatusView: View {
         }
         .padding()
         .task { refresh() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { refresh() }
+        }
+        .onChange(of: gameRoot) { _ in refresh() }
+        .onChange(of: edition) { _ in refresh() }
     }
 
     private func refresh() {

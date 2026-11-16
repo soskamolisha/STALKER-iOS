@@ -2,7 +2,7 @@
 """Classify a user-supplied iOS port Mach-O without executing it or copying assets.
 
 Usage: python3 scripts/check_port_binary_linkability.py /path/to/StalkerMobile
-Supports thin arm64 Mach-O, fat Mach-O, and static ar archives. This is a
+Supports thin Mach-O and static ar archives. Fat binaries need slice inspection. This is a
 format preflight, not proof of engine compatibility or runtime support.
 """
 import argparse
@@ -18,12 +18,13 @@ MH_BUNDLE = 8
 
 def classify(data):
     if data.startswith(b"!<arch>\\n"):
-        return "static archive", True
+        return "static archive (member architectures and symbols unverified)", True
     if len(data) < 32:
         return "truncated or unknown binary", False
     magic = data[:4]
-    if magic in (b"\\xcf\\xfa\\xed\\xfe", b"\\xfe\\xed\\xfa\\xcf"):
-        endian = "<" if magic == b"\\xcf\\xfa\\xed\\xfe" else ">"
+    if magic in (b"\\xcf\\xfa\\xed\\xfe", b"\\xfe\\xed\\xfa\\xcf",
+                 b"\\xce\\xfa\\xed\\xfe", b"\\xfe\\xed\\xfa\\xce"):
+        endian = "<" if magic in (b"\\xcf\\xfa\\xed\\xfe", b"\\xce\\xfa\\xed\\xfe") else ">"
         cpu, subtype, kind = struct.unpack_from(endian + "III", data, 4)
         names = {MH_OBJECT: "MH_OBJECT", MH_EXECUTE: "MH_EXECUTE",
                  MH_DYLIB: "MH_DYLIB", MH_BUNDLE: "MH_BUNDLE"}

@@ -74,6 +74,12 @@ enum STArchiveStore {
         for archive in report.archives {
             let from = source.appendingPathComponent(archive.filename, isDirectory: false)
             let to = staging.appendingPathComponent(archive.filename, isDirectory: false)
+            // Recheck each entry after inventory scanning. A file provider
+            // may replace an archive with a symlink before the copy starts.
+            let entry = try from.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
+            guard entry.isSymbolicLink == false, entry.isRegularFile == true else {
+                throw ImportError.sourceChanged
+            }
             let attributes = try fileManager.attributesOfItem(atPath: from.path)
             guard attributes[.type] as? FileAttributeType == .typeRegular else {
                 throw ImportError.invalidDestination

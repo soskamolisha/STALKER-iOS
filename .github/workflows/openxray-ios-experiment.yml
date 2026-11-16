@@ -315,10 +315,14 @@ jobs:
           PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
-        if: always() && steps.sdlready.outcome == 'success' && steps.ogg.outcome == 'success' && steps.jpeg.outcome == 'success' && steps.vorbis.outcome == 'success' && steps.theora.outcome == 'success'
+        if: always()
         continue-on-error: true
         run: |
           set -euo pipefail
+          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a; do
+            test -s "$RUNNER_TEMP/ios-deps/lib/$lib" || { echo "::error::Missing iOS ARM64 dependency: $lib"; exit 1; }
+          done
+          test -n "${SDL2_DIR:-}" || { echo "::error::SDL2_DIR is missing"; exit 1; }
           cmake -S upstream -B "$RUNNER_TEMP/openxray-ios" -G Xcode \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_SYSROOT=iphoneos \

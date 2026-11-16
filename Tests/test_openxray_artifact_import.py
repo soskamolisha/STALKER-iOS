@@ -52,6 +52,17 @@ sys.exit(9)
     assert accepted.returncode == 0, accepted.stdout + accepted.stderr
     assert (output / "libOpenXRayCombinedProbe.a").read_bytes() == b"mock-engine"
 
+    # A resource-only engine must be accepted without the optional legacy entry.
+    accepted = run(resource, entries)
+    assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+    assert (output / "libOpenXRayCombinedProbe.a").read_bytes() == b"mock-engine"
+
+    # An unresolved resource entry must not be mistaken for an exported entry.
+    unresolved = "                 U _st_xray_embedded_run_with_resources"
+    rejected = run(legacy + "\n" + unresolved, entries)
+    assert rejected.returncode != 0, rejected.stdout + rejected.stderr
+    assert (output / "libOpenXRayCombinedProbe.a").read_bytes() == b"mock-engine"
+
     # A failed verification must preserve an already published good archive.
     published = output / "libOpenXRayCombinedProbe.a"
     rejected = run(legacy, entries)

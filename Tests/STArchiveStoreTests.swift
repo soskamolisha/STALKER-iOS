@@ -47,7 +47,7 @@ final class STArchiveStoreTests: XCTestCase {
         try Data([0x50, 0x4B, 0x03, 0x04]).write(to: folder.appendingPathComponent("gamedata.db0.zip"))
         XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder)) { error in
             guard case STArchiveStore.ImportError.compressedArchive = error else {
-                return XCTFail("Unexpected error: \\(error)")
+                return XCTFail("Unexpected error: \(error)")
             }
         }
     }
@@ -116,7 +116,7 @@ final class STArchiveStoreTests: XCTestCase {
         try Data().write(to: folder.appendingPathComponent("fsgame.ltx"))
         XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder)) { error in
             guard case STArchiveStore.ImportError.invalidDestination = error else {
-                return XCTFail("Unexpected error: \\(error)")
+                return XCTFail("Unexpected error: \(error)")
             }
         }
     }

@@ -138,6 +138,10 @@ jobs:
           PRODUCTS="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator"
           APP="$PRODUCTS/STALKERiOSStarter.app"
           TESTS="$PRODUCTS/STArchiveTests.xctest"
+          # Xcode can place a hosted unit-test bundle under the host app's PlugIns.
+          if [[ ! -d "$TESTS" && -d "$APP/PlugIns/STArchiveTests.xctest" ]]; then
+            TESTS="$APP/PlugIns/STArchiveTests.xctest"
+          fi
           echo "Simulator build products:"
           find "$RUNNER_TEMP/stalker-simulator-tests/Build/Products" -maxdepth 4 \
             \( -name '*.app' -o -name '*.xctest' -o -name '*.xctestrun' -o -name 'Info.plist' \) -print

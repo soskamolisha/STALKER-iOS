@@ -283,4 +283,39 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
     }
 
+    func testRenamedZipDoesNotOverwriteInstalledGame() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = root.appendingPathComponent("source")
+        let destination = root.appendingPathComponent("ImportedGame")
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let original = Data([9, 8, 7])
+        try original.write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([0x50, 0x4B, 0x03, 0x04]).write(
+            to: source.appendingPathComponent("gamedata.db0"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(
+            from: source, destinationOverride: destination)) { error in
+            guard case STArchiveStore.ImportError.compressedArchive = error else {
+                return XCTFail("Expected compressedArchive, got \(error)")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), original)
+    }
+
+    func testMixedRealAndZipArchiveSetIsRejected() throws {
+        let fm = FileManager.default
+        let folder = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: folder) }
+        try Data([1, 2, 3]).write(to: folder.appendingPathComponent("gamedata.db0"))
+        try Data([0x50, 0x4B, 0x03, 0x04]).write(to: folder.appendingPathComponent("gamedata.db1"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder)) { error in
+            guard case STArchiveStore.ImportError.incompleteArchiveSet = error else {
+                return XCTFail("Expected incompleteArchiveSet, got \(error)")
+            }
+        }
+    }
+
 }

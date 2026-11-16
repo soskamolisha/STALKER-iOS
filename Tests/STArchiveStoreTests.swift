@@ -408,4 +408,24 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertTrue(readable.statusText.contains("не подключён"))
     }
 
+    func testBridgeInspectsImportedArchivesThroughNativeCatalog() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        // Deliberately not an X-Ray archive: inventory accepts non-ZIP bytes,
+        // but the native catalog must not silently declare them readable.
+        try Data([1, 2, 3, 4]).write(to: source.appendingPathComponent("gamedata.db0"))
+        try Data("[filesystem]".utf8).write(to: source.appendingPathComponent("fsgame.ltx"))
+        _ = try STArchiveStore.importArchives(from: source, destinationOverride: destination)
+        let snapshot = try STXRayLauncherBridge.inspect(root: destination)
+        XCTAssertEqual(snapshot.archiveNames, ["gamedata.db0"])
+        XCTAssertEqual(snapshot.archiveBytes, 4)
+        XCTAssertEqual(snapshot.directoryRecordCounts.count, 1)
+        XCTAssertFalse(snapshot.allArchiveDirectoriesReadable)
+        XCTAssertFalse(snapshot.prerequisitesPresent)
+    }
+
 }

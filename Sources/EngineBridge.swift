@@ -53,6 +53,21 @@ final class UnavailableEngine: GameEngine {
 /// Native resource lifecycle adapter used by the launcher. This connects the
 /// Swift game-engine boundary to the X-Ray C bootstrap, but intentionally does
 /// not report a playable engine until the upstream runtime is linked.
+/// The archive import screen writes Shadow of Chernobyl resources into Documents.
+/// Keep the engine bridge pointed at that exact folder instead of the older
+/// Application Support/ImportedGames/shadow location.
+enum XRayGameResourcePaths {
+    static func root(for gameID: String) throws -> URL {
+        if gameID == "shadow" {
+            return try STArchiveStore.destinationRoot()
+        }
+        guard gameID == "clearSky" || gameID == "pripyat" else {
+            throw EngineStartError.resourcesUnavailable
+        }
+        return try XRayGameResourcePaths.root(for: gameID)
+    }
+}
+
 final class XRayBootstrapEngine: GameEngine {
     // This reports native symbol linkage, not playable iOS compatibility.
     // Gameplay stays disabled until UIKit/Metal lifecycle integration is verified.
@@ -87,10 +102,7 @@ final class XRayBootstrapEngine: GameEngine {
         guard st_xray_initialize(core, edition) == 0 else {
             throw EngineStartError.resourcesUnavailable
         }
-        let root = FileManager.default.urls(for: .applicationSupportDirectory,
-                                             in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        let root = try XRayGameResourcePaths.root(for: gameID)
         guard root.path.withCString({ st_xray_attach_resources(core, $0) }) == 0 else {
             throw EngineStartError.resourcesUnavailable
         }
@@ -113,10 +125,7 @@ final class XRayBootstrapEngine: GameEngine {
         // Archive probing performs synchronous disk reads; keep it off the
         // SwiftUI main actor just like the blocking native entry point.
         let editionID = gameID
-        let root = FileManager.default.urls(for: .applicationSupportDirectory,
-                                            in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(editionID, isDirectory: true)
+        let root = try XRayGameResourcePaths.root(for: editionID)
         let hasData = await Task.detached(priority: .userInitiated) {
             XRayResourcePreflight.inspect(gameID: editionID)?.hasRecognizedGameData == true
         }.value
@@ -198,11 +207,8 @@ struct XRayResourcePreflight {
         case "pripyat": edition = 2
         default: return nil
         }
-        let root = FileManager.default.urls(for: .applicationSupportDirectory,
-                                             in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
-        guard FileManager.default.fileExists(atPath: root.path),
+        guard let root = try? XRayGameResourcePaths.root(for: gameID),
+              FileManager.default.fileExists(atPath: root.path),
               let engine = st_xray_create() else { return nil }
         defer {
             st_xray_shutdown(engine)

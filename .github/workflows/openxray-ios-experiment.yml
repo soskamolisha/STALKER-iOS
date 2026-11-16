@@ -178,6 +178,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             2>&1 | tee "$RUNNER_TEMP/ogg-configure.log"
           cmake --build "$RUNNER_TEMP/libogg-ios" --config Release --parallel 3 \
             2>&1 | tee "$RUNNER_TEMP/ogg-build.log"
@@ -203,6 +204,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=OFF \
+            -DCMAKE_SYSTEM_PROCESSOR=arm64 \
             -DWITH_TURBOJPEG=OFF -DWITH_JAVA=OFF \
             2>&1 | tee "$RUNNER_TEMP/jpeg-configure.log"
           cmake --build "$RUNNER_TEMP/jpeg-ios" --config Release --parallel 3 \

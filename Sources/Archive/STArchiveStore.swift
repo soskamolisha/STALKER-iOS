@@ -72,7 +72,12 @@ enum STArchiveStore {
         // The working iOS port stores fsgame.ltx beside Data, not inside it.
         // Prefer a config inside Data when provided; otherwise use its parent.
         let dataConfig = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
-        let parentConfig = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        // When the user selects Data directly, its config is in the parent
+        // StalkerMobile.app folder; when selecting the app, it is at source root.
+        let configContainer = gameSource.standardizedFileURL == source.standardizedFileURL
+            && source.lastPathComponent == "Data"
+            ? source.deletingLastPathComponent() : source
+        let parentConfig = configContainer.appendingPathComponent("fsgame.ltx", isDirectory: false)
         let sourceConfig = fileManager.fileExists(atPath: dataConfig.path)
             ? dataConfig : parentConfig
         let configBytes = ((try? fileManager.attributesOfItem(atPath: sourceConfig.path))?[.size] as? NSNumber)?.uint64Value ?? 0

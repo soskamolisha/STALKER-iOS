@@ -1,9 +1,16 @@
 name: Diagnose upstream OpenXRay iOS configuration
 on:
   workflow_dispatch:
+    inputs:
+      build_launcher:
+        description: Link the arm64 archive into the experimental launcher IPA
+        type: boolean
+        default: true
   push:
     branches: [feature/trilogy-launcher-v3]
-    paths: [.github/workflows/openxray-full-configure-probe.yml]
+    paths:
+      - '.github/workflows/openxray-full-configure-probe.yml'
+      - 'scripts/openxray_system_link_flags.py'
 permissions:
   contents: read
 # Keep a long native engine build from being cancelled by a newer push.
@@ -26,6 +33,7 @@ jobs:
           /tmp/xray-catalog-tests
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayLevelFiles.cpp Tests/XRayLevelFilesTests.cpp -o /tmp/xray-level-files-tests
           /tmp/xray-level-files-tests
+          python3 Tests/test_openxray_archive_cli.py
   configure:
     # Native iOS cross-compilation is an explicit, potentially billable run.
     # Workflow-file pushes only execute the portable Linux regression job.
@@ -34,6 +42,9 @@ jobs:
     # Cap potentially billable cross-compilation while collecting diagnostics.
     timeout-minutes: 90
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Record iOS toolchain and SDK prerequisites
         shell: bash
         run: |
@@ -298,7 +309,8 @@ jobs:
           s = p.read_text()
           s = '#include <sys/stat.h>\n#include <string>\n' + s
           anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
-          assert anchor in s, "Upstream entry point layout changed"
+          assert s.count(anchor) == 1, "Upstream entry point layout changed"
+          engine, standalone_main = s.split(anchor, 1)
           bridge = "\n".join([
               '// Experimental C ABI; UIKit/SDL lifecycle is not yet adapted.',
               'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
@@ -324,7 +336,18 @@ jobs:
               '',
               ''
           ])
-          p.write_text(s.replace(anchor, bridge + anchor, 1))
+          # Keep the standalone entry separate so the engine archive can be
+          # linked by an app that already defines its own main.
+          p.write_text(engine + bridge)
+          p.with_name("standalone_main.cpp").write_text(
+              '#include "stdafx.h"\n#include <cstdlib>\n\n'
+              'int entry_point(pcstr commandLine);\n\n' + anchor + standalone_main
+          )
+          cmake = p.with_name("CMakeLists.txt")
+          targets = cmake.read_text()
+          source = "    entry_point.cpp\n"
+          assert targets.count(source) == 1, "Upstream executable source list changed"
+          cmake.write_text(targets.replace(source, source + "    standalone_main.cpp\n", 1))
           patched = p.read_text()
           assert patched.count('int st_xray_embedded_run(') == 1
           assert 'return entry_point(command_line ? command_line : "");' in patched
@@ -556,8 +579,12 @@ jobs:
           test -s embedded-entry/entry_point.o
           /usr/bin/libtool -static -o embedded-entry/libOpenXRayCombinedProbe.a embedded-entry/entry_point.o "${engine_archives[@]}"
           /usr/bin/nm -gU embedded-entry/libOpenXRayCombinedProbe.a > embedded-entry/combined-entry-symbols.txt 2>/dev/null
-          if ! grep -q '_st_xray_embedded_run' embedded-entry/combined-entry-symbols.txt; then
+          if ! grep -Eq '[[:space:]]_st_xray_embedded_run_with_resources$' embedded-entry/combined-entry-symbols.txt; then
             echo "Missing embedded X-Ray C ABI entry point"
+            exit 1
+          fi
+          if grep -Eq '[[:space:]]_main$' embedded-entry/combined-entry-symbols.txt; then
+            echo "Standalone main is present in the engine archive"
             exit 1
           fi
           rm embedded-entry/combined-entry-symbols.txt
@@ -706,6 +733,42 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
           compression-level: 0
+      - name: Link OpenXRay into the arm64 launcher and package an unsigned IPA
+        if: inputs.build_launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-openxray
+          {
+            if [[ ! -s engine-integration/libOpenXRayCombinedProbe.a ]]; then
+              echo "::error::OpenXRay did not produce a verified arm64 archive for the launcher"
+              exit 1
+            fi
+            if ! command -v xcodegen >/dev/null 2>&1; then
+              brew install xcodegen
+            fi
+            export OPENXRAY_SYSTEM_LINK_FLAGS
+            OPENXRAY_SYSTEM_LINK_FLAGS="$(python3 scripts/openxray_system_link_flags.py \
+              embedded-entry/xr_3da-link-arguments.txt "$(xcrun --sdk iphoneos --show-sdk-path)")"
+            echo "OpenXRay system link flags: $OPENXRAY_SYSTEM_LINK_FLAGS"
+            # The OpenXRay archive already contains the full liblzo2 codec.
+            OPENXRAY_EXCLUDED_SOURCES=minilzo.c \
+              bash scripts/build_with_openxray.sh engine-integration/libOpenXRayCombinedProbe.a
+          } 2>&1 | tee build-openxray/launcher-link.log
+      - name: Upload unsigned launcher with the experimental OpenXRay build
+        if: inputs.build_launcher
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-OpenXRay-unsigned-IPA
+          path: build-openxray/STALKERMobile-OpenXRay-unsigned.ipa
+          if-no-files-found: error
+      - name: Upload launcher linkage log
+        if: always() && inputs.build_launcher
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-launcher-linkage-log
+          path: build-openxray/launcher-link.log
+          if-no-files-found: ignore
       - name: Upload embedded entry-point linkage diagnostics
         if: always()
         uses: actions/upload-artifact@v4

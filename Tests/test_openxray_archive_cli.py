@@ -2,12 +2,15 @@
 """End-to-end archive verifier checks with a fake xcrun (Linux-compatible)."""
 import os
 from pathlib import Path
+import struct
 import subprocess
 import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
 verifier = root / "scripts/verify_openxray_archive.py"
+builder = root / "scripts/build_with_openxray.sh"
+link_flags = root / "scripts/openxray_system_link_flags.py"
 legacy = "_st_xray_embedded_run"
 resources = "_st_xray_embedded_run_with_resources"
 
@@ -52,4 +55,27 @@ sys.exit(9)
     assert verify(f"{only_legacy}\n                 U {resources}", strict=True).returncode != 0
     # Resource-only engines are supported; legacy entry is optional.
     assert verify(f"0000000000000200 T {resources}", strict=True).returncode == 0
+
+    # The executable taken from a working IPA must be rejected before Xcode.
+    executable = folder / "StalkerMobile"
+    for endian in ("<", ">"):
+        executable.write_bytes(struct.pack(endian + "IIII", 0xFEEDFACF, 0x0100000C, 0, 2))
+        build = subprocess.run(["bash", str(builder), str(executable)],
+                               cwd=root, capture_output=True, text=True)
+        assert build.returncode != 0 and "MH_EXECUTE" in build.stderr, build.stderr
+
+    sdk = folder / "iPhoneOS.sdk"
+    arguments = folder / "link-arguments.txt"
+    arguments.write_text("\n".join([
+        "-framework", "UIKit", "-Wl,-framework,UIKit",
+        "-Xlinker", "-weak_framework", "-Xlinker", "GameController",
+        str(sdk / "System/Library/Frameworks/OpenAL.framework/OpenAL.tbd"),
+        str(sdk / "usr/lib/libz.tbd"), "-lz",
+        str(folder / "libExternal.a"), "-isysroot", str(sdk),
+    ]))
+    actual = subprocess.check_output(
+        [sys.executable, str(link_flags), str(arguments), str(sdk)], text=True,
+    )
+    assert actual.split() == ["-framework", "UIKit", "-weak_framework", "GameController",
+                              "-framework", "OpenAL", "-lz"], actual
 print("OpenXRay archive CLI integration checks passed")

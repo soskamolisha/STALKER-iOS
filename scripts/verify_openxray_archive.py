@@ -52,12 +52,8 @@ def main():
             print(f"Missing {symbol[1:]} export; archive cannot run imported "
                   "Shadow of Chernobyl resources", file=sys.stderr)
             return 1
-    # The resource-aware entry is mandatory; the legacy entry is optional.
-    # Force-load the archive because the default launcher uses dynamic lookup.
     print("Validated arm64 OpenXRay archive and embedded entry symbol.")
     print("Validated resource-aware entry export (runtime behavior remains unverified).")
-    # xcodebuild receives the flag as one build-setting argument.
-    print(f"Xcode OTHER_LDFLAGS: -Wl,-force_load,{archive}")
     print("WARNING: upstream platform dependencies and game execution remain unverified.")
     return 0
 

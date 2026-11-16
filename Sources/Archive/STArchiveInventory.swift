@@ -28,6 +28,10 @@ enum STArchiveInventory {
             let name = url.lastPathComponent
             let prefix = "gamedata.db"
             guard name.lowercased().hasPrefix(prefix) else { continue }
+            if name.lowercased().hasSuffix(".zip") {
+                warnings.append("Extract ZIP before importing: \(name)")
+                continue
+            }
             let suffix = String(name.dropFirst(prefix.count))
             guard !suffix.isEmpty, suffix.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
                   let number = Int(suffix), number <= 9999 else {

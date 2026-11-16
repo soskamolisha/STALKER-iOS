@@ -64,7 +64,10 @@ enum XRayGameResourcePaths {
         guard gameID == "clearSky" || gameID == "pripyat" else {
             throw EngineStartError.resourcesUnavailable
         }
-        return try XRayGameResourcePaths.root(for: gameID)
+        return FileManager.default.urls(for: .applicationSupportDirectory,
+                                        in: .userDomainMask)[0]
+            .appendingPathComponent("ImportedGames", isDirectory: true)
+            .appendingPathComponent(gameID, isDirectory: true)
     }
 }
 

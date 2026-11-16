@@ -151,6 +151,12 @@ jobs:
           fi
           for bundle in "$APP" "$TESTS"; do
             test -s "$bundle/Info.plist" || { echo "Missing Info.plist: $bundle"; exit 1; }
+            echo "Inspecting $bundle/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist" || {
+              echo "Missing CFBundleIdentifier in $bundle"
+              /usr/libexec/PlistBuddy -c Print "$bundle/Info.plist" | head -60
+              exit 1
+            }
             identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")
             test -n "$identifier" || { echo "Empty bundle ID: $bundle"; exit 1; }
             echo "$bundle => $identifier"

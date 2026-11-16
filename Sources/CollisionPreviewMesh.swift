@@ -10,9 +10,7 @@ struct CollisionPreviewMesh {
               !levelName.isEmpty,
               !levelName.contains("/"), !levelName.contains("\\"),
               levelName != ".", levelName != ".." else { return nil }
-        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        guard let root = try? XRayGameResourcePaths.root(for: gameID) else { return nil }
         let path = root.appendingPathComponent("gamedata/levels", isDirectory: true)
             .appendingPathComponent(levelName, isDirectory: true)
             .appendingPathComponent("level.cform", isDirectory: false)
@@ -37,3 +35,4 @@ struct CollisionPreviewMesh {
         return CollisionPreviewMesh(vertices: points, indices: Array(indices.prefix(Int(triangleCount) * 3)))
     }
 }
+

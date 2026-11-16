@@ -28,10 +28,7 @@ enum XRayLevelDiagnostics {
         defer { st_xray_destroy(handle) }
         guard st_xray_initialize(handle, edition) == 0 else { return nil }
         defer { st_xray_shutdown(handle) }
-        guard let support = FileManager.default.urls(for: .applicationSupportDirectory,
-                                                      in: .userDomainMask).first else { return nil }
-        let root = support.appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        guard let root = try? XRayGameResourcePaths.root(for: gameID) else { return nil }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return nil }
         return ResourceSummary(loose: st_xray_has_loose_data(handle) != 0,
                                archiveCount: st_xray_archive_count(handle),
@@ -44,9 +41,7 @@ enum XRayLevelDiagnostics {
         defer { st_xray_destroy(handle) }
         guard st_xray_initialize(handle, edition) == 0 else { return nil }
         defer { st_xray_shutdown(handle) }
-        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        guard let root = try? XRayGameResourcePaths.root(for: gameID) else { return nil }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return nil }
         let count = st_xray_level_count(handle)
         guard count > 0 else { return nil }
@@ -87,9 +82,7 @@ enum XRayLevelDiagnostics {
         defer { st_xray_destroy(handle) }
         guard st_xray_initialize(handle, edition) == 0 else { return [] }
         defer { st_xray_shutdown(handle) }
-        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        guard let root = try? XRayGameResourcePaths.root(for: gameID) else { return [] }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return [] }
         let count = st_xray_level_count(handle)
         guard count > 0 else { return [] }
@@ -124,10 +117,7 @@ enum XRayLevelDiagnostics {
         defer { st_xray_destroy(handle) }
         guard st_xray_initialize(handle, edition) == 0 else { return [] }
         defer { st_xray_shutdown(handle) }
-        guard let support = FileManager.default.urls(for: .applicationSupportDirectory,
-                                                      in: .userDomainMask).first else { return [] }
-        let root = support.appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(gameID, isDirectory: true)
+        guard let root = try? XRayGameResourcePaths.root(for: gameID) else { return [] }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else { return [] }
         let count = st_xray_level_count(handle)
         guard count > 0 else { return [] }
@@ -145,3 +135,4 @@ enum XRayLevelDiagnostics {
         return result
     }
 }
+

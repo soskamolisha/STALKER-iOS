@@ -49,6 +49,7 @@ enum GameResourceScanner {
 
     static func scan(_ folder: URL) -> Inventory? {
         let fm = FileManager.default
+        guard (try? folder.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink != true else { return nil }
         var rootIsDirectory: ObjCBool = false
         guard fm.fileExists(atPath: folder.path, isDirectory: &rootIsDirectory),
               rootIsDirectory.boolValue else { return nil }
@@ -69,7 +70,8 @@ enum GameResourceScanner {
         var header = "No X-Ray archive header available"
         while let file = enumerator?.nextObject() as? URL {
             let name = file.lastPathComponent.lowercased()
-            guard let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+            guard let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey]),
+                  info.isSymbolicLink != true,
                   info.isRegularFile == true else { continue }
             count += 1
             let size = Int64(info.fileSize ?? 0)
@@ -97,3 +99,4 @@ enum GameResourceScanner {
                          archiveSummary: archiveSummary, firstArchiveHeader: header)
     }
 }
+

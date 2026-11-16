@@ -13,7 +13,7 @@ on:
 
 concurrency:
   group: archive-import-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   compile-ios:
@@ -259,3 +259,4 @@ jobs:
             ${{ runner.temp }}/stalker-tests-build.log
             ${{ runner.temp }}/stalker-tests-run.log
           if-no-files-found: ignore
+

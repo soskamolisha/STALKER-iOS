@@ -23,15 +23,17 @@ enum STArchiveStore {
     }
 
     static func destinationRoot(fileManager: FileManager = .default) throws -> URL {
-        let documents = try fileManager.url(for: .documentDirectory, in: .userDomainMask,
-                                            appropriateFor: nil, create: true)
-        return documents.appendingPathComponent("ImportedGame", isDirectory: true)
+        try XRayGameResourcePaths.destination(for: "shadow", fileManager: fileManager)
     }
 
-    /// An existing destination is never overwritten. A failed copy removes its staging folder.
+    /// A failed copy keeps the existing destination and removes its staging folder.
     static func importArchives(from source: URL, fileManager: FileManager = .default, destinationOverride: URL? = nil) throws -> STArchiveInventory.Report {
+        XRayGameResourcePaths.importLock.lock()
+        defer { XRayGameResourcePaths.importLock.unlock() }
+        #if os(iOS) || os(macOS)
         let granted = source.startAccessingSecurityScopedResource()
         defer { if granted { source.stopAccessingSecurityScopedResource() } }
+        #endif
 
         // Accept either Data itself or the enclosing StalkerMobile.app folder.
         let nestedData = source.appendingPathComponent("Data", isDirectory: true)
@@ -287,3 +289,4 @@ enum STArchiveStore {
         return try STArchiveInventory.scan(directory: destination)
     }
 }
+

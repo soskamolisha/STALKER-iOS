@@ -1,0 +1,28 @@
+name: Launcher resource integration
+on:
+  push:
+    branches: [feature/trilogy-launcher-v3]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Scripts/test-resource-integration.sh'
+      - '.github/workflows/resource-integration-tests.yml'
+  workflow_dispatch:
+concurrency:
+  group: resource-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  swift-resource-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Swift compiler
+        run: swift --version
+      - name: Parse all app Swift sources
+        run: |
+          find Sources -name '*.swift' -print0 | while IFS= read -r -d '' source; do
+            swiftc -frontend -parse "$source"
+          done
+      - name: Test import to launcher resource discovery
+        run: bash Scripts/test-resource-integration.sh

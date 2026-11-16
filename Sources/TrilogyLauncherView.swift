@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 /// Trilogy selection screen. Game launching remains disabled until a compatible iOS engine exists.
 struct TrilogyLauncherView: View {
+    var importRevision = 0
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("stalker.language") private var language = "ru"
     @State private var selectedGame: GameEdition?
     @State private var showImporter = false
@@ -69,12 +71,10 @@ struct TrilogyLauncherView: View {
             return
         }
         defer { st_xray_shutdown(handle) }
-        guard let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        guard let folder = try? XRayGameResourcePaths.root(for: game.rawValue) else {
             engineDiagnostics[game.rawValue] = russian ? "Хранилище недоступно" : "Storage unavailable"
             return
         }
-        let folder = support.appendingPathComponent("ImportedGames", isDirectory: true)
-            .appendingPathComponent(game.rawValue, isDirectory: true)
         let result = folder.path.withCString { st_xray_attach_resources(handle, $0) }
         if result == 0 {
             let loose = st_xray_has_loose_data(handle) == 1
@@ -314,8 +314,17 @@ struct TrilogyLauncherView: View {
                                     }
     }
 
+    @MainActor
+    private func refreshResources() async {
+        guard !isCopying && !nativeRunInProgress else { return }
+        for game in GameEdition.allCases {
+            await resources.refresh(gameID: game.rawValue)
+            engineDiagnostics.removeValue(forKey: game.rawValue)
+        }
+    }
+
     private func handleGameCardAction(for game: GameEdition) {
-                                        if resources.status[game.rawValue] == nil {
+                                        if resources.detectedResources[game.rawValue] != true {
                                             selectedGame = game
                                             showImporter = true
                                         } else {
@@ -443,8 +452,8 @@ struct TrilogyLauncherView: View {
                                 }
                                 Text(russian ? game.russianName : game.englishName)
                                     .font(.headline).foregroundStyle(.yellow)
-                                Label(resources.status[game.rawValue] == nil ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.status[game.rawValue] == nil ? "arrow.down.circle" : "checkmark.circle.fill")
-                                    .font(.caption).foregroundStyle(resources.status[game.rawValue] == nil ? .gray : .green)
+                                Label(resources.detectedResources[game.rawValue] != true ? (russian ? "Ресурсы не найдены" : "Resources not found") : (russian ? "Ресурсы добавлены" : "Resources imported"), systemImage: resources.detectedResources[game.rawValue] != true ? "arrow.down.circle" : "checkmark.circle.fill")
+                                    .font(.caption).foregroundStyle(resources.detectedResources[game.rawValue] != true ? .gray : .green)
                                 gameDiagnostics(for: game)
                                 if nativeRunInProgress && nativeRunningGame == game {
                                     ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
@@ -469,10 +478,10 @@ struct TrilogyLauncherView: View {
                                     Button {
                                         handleGameCardAction(for: game)
                                     } label: {
-                                        Label(resources.status[game.rawValue] == nil
+                                        Label(resources.detectedResources[game.rawValue] != true
                                               ? (russian ? "Добавить файлы игры" : "Add game files")
                                               : (russian ? "Проверить запуск" : "Check launch"),
-                                              systemImage: resources.status[game.rawValue] == nil ? "folder" : "play.fill")
+                                              systemImage: resources.detectedResources[game.rawValue] != true ? "folder" : "play.fill")
                                             .frame(maxWidth: .infinity)
                                             .lineLimit(1)
                                             .minimumScaleFactor(0.8)
@@ -736,14 +745,10 @@ struct TrilogyLauncherView: View {
             } message: {
                 Text(russian ? "STALKER Mobile — тестовый лаунчер. Порт X-Ray для iOS ещё не готов." : "STALKER Mobile is a prototype launcher. The iOS X-Ray port is not ready yet.")
             }
-            .task {
-                for game in GameEdition.allCases {
-                    await resources.refresh(gameID: game.rawValue)
-                    // Reattach the native resource probe after relaunch, too.
-                    // A successful probe does not mean gameplay is available.
-                    if resources.detectedResources[game.rawValue] == true {
-                        checkEngineResources(for: game)
-                    }
+            .task(id: importRevision) { await refreshResources() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await refreshResources() }
                 }
             }
             .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
@@ -771,10 +776,7 @@ struct TrilogyLauncherView: View {
                     Task {
                         defer { isCopying = false; self.selectedGame = nil }
                         do {
-                            try await Task.detached(priority: .userInitiated) {
-                                try GameResourceImporter.copy(folder, gameID: edition)
-                            }.value
-                            await resources.refresh(gameID: edition)
+                            try await resources.importFolder(folder, gameID: edition)
                             if let game = GameEdition(rawValue: edition) {
                                 checkEngineResources(for: game)
                                 showDiagnostics = true
@@ -791,4 +793,5 @@ struct TrilogyLauncherView: View {
         }
     }
 }
+
 

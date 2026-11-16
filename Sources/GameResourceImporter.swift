@@ -4,6 +4,8 @@ import Foundation
 /// The caller retains the selected security-scoped URL until this method returns.
 enum GameResourceImporter {
     static func copy(_ source: URL, gameID: String) throws {
+        XRayGameResourcePaths.importLock.lock()
+        defer { XRayGameResourcePaths.importLock.unlock() }
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else { throw ImportFailure.invalidEdition }
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
@@ -12,12 +14,13 @@ enum GameResourceImporter {
         guard fm.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw ImportFailure.invalidFolder
         }
-        let root = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
+        let target = try XRayGameResourcePaths.destination(for: gameID)
+        let root = target.deletingLastPathComponent()
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         // Reject importing our own managed directory (or a descendant) to avoid
         // recursive copies, accidental replacement, and storage exhaustion.
-        guard isSafeImportSource(source, managedRoot: root) else {
+        guard isSafeImportSource(source, managedRoot: target),
+              isSafeImportSource(source, managedRoot: try XRayGameResourcePaths.legacyRoot(for: gameID)) else {
             throw ImportFailure.managedFolderSelected
         }
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
@@ -28,9 +31,8 @@ enum GameResourceImporter {
         if let available, incoming > Int64(available) - headroom {
             throw ImportFailure.insufficientStorage
         }
-        let target = root.appendingPathComponent(gameID, isDirectory: true)
-        let incomingFolder = root.appendingPathComponent(gameID + ".incoming", isDirectory: true)
-        let backup = root.appendingPathComponent(gameID + ".backup", isDirectory: true)
+        let incomingFolder = root.appendingPathComponent(target.lastPathComponent + ".incoming", isDirectory: true)
+        let backup = root.appendingPathComponent(target.lastPathComponent + ".backup", isDirectory: true)
         if fm.fileExists(atPath: incomingFolder.path) { try fm.removeItem(at: incomingFolder) }
         if fm.fileExists(atPath: backup.path) {
             if !fm.fileExists(atPath: target.path) { try fm.moveItem(at: backup, to: target) }
@@ -77,6 +79,8 @@ enum GameResourceImporter {
     /// Import one original X-Ray archive segment without reading it into memory.
     /// A staged copy is moved into place only after its size is verified.
     static func copyArchive(_ source: URL, gameID: String) throws {
+        XRayGameResourcePaths.importLock.lock()
+        defer { XRayGameResourcePaths.importLock.unlock() }
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else {
             throw ImportFailure.invalidEdition
         }
@@ -94,16 +98,17 @@ enum GameResourceImporter {
             throw ImportFailure.invalidArchive
         }
         let fm = FileManager.default
-        let root = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImportedGames", isDirectory: true)
-        guard isSafeImportSource(source, managedRoot: root) else {
+        let target = try XRayGameResourcePaths.destination(for: gameID)
+        let root = target.deletingLastPathComponent()
+        guard isSafeImportSource(source, managedRoot: target),
+              isSafeImportSource(source, managedRoot: try XRayGameResourcePaths.legacyRoot(for: gameID)) else {
             throw ImportFailure.managedFolderSelected
         }
         let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
         if let available, Int64(size) > Int64(available) - 256 * 1024 * 1024 {
             throw ImportFailure.insufficientStorage
         }
-        let targetFolder = root.appendingPathComponent(gameID, isDirectory: true)
+        let targetFolder = target
         try fm.createDirectory(at: targetFolder, withIntermediateDirectories: true)
         let destination = targetFolder.appendingPathComponent(lower)
         let staging = targetFolder.appendingPathComponent("." + lower + "." + UUID().uuidString + ".incoming")
@@ -274,3 +279,4 @@ enum GameResourceImporter {
         }
     }
 }
+

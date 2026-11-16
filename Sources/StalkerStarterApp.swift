@@ -14,10 +14,11 @@ struct StalkerStarterApp: App {
 /// Adds an archive-import entry without modifying the existing trilogy launcher.
 private struct STLauncherArchiveHost: View {
     @State private var showingArchiveImport = false
+    @State private var importRevision = 0
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            TrilogyLauncherView()
+            TrilogyLauncherView(importRevision: importRevision)
             Button {
                 showingArchiveImport = true
             } label: {
@@ -35,7 +36,7 @@ private struct STLauncherArchiveHost: View {
                 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             }
         }
-        .sheet(isPresented: $showingArchiveImport) {
+        .sheet(isPresented: $showingArchiveImport, onDismiss: { importRevision += 1 }) {
             STArchiveImportView()
                 .preferredColorScheme(.dark)
         }
@@ -252,3 +253,4 @@ struct GameShellView: View {
             .accessibilityLabel(title)
     }
 }
+

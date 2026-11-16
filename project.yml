@@ -50,6 +50,7 @@ targets:
       # Standalone C++ native probes are compiled by their dedicated workflows.
       - path: Tests/STArchiveInventoryTests.swift
       - path: Tests/STArchiveStoreTests.swift
+      - path: Tests/GameResourceIntegrationTests.swift
       - path: Tests/XRayParserTestMain.swift
     dependencies:
       - target: STALKERiOSStarter
@@ -71,3 +72,4 @@ schemes:
         - STArchiveTests
     run:
       config: Debug
+

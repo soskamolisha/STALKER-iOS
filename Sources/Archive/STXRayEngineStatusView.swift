@@ -42,7 +42,7 @@ struct STXRayEngineStatusView: View {
             if !archiveDetails.isEmpty {
                 Text(archiveDetails).font(.caption).foregroundStyle(.secondary)
             }
-            if canLaunch {
+            if canLaunch || isLaunching {
                 Button(isLaunching ? "X-Ray запускается…" : "Запустить Shadow of Chernobyl") {
                     launchGame()
                 }

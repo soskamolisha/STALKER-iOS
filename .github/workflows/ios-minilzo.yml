@@ -57,7 +57,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ST_LZO_HEADER_PATH="$ROOT/lzo-2.10/minilzo" \
             ST_LZO_DEFINES=ST_HAVE_LZO1X=1 \
-            ST_LZO_LINK_FLAGS="$ROOT/libminilzo.a" \
+            ST_LZO_LINK_FLAGS="-Wl,-u,_st_chunk_decode_lzo -Wl,-u,_lzo1x_decompress_safe $ROOT/libminilzo.a" \
             build
       - name: Verify linked LZO symbols in unsigned app
         shell: bash

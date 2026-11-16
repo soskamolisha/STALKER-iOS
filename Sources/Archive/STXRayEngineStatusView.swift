@@ -6,6 +6,13 @@ struct STXRayEngineStatusView: View {
     let gameRoot: URL
     let edition: Int32
 
+    init(edition: Int32, gameRoot: URL? = nil) {
+        self.edition = edition
+        self.gameRoot = gameRoot ??
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("ImportedGame", isDirectory: true)
+    }
+
     @State private var isChecking = false
     @State private var summary = "Проверка X-Ray ещё не выполнена"
     @State private var archiveDetails = ""
@@ -40,9 +47,14 @@ struct STXRayEngineStatusView: View {
                 switch result {
                 case .success(let snapshot):
                     summary = snapshot.statusText
+                    let checked = zip(snapshot.archiveNames, snapshot.directoryRecordCounts)
+                        .prefix(5)
+                        .map { name, count in
+                            count >= 0 ? "\(name): \(count) записей" :
+                                "\(name): ошибка каталога \(count)"
+                        }
                     archiveDetails = "Архивов: \(snapshot.archiveNames.count), байт: \(snapshot.archiveBytes). " +
-                        (snapshot.archiveNames.isEmpty ? "Архивы не найдены." :
-                            snapshot.archiveNames.prefix(5).joined(separator: ", "))
+                        (checked.isEmpty ? "Архивы не найдены." : checked.joined(separator: "; "))
                 case .failure(let error):
                     summary = error.localizedDescription
                     archiveDetails = "Проверь папку ImportedGame и импортированные ресурсы."

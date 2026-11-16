@@ -1,0 +1,49 @@
+name: iOS MiniLZO native build
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Scripts/build-ios-minilzo.sh'
+      - 'Sources/Native/STLZOAdapter.cpp'
+      - 'Sources/Native/STLZOAdapter.h'
+      - 'Sources/Native/STChunks.cpp'
+      - 'Sources/Native/STChunks.h'
+      - '.github/workflows/ios-minilzo.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  iphoneos-arm64:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build MiniLZO for physical iPhone
+        run: bash Scripts/build-ios-minilzo.sh
+      - name: Compile and link iOS chunk decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CXX="$(xcrun --sdk iphoneos --find clang++)"
+          ROOT="$PWD/build/minilzo-ios"
+          HEADER="$ROOT/lzo-2.10/minilzo"
+          "$CXX" -std=c++17 -Wall -Wextra -Werror -arch arm64 \
+            -isysroot "$SDK" -miphoneos-version-min=17.0 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            -c Sources/Native/STChunks.cpp -o "$ROOT/STChunks.o"
+          "$CXX" -std=c++17 -Wall -Wextra -Werror -arch arm64 \
+            -isysroot "$SDK" -miphoneos-version-min=17.0 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            -c Sources/Native/STLZOAdapter.cpp -o "$ROOT/STLZOAdapter.o"
+          xcrun --sdk iphoneos ar rcs "$ROOT/libstchunks-lzo.a" \
+            "$ROOT/STChunks.o" "$ROOT/STLZOAdapter.o" "$ROOT/minilzo.o"
+          xcrun lipo -info "$ROOT/libstchunks-lzo.a"
+          xcrun nm "$ROOT/libstchunks-lzo.a" | grep 'st_chunk_decode_lzo'
+      - name: Upload iPhone arm64 native library
+        uses: actions/upload-artifact@v4
+        with:
+          name: stchunks-minilzo-iphoneos-arm64
+          path: build/minilzo-ios/libstchunks-lzo.a
+          if-no-files-found: error

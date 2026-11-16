@@ -188,6 +188,32 @@ jobs:
           xcrun lipo -info "$OGG_LIB" | grep -q arm64
           test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
           echo "iPhone ARM64 Ogg archive: $OGG_LIB"
+      - name: Build libjpeg-turbo for iPhone ARM64
+        id: jpeg
+        if: steps.sdlready.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 3.0.4 https://github.com/libjpeg-turbo/libjpeg-turbo.git "$RUNNER_TEMP/libjpeg-turbo"
+          cmake -S "$RUNNER_TEMP/libjpeg-turbo" -B "$RUNNER_TEMP/jpeg-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=OFF \
+            -DWITH_TURBOJPEG=OFF -DWITH_JAVA=OFF \
+            2>&1 | tee "$RUNNER_TEMP/jpeg-configure.log"
+          cmake --build "$RUNNER_TEMP/jpeg-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/jpeg-build.log"
+          cmake --install "$RUNNER_TEMP/jpeg-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/jpeg-install.log"
+          JPEG_LIB="$(find "$RUNNER_TEMP/ios-deps" -name libjpeg.a -print -quit)"
+          test -s "$JPEG_LIB"
+          xcrun lipo -info "$JPEG_LIB" | grep -q arm64
+          test -f "$RUNNER_TEMP/ios-deps/include/jpeglib.h"
+          echo "iPhone ARM64 JPEG archive: $JPEG_LIB"
       - name: Audit upstream third-party dependency requirements
         continue-on-error: true
         if: steps.sdlready.outcome == 'success'
@@ -213,7 +239,7 @@ jobs:
           PY
       - name: Attempt CMake configuration for iPhone ARM64
         id: configure
-        if: steps.sdlready.outcome == 'success'
+        if: steps.sdlready.outcome == 'success' && steps.ogg.outcome == 'success' && steps.jpeg.outcome == 'success'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -228,6 +254,8 @@ jobs:
             -DSDL2_DIR="$SDL2_DIR" \
             -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
             -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DJPEG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libjpeg.a" \
+            -DJPEG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -296,7 +324,7 @@ jobs:
           patterns = re.compile(r"(fatal error:| error:|CMake Error|Could NOT find|No such file or directory|unsupported|not supported|undefined symbol|ld:)", re.I)
           report = temp / "openxray-failure-summary.txt"
           with report.open("w") as out:
-              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "ogg-configure.log", "ogg-build.log", "ogg-install.log", "openxray-configure.log", "openxray-compile.log"):
+              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "ogg-configure.log", "ogg-build.log", "ogg-install.log", "jpeg-configure.log", "jpeg-build.log", "jpeg-install.log", "openxray-configure.log", "openxray-compile.log"):
                   log = temp / name
                   print(f"=== {name} ===", file=out)
                   if not log.exists():

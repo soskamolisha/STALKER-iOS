@@ -93,8 +93,9 @@ extern "C" int32_t st_chunk_copy_slice(const uint8_t* bytes, uint32_t length,
 extern "C" int32_t st_chunk_decode(const uint8_t* bytes, uint32_t length,
     uint32_t index, uint8_t* destination, uint32_t destination_capacity,
     uint32_t* decoded_size, st_chunk_decoder decoder, void* context) {
-    if (!bytes || !decoded_size || (destination_capacity && !destination)) return -1;
+    if (!decoded_size) return -1;
     *decoded_size = 0;
+    if (!bytes || (destination_capacity && !destination)) return -1;
     std::uint32_t id = 0, offset = 0, size = 0, compressed = 0;
     const int32_t status = st_chunk_at(bytes, length, index,
                                       &id, &offset, &size, &compressed);

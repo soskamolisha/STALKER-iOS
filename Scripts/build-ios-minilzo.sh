@@ -18,7 +18,11 @@ fi
 if [[ ! -f "$SOURCE_DIR/minilzo/minilzo.c" ]]; then
   curl --fail --location --retry 3 --output "$ARCHIVE" \
     "https://www.oberhumer.com/opensource/lzo/download/lzo-${LZO_VERSION}.tar.gz"
-  tar -tzf "$ARCHIVE" | grep -q "lzo-${LZO_VERSION}/minilzo/minilzo.c$" || { echo "Invalid LZO source archive" >&2; exit 1; }
+  tar -tzf "$ARCHIVE" > "$BUILD_DIR/lzo-archive-entries.txt"
+  if ! grep -Eq "^([^/]+/)?lzo-${LZO_VERSION}/minilzo/minilzo[.]c$" "$BUILD_DIR/lzo-archive-entries.txt"; then
+    echo "Invalid LZO source archive" >&2
+    exit 1
+  fi
   tar -xzf "$ARCHIVE" -C "$BUILD_DIR"
 fi
 if [[ ! -f "$SOURCE_DIR/minilzo/minilzo.h" ]]; then

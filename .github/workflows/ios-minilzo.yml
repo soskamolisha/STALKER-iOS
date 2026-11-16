@@ -84,6 +84,7 @@ jobs:
           xcrun lipo -info "$APP/STALKERiOSStarter"
           xcrun nm "$APP/STALKERiOSStarter" | grep 'st_chunk_decode_lzo'
           xcrun nm "$APP/STALKERiOSStarter" | grep 'lzo1x_decompress_safe'
+          xcrun nm "$APP/STALKERiOSStarter" | grep 'st_lzo1x_available'
       - name: Upload unsigned iOS app for inspection
         uses: actions/upload-artifact@v4
         with:

@@ -33,7 +33,7 @@ int main() {
     assert(st_openxray_runtime_preflight(root.c_str()) == -7);
     write_file(root + "/fsgame.ltx", "[filesystem]\n");
     assert(st_openxray_runtime_preflight(root.c_str()) == -8);
-    write_file(root + "/gamedata.db0", "PK\\003\\004fakezip");
+    write_file(root + "/gamedata.db0", "PK\003\004fakezip");
     assert(st_openxray_runtime_preflight(root.c_str()) == -8);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
     write_file(root + "/gamedata.db0", "XRay archive placeholder");

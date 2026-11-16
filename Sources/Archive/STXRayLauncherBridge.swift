@@ -28,7 +28,9 @@ final class STXRayLauncherBridge {
         let resourceEngineLinked: Bool
         let preflightStatus: Int32
         /// A successful preflight only verifies prerequisites, not gameplay.
-        var prerequisitesPresent: Bool { preflightStatus == 0 }
+        var prerequisitesPresent: Bool {
+            preflightStatus == 0 && unreadableArchives.isEmpty
+        }
         var unreadableArchives: [String] {
             zip(archiveNames, directoryRecordCounts).compactMap { name, count in
                 count < 0 ? name : nil

@@ -25,6 +25,12 @@ struct STXRayEngineStatusView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Движок X-Ray").font(.headline)
+            Text("Папка ресурсов: \(gameRoot.lastPathComponent)")
+                .font(.caption).foregroundStyle(.secondary)
+            if !FileManager.default.fileExists(atPath: gameRoot.path) {
+                Text("Папка игры ещё не создана. Импортируй файлы и повтори проверку.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             Text(summary).font(.subheadline)
             if !engineDetails.isEmpty { Text(engineDetails).font(.caption).foregroundStyle(.secondary) }
             if !failedArchives.isEmpty {

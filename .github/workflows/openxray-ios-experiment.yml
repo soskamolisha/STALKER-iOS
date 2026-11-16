@@ -348,6 +348,14 @@ jobs:
         run: |
           echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "SDL2 CMake package: ${SDL2_DIR:-not installed}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ogg iOS outcome: ${{ steps.ogg.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "JPEG iOS outcome: ${{ steps.jpeg.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.ogg.outcome }}" = "failure" ]; then
+            echo "### Blocker: libogg iPhone ARM64 build failed; see ogg logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.jpeg.outcome }}" = "failure" ]; then
+            echo "### Blocker: libjpeg-turbo iPhone ARM64 build failed; see jpeg logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ "${{ steps.sdlready.outcome }}" != "success" ]; then
             echo "### Blocker: SDL2 iPhone ARM64 build failed" >> "$GITHUB_STEP_SUMMARY"
             echo "Inspect sdl2-configure.log / sdl2-build.log / sdl2-install.log in diagnostics." >> "$GITHUB_STEP_SUMMARY"
@@ -376,6 +384,12 @@ jobs:
             ${{ runner.temp }}/openxray-abi-audit.txt
             ${{ runner.temp }}/openxray-requirements.txt
             ${{ runner.temp }}/openxray-ios-dependencies.txt
+            ${{ runner.temp }}/ogg-configure.log
+            ${{ runner.temp }}/ogg-build.log
+            ${{ runner.temp }}/ogg-install.log
+            ${{ runner.temp }}/jpeg-configure.log
+            ${{ runner.temp }}/jpeg-build.log
+            ${{ runner.temp }}/jpeg-install.log
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
             ${{ runner.temp }}/openxray-linkage.txt

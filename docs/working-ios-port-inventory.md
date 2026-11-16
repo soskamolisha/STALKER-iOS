@@ -46,6 +46,30 @@ Payload/StalkerMobile.app/
     gamedata/...
 ```
 
+## Verified Mach-O dynamic dependencies (llvm-objdump)
+
+Directly inspected the supplied `StalkerMobile` Mach-O with
+`llvm-objdump --macho --dylibs-used`. Its linked dynamic libraries include:
+
+- UI / lifecycle: `UIKit`, `Foundation`, `CoreFoundation`, `CoreGraphics`, `QuartzCore`
+- Rendering: `Metal`, `CoreVideo`, `IOSurface`
+- Audio: `AVFoundation`, `AVFAudio`, `AudioToolbox`, `CoreAudio`
+- Input / haptics: `GameController` (weak), `CoreMotion`, `CoreHaptics` (weak)
+- Other: `CoreBluetooth`, `UniformTypeIdentifiers`, `libobjc.A`, `libSystem.B`, `libc++.1`
+
+The load commands include `LC_MAIN` and `LC_BUILD_VERSION`.
+No separately linked `xrEngine.dylib` or `OpenXRay.framework` appears in
+the binary's **direct dynamic dependency list**. This is consistent with
+static engine linkage, but does **not** prove how its source was built.
+It also does not prove that all these frameworks must be added manually
+to our launcher: dependencies must be determined from the eventual
+engine library's undefined symbols and runtime needs.
+
+**Actionable next check:** once an arm64 engine archive is available,
+inspect `nm -u` and link diagnostics to identify framework requirements;
+then validate app lifecycle and Metal rendering on an actual iPhone.
+This binary inspection does not extract reusable engine object files.
+
 ## Integration implications
 1. `STArchiveStore` already imports archives and loose `gamedata`, plus optional `fsgame.ltx` and `ios_args.txt`.
 2. `STXRayLauncherBridge` has a guarded resource-aware engine call, but the provided `MH_EXECUTE` cannot satisfy it.

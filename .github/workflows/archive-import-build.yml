@@ -1,39 +1,4 @@
 name: Archive Import iOS Build
-      - name: Summarize first Swift and linker failures
-        if: always()
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import os, re
-          temp = Path(os.environ["RUNNER_TEMP"])
-          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|TEST BUILD FAILED|The following build commands failed|undefined symbols|ld: |clang: error:", re.I)
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-              summary.write("### iOS build diagnostics\n")
-              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
-                  summary.write(f"\n**{filename}**\n")
-                  file = temp / filename
-                  if not file.exists():
-                      summary.write("Not run\n")
-                      continue
-                  all_lines = file.read_text(errors="replace").splitlines()
-                  lines = [f"{index + 1}: {line[:600]}" for index, line in enumerate(all_lines)
-                           if pattern.search(line)]
-                  if lines:
-                      summary.write("```text\n" + "\n".join(lines[:20]) + "\n```\n")
-                  else:
-                      summary.write("No matching compiler errors found\n")
-          PY
-      - name: Upload build logs (including failures)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: STALKERMobile-build-logs
-          path: |
-            ${{ runner.temp }}/stalker-swift-syntax.log
-            ${{ runner.temp }}/stalker-simulator-build.log
-            ${{ runner.temp }}/stalker-device-build.log
-            ${{ runner.temp }}/stalker-tests-build.log
-          if-no-files-found: ignore
 
 on:
   push:
@@ -121,6 +86,50 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/stalker-device" \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee "$RUNNER_TEMP/stalker-device-build.log"
+      - name: Compile archive unit tests for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
+      - name: Summarize first Swift and linker failures
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          temp = Path(os.environ["RUNNER_TEMP"])
+          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|TEST BUILD FAILED|The following build commands failed|undefined symbols|ld: |clang: error:", re.I)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("### iOS build diagnostics\n")
+              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
+                  summary.write(f"\n**{filename}**\n")
+                  file = temp / filename
+                  if not file.exists():
+                      summary.write("Not run\n")
+                      continue
+                  all_lines = file.read_text(errors="replace").splitlines()
+                  lines = [f"{index + 1}: {line[:600]}" for index, line in enumerate(all_lines)
+                           if pattern.search(line)]
+                  if lines:
+                      summary.write("```text\n" + "\n".join(lines[:20]) + "\n```\n")
+                  else:
+                      summary.write("No matching compiler errors found\n")
+          PY
+      - name: Upload build logs (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-build-logs
+          path: |
+            ${{ runner.temp }}/stalker-swift-syntax.log
+            ${{ runner.temp }}/stalker-simulator-build.log
+            ${{ runner.temp }}/stalker-device-build.log
+            ${{ runner.temp }}/stalker-tests-build.log
+          if-no-files-found: ignore
       - name: Verify physical iPhone app binary and bundle
         if: success() || failure()
         run: |
@@ -157,12 +166,3 @@ jobs:
           name: STALKERMobile-unsigned-ipa
           path: ${{ runner.temp }}/STALKERMobile-unsigned.ipa
           if-no-files-found: error
-      - name: Compile archive unit tests for iOS Simulator
-        run: |
-          set -o pipefail
-          xcodebuild -project STALKERiOSStarter.xcodeproj \
-            -scheme STALKERiOSStarter \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"

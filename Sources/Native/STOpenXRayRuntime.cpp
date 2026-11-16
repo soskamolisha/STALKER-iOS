@@ -168,8 +168,21 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
             const std::string archive = std::string(resource_root) + "/" + entry->d_name;
             struct stat archive_info {};
             if (lstat(archive.c_str(), &archive_info) == 0 &&
-                S_ISREG(archive_info.st_mode) && archive_info.st_size > 0)
-                has_game_data = true;
+                S_ISREG(archive_info.st_mode) && archive_info.st_size > 0) {
+                // Match the Swift importer's ZIP-signature rejection.
+                // A renamed ZIP is not a usable X-Ray base archive.
+                FILE* candidate = std::fopen(archive.c_str(), "rb");
+                if (!candidate) continue;
+                unsigned char signature[4] {};
+                const size_t bytes = std::fread(signature, 1, sizeof(signature), candidate);
+                std::fclose(candidate);
+                const bool zip = bytes == sizeof(signature) &&
+                    signature[0] == 0x50 && signature[1] == 0x4b &&
+                    ((signature[2] == 0x03 && signature[3] == 0x04) ||
+                     (signature[2] == 0x05 && signature[3] == 0x06) ||
+                     (signature[2] == 0x07 && signature[3] == 0x08));
+                if (!zip && bytes > 0) has_game_data = true;
+            }
         }
         closedir(dir);
     }

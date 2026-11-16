@@ -27,6 +27,7 @@ final class STArchiveInventoryTests: XCTestCase {
             XCTAssertEqual(report.archives.map(\.number), [0, 1])
             XCTAssertTrue(report.missingNumbers.isEmpty)
             XCTAssertTrue(report.hasBaseArchive)
+            XCTAssertFalse(report.isEngineReady)
         }
     }
 
@@ -65,4 +66,13 @@ final class STArchiveInventoryTests: XCTestCase {
         }
     }
 
+    func testEmptyDuplicateDoesNotHideValidBase() throws {
+        try withDirectory { directory in
+            try Data().write(to: directory.appendingPathComponent("gamedata.db0"))
+            try Data([1, 2, 3]).write(to: directory.appendingPathComponent("gamedata.db00"))
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertTrue(report.hasBaseArchive)
+            XCTAssertEqual(report.archives.count, 1)
+        }
+    }
 }

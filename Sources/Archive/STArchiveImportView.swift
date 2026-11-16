@@ -143,8 +143,12 @@ struct STArchiveImportView: View {
     private func refreshStoredArchives() {
         do {
             let destination = try STArchiveStore.destinationRoot()
-            guard FileManager.default.fileExists(atPath: destination.path) else {
-                storedArchiveStatus = "Файлы игры ещё не импортированы"
+            // Create the Files-visible destination before the first import.
+            // Folder picking can be disabled by some iOS document providers;
+            // users can then copy original game files into this folder manually.
+            if !FileManager.default.fileExists(atPath: destination.path) {
+                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                storedArchiveStatus = "Папка ImportedGame создана. Скопируй сюда игровые файлы через «Файлы» или выбери папку для импорта."
                 return
             }
             let saved = try STArchiveInventory.scan(directory: destination)

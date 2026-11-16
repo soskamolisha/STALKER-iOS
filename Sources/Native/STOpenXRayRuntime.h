@@ -12,7 +12,10 @@ int32_t st_openxray_runtime_resources_linked(void);
 int32_t st_openxray_runtime_run(const char* command_line);
 // Non-invasive launch readiness probe: 0 means an embedded engine entry is present;
 // -5 means no resource-aware engine is linked; -6 means invalid resource root;
-// -7 means the imported root has no usable fsgame.ltx. Does not start gameplay.
+// -7 means the imported root has no usable fsgame.ltx;
+// -8 means no nonempty gamedata.db0 or loose gamedata directory was found;
+// -5 means no resource-aware engine was linked after resource checks pass.
+// Does not start gameplay and does not validate archive contents.
 int32_t st_openxray_runtime_preflight(const char* resource_root);
 // Stable diagnostic text for SwiftUI launch status; never returns a null pointer.
 const char* st_openxray_runtime_status_message(int32_t status);

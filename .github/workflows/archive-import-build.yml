@@ -163,6 +163,17 @@ jobs:
           done
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.stalkermobile.ios"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TESTS/Info.plist")" = "com.stalkermobile.ios.tests"
+          # Simulator installation also requires a valid package type and executable.
+          for bundle in "$APP" "$TESTS"; do
+            /usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$bundle/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$bundle/Info.plist"
+          done
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$APP/Info.plist")" = "APPL"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$TESTS/Info.plist")" = "BNDL"
+          APP_EXEC=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          TEST_EXEC=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$TESTS/Info.plist")
+          test -s "$APP/$APP_EXEC" || { echo "Missing host executable $APP_EXEC"; exit 1; }
+          test -s "$TESTS/$TEST_EXEC" || { echo "Missing test executable $TEST_EXEC"; exit 1; }
       - name: Run archive integration tests on iPhone Simulator
         timeout-minutes: 12
         run: |

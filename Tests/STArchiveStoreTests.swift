@@ -39,6 +39,40 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertFalse(leftovers.contains { $0.hasPrefix(".stalker-import-") })
     }
 
+    func testImportedFilesReachNativeXRayPreflight() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([1, 2, 3]).write(to: source.appendingPathComponent("gamedata.db0"))
+        try Data("[filesystem]".utf8).write(to: source.appendingPathComponent("fsgame.ltx"))
+        _ = try STArchiveStore.importArchives(from: source, destinationOverride: destination)
+        let status = destination.path.withCString { st_openxray_runtime_preflight($0) }
+        // -5 means the real resource-aware engine is not linked. Zero would
+        // mean the native resource preflight succeeded with an engine present.
+        XCTAssertTrue(status == -5 || status == 0, "Unexpected native preflight code: \\(status)")
+    }
+
+    func testNativePreflightIdentifiesMissingConfig() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([1]).write(to: root.appendingPathComponent("gamedata.db0"))
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -7)
+    }
+
+    func testNativePreflightIdentifiesMissingBaseArchive() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data("[filesystem]".utf8).write(to: root.appendingPathComponent("fsgame.ltx"))
+        XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
+    }
+
     func testExplainsZipWrappedBaseArchive() throws {
         let manager = FileManager.default
         let folder = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)

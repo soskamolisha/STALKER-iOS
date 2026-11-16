@@ -22,6 +22,23 @@ int32_t st_chunk_scan_children(const uint8_t *bytes, uint32_t length,
 int32_t st_chunk_copy_slice(const uint8_t *bytes, uint32_t length,
                             uint32_t index, uint32_t slice_offset, uint32_t slice_length,
                             uint8_t *destination, uint32_t destination_capacity);
+
+// Optional caller-provided decoder for compressed chunk payloads.
+// The callback receives only the compressed payload, never the 8-byte header.
+// It must write exactly *decoded_size bytes (<= destination_capacity).
+// A missing decoder returns -4; decoding failure returns -7.
+// This interface does not imply that an LZO implementation is linked.
+typedef int32_t (*st_chunk_decoder)(const uint8_t *compressed_bytes,
+                                    uint32_t compressed_size,
+                                    uint8_t *destination,
+                                    uint32_t destination_capacity,
+                                    uint32_t *decoded_size,
+                                    void *context);
+int32_t st_chunk_decode(const uint8_t *bytes, uint32_t length,
+                        uint32_t index, uint8_t *destination,
+                        uint32_t destination_capacity, uint32_t *decoded_size,
+                        st_chunk_decoder decoder, void *context);
+
 #ifdef __cplusplus
 }
 #endif

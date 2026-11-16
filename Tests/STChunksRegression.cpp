@@ -117,7 +117,7 @@ int main() {
     assert(lzo_init() == LZO_E_OK);
     const std::vector<uint8_t> original(512, 0x5A);
     std::vector<uint8_t> compressedPayload(original.size() + original.size() / 16 + 64 + 3);
-    std::vector<uint8_t> work(LZO1X_1_MEM_COMPRESS);
+    std::vector<lzo_align_t> work((LZO1X_1_MEM_COMPRESS + sizeof(lzo_align_t) - 1) / sizeof(lzo_align_t));
     lzo_uint compressedLength = static_cast<lzo_uint>(compressedPayload.size());
     assert(lzo1x_1_compress(original.data(), static_cast<lzo_uint>(original.size()),
                            compressedPayload.data(), &compressedLength,

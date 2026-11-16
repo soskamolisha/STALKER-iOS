@@ -28,3 +28,17 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: /tmp/stalker-runtime-dispatch
+
+      - name: Compile statically linked iOS-style engine adapter path
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
+            -DST_XRAY_STATIC_ENGINE_ADAPTER=1 \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            Tests/STOpenXRayRuntimeDispatchRegression.cpp \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -o /tmp/stalker-runtime-static-dispatch
+      - name: Test statically linked engine ABI
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/stalker-runtime-static-dispatch

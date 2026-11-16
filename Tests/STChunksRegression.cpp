@@ -43,6 +43,10 @@ int main() {
 #else
     assert(st_lzo1x_available() == 0);
 #endif
+    uint32_t invalidDecoded = 123;
+    assert(st_chunk_decode(nullptr, 0, 0, nullptr, 0,
+                           &invalidDecoded, nullptr, nullptr) == -1);
+    assert(invalidDecoded == 0);
     // The high bit indicates compression; structural scanning must not
     // mistake it for an ordinary chunk ID or silently decompress payloads.
     const auto compressed = chunk(0x8000002Au, {1, 2, 3});

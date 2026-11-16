@@ -74,15 +74,6 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee "$RUNNER_TEMP/stalker-simulator-build.log"
-      - name: Compile archive unit tests for iOS Simulator
-        run: |
-          set -o pipefail
-          xcodebuild -project STALKERiOSStarter.xcodeproj \
-            -scheme STALKERiOSStarter \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
       - name: Build for physical iPhone (unsigned)
         # Still build the app when unit-test compilation fails, so IPA diagnostics are independent.
         if: success() || failure()
@@ -166,3 +157,12 @@ jobs:
           name: STALKERMobile-unsigned-ipa
           path: ${{ runner.temp }}/STALKERMobile-unsigned.ipa
           if-no-files-found: error
+      - name: Compile archive unit tests for iOS Simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"

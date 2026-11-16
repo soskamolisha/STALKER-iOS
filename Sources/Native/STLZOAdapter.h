@@ -22,6 +22,13 @@ int32_t st_chunk_decode_lzo(const uint8_t *bytes, uint32_t length,
                             uint32_t destination_capacity,
                             uint32_t *decoded_size);
 
+// Decode a compressed or plain parent and validate nested X-Ray chunks.
+// Caller supplies bounded scratch space; no archive file parsing is implied.
+int32_t st_chunk_scan_decoded_children_lzo(const uint8_t *bytes,
+    uint32_t length, uint32_t parent_index, uint8_t *scratch,
+    uint32_t scratch_capacity, uint32_t *decoded_size,
+    uint32_t *child_count, uint32_t *first_child_id);
+
 #ifdef __cplusplus
 }
 #endif

@@ -114,7 +114,8 @@ int main() {
                            sizeof(output), &decodedSize, nullptr) == -4);
     assert(decodedSize == 0);
     assert(st_chunk_decode_lzo(compressed.data(), static_cast<uint32_t>(compressed.size()),
-                               0, output, sizeof(output), &decodedSize) == -7);
+                               0, output, sizeof(output), &decodedSize) == -4);
+    assert(decodedSize == 0);
 #endif
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
     // Real LZO1X round-trip: generate a valid compressed payload, pass it

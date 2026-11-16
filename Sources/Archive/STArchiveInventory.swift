@@ -54,8 +54,8 @@ enum STArchiveInventory {
             // Reject ZIP containers renamed to gamedata.dbN. Only read a tiny
             // signature; never load a potentially multi-gigabyte archive.
             let handle = try FileHandle(forReadingFrom: url)
-            defer { try? handle.close() }
             let signature = try handle.read(upToCount: 4) ?? Data()
+            try handle.close()
             if signature.count >= 4 &&
                 signature[0] == 0x50 && signature[1] == 0x4B &&
                 ((signature[2] == 0x03 && signature[3] == 0x04) ||

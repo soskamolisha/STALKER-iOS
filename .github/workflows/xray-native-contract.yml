@@ -5,6 +5,7 @@ on:
     paths:
       - 'Sources/Native/STOpenXRayRuntime.*'
       - 'Tests/STOpenXRayRuntimeContract.cpp'
+      - 'Tests/STOpenXRayMissingEngineContract.cpp'
       - '.github/workflows/xray-native-contract.yml'
   pull_request:
     paths:
@@ -26,3 +27,10 @@ jobs:
             Tests/STOpenXRayRuntimeContract.cpp \
             -o /tmp/stalker-xray-contract
           /tmp/stalker-xray-contract
+      - name: Verify launcher refuses gameplay without linked engine
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/STOpenXRayMissingEngineContract.cpp \
+            -o /tmp/stalker-no-engine-contract
+          /tmp/stalker-no-engine-contract

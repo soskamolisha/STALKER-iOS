@@ -285,6 +285,28 @@ jobs:
           test -s "$RUNNER_TEMP/ios-deps/lib/libtheora.a"
           test -f "$RUNNER_TEMP/ios-deps/include/theora/theora.h"
           xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/libtheora.a" | grep -q arm64
+      - name: Build LZO for iPhone ARM64
+        id: lzo
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz -o "$RUNNER_TEMP/lzo.tar.gz"
+          mkdir -p "$RUNNER_TEMP/lzo-src"
+          tar -xzf "$RUNNER_TEMP/lzo.tar.gz" -C "$RUNNER_TEMP/lzo-src" --strip-components=1
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos -f clang)"
+          export AR="$(xcrun -f ar)"
+          export RANLIB="$(xcrun -f ranlib)"
+          export CFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -O2"
+          export LDFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0"
+          cd "$RUNNER_TEMP/lzo-src"
+          ./configure --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" \
+            --disable-shared --enable-static 2>&1 | tee "$RUNNER_TEMP/lzo-configure.log"
+          make -j3 2>&1 | tee "$RUNNER_TEMP/lzo-build.log"
+          make install 2>&1 | tee "$RUNNER_TEMP/lzo-install.log"
+          test -s "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
+          test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/liblzo2.a" | grep -q arm64
       - name: Audit upstream third-party dependency requirements
         continue-on-error: true
         if: steps.sdlready.outcome == 'success'
@@ -314,7 +336,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a; do
+          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a liblzo2.a; do
             test -s "$RUNNER_TEMP/ios-deps/lib/$lib" || { echo "::error::Missing iOS ARM64 dependency: $lib"; exit 1; }
           done
           test -n "${SDL2_DIR:-}" || { echo "::error::SDL2_DIR is missing"; exit 1; }
@@ -335,6 +357,8 @@ jobs:
             -DVORBIS_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DTHEORA_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libtheora.a" \
             -DTHEORA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLZO_LIBRARY="$RUNNER_TEMP/ios-deps/lib/liblzo2.a" \
+            -DLZO_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -431,6 +455,7 @@ jobs:
           echo "JPEG iOS outcome: ${{ steps.jpeg.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Vorbis iOS outcome: ${{ steps.vorbis.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Theora iOS outcome: ${{ steps.theora.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "LZO iOS outcome: ${{ steps.lzo.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.ogg.outcome }}" = "failure" ]; then
             echo "### Blocker: libogg iPhone ARM64 build failed; see ogg logs." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -477,6 +502,9 @@ jobs:
             ${{ runner.temp }}/theora-configure.log
             ${{ runner.temp }}/theora-build.log
             ${{ runner.temp }}/theora-install.log
+            ${{ runner.temp }}/lzo-configure.log
+            ${{ runner.temp }}/lzo-build.log
+            ${{ runner.temp }}/lzo-install.log
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
             ${{ runner.temp }}/openxray-linkage.txt

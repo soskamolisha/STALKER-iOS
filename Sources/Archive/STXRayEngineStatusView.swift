@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Drop-in diagnostics panel for the launcher game-detail screen.
-/// Call refresh after importing resources; does not attempt to start gameplay.
+/// Diagnostics and guarded launch when a real embedded engine is linked.
 struct STXRayEngineStatusView: View {
     let gameRoot: URL
     let edition: Int32
@@ -78,7 +78,7 @@ struct STXRayEngineStatusView: View {
                 isLaunching = false
                 launchResult = result == 0
                     ? "X-Ray завершил работу (код 0). Успешный запуск игры не подтверждён."
-                    : "X-Ray вернул код \\(result): " +
+                    : "X-Ray вернул код \(result): " +
                       String(cString: st_openxray_runtime_status_message(result))
             }
         }
@@ -108,7 +108,7 @@ struct STXRayEngineStatusView: View {
                 switch result {
                 case .success(let snapshot):
                     summary = snapshot.statusText
-                    canLaunch = snapshot.preflightStatus == 0 && snapshot.resourceEngineLinked
+                    canLaunch = snapshot.prerequisitesPresent && snapshot.resourceEngineLinked
                     failedArchives = snapshot.unreadableArchives.isEmpty ? "" : "Не удалось прочитать: " + snapshot.unreadableArchives.prefix(5).joined(separator: ", ")
                     engineDetails = snapshot.resourceEngineLinked ? "Ресурсный интерфейс X-Ray обнаружен; запуск не проверен" : "Исполняемый движок X-Ray не подключён"
                     let checked = zip(snapshot.archiveNames, snapshot.directoryRecordCounts)

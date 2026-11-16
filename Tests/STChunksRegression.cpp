@@ -52,5 +52,28 @@ int main() {
                          &count, &first, &size) == -1);
     assert(st_chunk_at(truncated.data(), static_cast<uint32_t>(truncated.size()), 0,
                        &id, &offset, &payloadSize, &flag) == -1);
+
+    // An uncompressed parent may contain nested chunks.
+    const auto child = chunk(19, {0xAB});
+    const auto parent = chunk(9, child);
+    assert(st_chunk_scan_children(parent.data(), static_cast<uint32_t>(parent.size()),
+                                  0, &children, &childId) == 0);
+    assert(children == 1 && childId == 19);
+
+    // A malformed nested chunk is rejected without reading beyond its parent.
+    const auto malformedParent = chunk(9, {0x01, 0x02, 0x03});
+    assert(st_chunk_scan_children(malformedParent.data(),
+                                  static_cast<uint32_t>(malformedParent.size()),
+                                  0, &children, &childId) == -1);
+
+    // The API must distinguish absent chunks from corrupt data.
+    assert(st_chunk_at(plain.data(), static_cast<uint32_t>(plain.size()), 1,
+                       &id, &offset, &payloadSize, &flag) == -3);
+
+    // A zero-byte slice is valid even with a null destination.
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 3, 0, nullptr, 0) == 0);
+    assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, 0, 2, output, 1) == -6);
     return 0;
 }

@@ -18,6 +18,8 @@ using EmbeddedRun = int (*)(const char*);
 using EmbeddedRunWithResources = int (*)(const char*, const char*);
 static EmbeddedRun embedded_run() { return st_xray_embedded_run; }
 static EmbeddedRunWithResources embedded_run_with_resources() { return &st_xray_embedded_run_with_resources; }
+// Force the resource-aware adapter to remain linked when the static integration
+// macro is enabled. The app cannot claim a resource engine without this symbol.
 #else
 // Resolve optional exports at runtime in the standalone iOS launcher.
 // The actual engine must export these C entry points when it is integrated.

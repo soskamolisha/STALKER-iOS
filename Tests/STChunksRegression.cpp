@@ -135,6 +135,19 @@ int main() {
                            0, restored.data(), 16, &decodedSize,
                            st_lzo1x_decode, nullptr) == -7);
     assert(decodedSize == 0);
+    // A truncated compressed stream must never produce a successful decode.
+    auto brokenLzoChunk = lzoChunk;
+    brokenLzoChunk.pop_back();
+    // Keep the chunk framing valid while corrupting the compressed payload.
+    const uint32_t brokenSize = static_cast<uint32_t>(brokenLzoChunk.size() - 8);
+    for (unsigned byte = 0; byte < 4; ++byte)
+        brokenLzoChunk[4 + byte] = static_cast<uint8_t>(brokenSize >> (8 * byte));
+    decodedSize = 99;
+    assert(st_chunk_decode(brokenLzoChunk.data(),
+                           static_cast<uint32_t>(brokenLzoChunk.size()),
+                           0, restored.data(), static_cast<uint32_t>(restored.size()),
+                           &decodedSize, st_lzo1x_decode, nullptr) == -7);
+    assert(decodedSize == 0);
 #endif
     return 0;
 }

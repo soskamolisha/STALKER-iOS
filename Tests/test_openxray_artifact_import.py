@@ -78,6 +78,12 @@ sys.exit(9)
     assert rejected.returncode != 0, rejected.stdout + rejected.stderr
     assert "symbolic link" in rejected.stderr
 
+    # Directory traversal must be rejected even when the ZIP entry is a folder.
+    rejected = run(resource, [("../escape/", b""), *entries])
+    assert rejected.returncode != 0, rejected.stdout + rejected.stderr
+    assert "unsafe path" in rejected.stderr
+    assert published.read_bytes() == b"mock-engine"
+
     rejected = run(legacy + "\n" + resource, entries + [("extra.a", b"other")])
     assert rejected.returncode != 0
     assert "expected exactly one static .a archive" in rejected.stderr

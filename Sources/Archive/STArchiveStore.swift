@@ -49,7 +49,7 @@ enum STArchiveStore {
         }
         guard report.missingNumbers.isEmpty,
               !report.warnings.contains(where: { $0.hasPrefix("ZIP content detected in ") || $0.hasPrefix("Extract ZIP before importing:") }),
-              !report.archives.contains(where: { $0.bytes == 0 }),
+              !report.warnings.contains(where: { $0.hasPrefix("Empty archive:") }),
               !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") || $0.hasPrefix("Not a regular file:") || $0.hasPrefix("Unrecognized archive name:") }) else {
             throw ImportError.incompleteArchiveSet
         }

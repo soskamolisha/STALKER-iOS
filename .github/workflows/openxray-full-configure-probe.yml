@@ -35,9 +35,10 @@ jobs:
           /tmp/xray-level-files-tests
           python3 Tests/test_openxray_archive_cli.py
   configure:
-    # Native iOS cross-compilation is an explicit, potentially billable run.
-    # Workflow-file pushes only execute the portable Linux regression job.
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: portable-xray-regression
+    # An explicit marker lets the feature branch request a device build while
+    # ordinary pushes continue to use only the portable regression job.
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[openxray-ios]')
     runs-on: macos-latest
     # Cap potentially billable cross-compilation while collecting diagnostics.
     timeout-minutes: 90
@@ -734,7 +735,7 @@ jobs:
           retention-days: 7
           compression-level: 0
       - name: Link OpenXRay into the arm64 launcher and package an unsigned IPA
-        if: inputs.build_launcher
+        if: github.event_name == 'push' || inputs.build_launcher
         shell: bash
         run: |
           set -euo pipefail
@@ -756,14 +757,14 @@ jobs:
               bash scripts/build_with_openxray.sh engine-integration/libOpenXRayCombinedProbe.a
           } 2>&1 | tee build-openxray/launcher-link.log
       - name: Upload unsigned launcher with the experimental OpenXRay build
-        if: inputs.build_launcher
+        if: github.event_name == 'push' || inputs.build_launcher
         uses: actions/upload-artifact@v4
         with:
           name: STALKERMobile-OpenXRay-unsigned-IPA
           path: build-openxray/STALKERMobile-OpenXRay-unsigned.ipa
           if-no-files-found: error
       - name: Upload launcher linkage log
-        if: always() && inputs.build_launcher
+        if: always() && (github.event_name == 'push' || inputs.build_launcher)
         uses: actions/upload-artifact@v4
         with:
           name: openxray-launcher-linkage-log

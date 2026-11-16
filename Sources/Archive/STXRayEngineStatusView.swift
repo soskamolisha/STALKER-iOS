@@ -16,11 +16,13 @@ struct STXRayEngineStatusView: View {
     @State private var isChecking = false
     @State private var summary = "Проверка X-Ray ещё не выполнена"
     @State private var archiveDetails = ""
+    @State private var engineDetails = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Движок X-Ray").font(.headline)
             Text(summary).font(.subheadline)
+            if !engineDetails.isEmpty { Text(engineDetails).font(.caption).foregroundStyle(.secondary) }
             if !archiveDetails.isEmpty {
                 Text(archiveDetails).font(.caption).foregroundStyle(.secondary)
             }
@@ -47,6 +49,7 @@ struct STXRayEngineStatusView: View {
                 switch result {
                 case .success(let snapshot):
                     summary = snapshot.statusText
+                    engineDetails = snapshot.resourceEngineLinked ? "Ресурсный интерфейс X-Ray обнаружен; запуск не проверен" : "Исполняемый движок X-Ray не подключён"
                     let checked = zip(snapshot.archiveNames, snapshot.directoryRecordCounts)
                         .prefix(5)
                         .map { name, count in
@@ -57,6 +60,7 @@ struct STXRayEngineStatusView: View {
                         (checked.isEmpty ? "Архивы не найдены." : checked.joined(separator: "; "))
                 case .failure(let error):
                     summary = error.localizedDescription
+                    engineDetails = ""
                     archiveDetails = "Проверь папку ImportedGame и импортированные ресурсы."
                 }
             }

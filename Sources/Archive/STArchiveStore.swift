@@ -33,9 +33,14 @@ enum STArchiveStore {
         let granted = source.startAccessingSecurityScopedResource()
         defer { if granted { source.stopAccessingSecurityScopedResource() } }
 
-        let report = try STArchiveInventory.scan(directory: source)
+        // Accept either Data itself or the enclosing StalkerMobile.app folder.
+        let nestedData = source.appendingPathComponent("Data", isDirectory: true)
+        let nestedValues = try? nestedData.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        let gameSource = (nestedValues?.isDirectory == true && nestedValues?.isSymbolicLink == false)
+            ? nestedData : source
+        let report = try STArchiveInventory.scan(directory: gameSource)
         if !report.hasBaseArchive {
-            let entries = try fileManager.contentsOfDirectory(atPath: source.path)
+            let entries = try fileManager.contentsOfDirectory(atPath: gameSource.path)
             if entries.contains(where: { $0.lowercased() == "gamedata.db0.zip" }) {
                 throw ImportError.compressedArchive
             }
@@ -64,7 +69,7 @@ enum STArchiveStore {
             return overflow ? UInt64.max : sum
         }
         // Include the optional original config in the capacity estimate.
-        let sourceConfig = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let sourceConfig = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
         let configBytes = ((try? fileManager.attributesOfItem(atPath: sourceConfig.path))?[.size] as? NSNumber)?.uint64Value ?? 0
         let (totalRequired, sizeOverflow) = requiredBytes.addingReportingOverflow(configBytes)
         guard !sizeOverflow else { throw ImportError.insufficientSpace }
@@ -79,7 +84,7 @@ enum STArchiveStore {
         defer { if !committed { try? fileManager.removeItem(at: staging) } }
 
         for archive in report.archives {
-            let from = source.appendingPathComponent(archive.filename, isDirectory: false)
+            let from = gameSource.appendingPathComponent(archive.filename, isDirectory: false)
             let to = staging.appendingPathComponent(archive.filename, isDirectory: false)
             // Recheck each entry after inventory scanning. A file provider
             // may replace an archive with a symlink before the copy starts.
@@ -106,13 +111,48 @@ enum STArchiveStore {
             }
         }
 
+        // Preserve the port's loose configs, levels and textures as well.
+        let looseSource = gameSource.appendingPathComponent("gamedata", isDirectory: true)
+        if fileManager.fileExists(atPath: looseSource.path) {
+            let rootValues = try looseSource.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard rootValues.isDirectory == true, rootValues.isSymbolicLink == false else {
+                throw ImportError.invalidDestination
+            }
+            guard let enumerator = fileManager.enumerator(at: looseSource,
+                includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey],
+                options: [], errorHandler: nil) else { throw ImportError.invalidDestination }
+            var looseBytes: UInt64 = 0
+            for case let entry as URL in enumerator {
+                let values = try entry.resourceValues(forKeys: [
+                    .isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey, .fileSizeKey
+                ])
+                guard values.isSymbolicLink == false,
+                    values.isDirectory == true || values.isRegularFile == true else {
+                    throw ImportError.invalidDestination
+                }
+                if values.isRegularFile == true {
+                    let size = UInt64(max(0, values.fileSize ?? 0))
+                    let (next, overflow) = looseBytes.addingReportingOverflow(size)
+                    guard !overflow else { throw ImportError.insufficientSpace }
+                    looseBytes = next
+                }
+            }
+            if let values = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityKey]),
+               let available = values.volumeAvailableCapacity,
+               available >= 0, looseBytes > UInt64(available) {
+                throw ImportError.insufficientSpace
+            }
+            try fileManager.copyItem(at: looseSource,
+                to: staging.appendingPathComponent("gamedata", isDirectory: true))
+        }
+
         // Preserve the original X-Ray filesystem configuration alongside archives.
         // The native runtime preflight requires fsgame.ltx at ImportedGame root.
         // Do not follow symlinks or silently import an empty configuration.
-        let configSource = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let configSource = gameSource.appendingPathComponent("fsgame.ltx", isDirectory: false)
         // Check the directory entry itself: FileManager attributes may follow a
         // symbolic link, which must not be accepted as an imported config.
-        let sourceEntries = try fileManager.contentsOfDirectory(atPath: source.path)
+        let sourceEntries = try fileManager.contentsOfDirectory(atPath: gameSource.path)
         if sourceEntries.contains("fsgame.ltx") {
             let configEntry = try configSource.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
             guard configEntry.isSymbolicLink == false,

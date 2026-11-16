@@ -102,9 +102,6 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     // The upstream resource-aware entry requires an absolute filesystem root.
     // Reject relative paths here instead of relying on upstream behavior.
     if (resource_root[0] != '/') return -6;
-    // Upstream currently constructs an unquoted -fsltx argument.
-    // Reject whitespace and quotes to prevent a broken config path.
-    if (std::strpbrk(resource_root, " \t\r\n\"") != nullptr) return -6;
     // A trailing slash makes lstat follow a directory symlink on POSIX.
     // Reject it so callers cannot bypass the no-symlink root check.
     const size_t root_length = std::strlen(resource_root);
@@ -222,6 +219,7 @@ extern "C" const char* st_openxray_runtime_status_message(int32_t status) {
         case -6: return "Invalid or inaccessible game folder";
         case -7: return "Missing, empty, or invalid fsgame.ltx";
         case -8: return "Missing loose gamedata or nonempty gamedata.db0 base archive";
+        case -10: return "SDL video must start on the iOS main thread";
         default: return "X-Ray returned an unknown status";
     }
 }

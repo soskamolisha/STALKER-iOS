@@ -10,10 +10,11 @@
 #include <unistd.h>
 
 static int calls = 0;
+static std::string expected_root;
 extern "C" int st_xray_embedded_run_with_resources(const char* args, const char* root) {
     ++calls;
     assert(std::strcmp(args, "-soc -nointro -nosplash") == 0);
-    assert(root && root[0] == '/');
+    assert(root && expected_root == root);
     return 42;
 }
 
@@ -25,10 +26,11 @@ static void write_file(const std::string& path, const char* content) {
 }
 
 int main() {
-    char path[] = "/tmp/stalker-xray-contract-XXXXXX";
+    char path[] = "/tmp/stalker xray contract-XXXXXX";
     char* created = mkdtemp(path);
     assert(created);
     const std::string root(created);
+    expected_root = root;
     assert(st_openxray_runtime_resources_linked() == 1);
     assert(st_openxray_runtime_preflight(root.c_str()) == -7);
     write_file(root + "/fsgame.ltx", "[filesystem]\n");

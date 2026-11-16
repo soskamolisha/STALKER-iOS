@@ -11,12 +11,13 @@ on:
     paths:
       - '.github/workflows/openxray-full-configure-probe.yml'
       - 'scripts/openxray_system_link_flags.py'
+      - 'scripts/patch_openxray_ios_renderer.py'
 permissions:
   contents: read
-# Keep a long native engine build from being cancelled by a newer push.
+# Only a newer explicit iPhone build supersedes a running engine build.
 concurrency:
   group: openxray-ios-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[openxray-ios]') }}
 jobs:
   portable-xray-regression:
     runs-on: ubuntu-latest
@@ -75,7 +76,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: OpenXRay/xray-16
-          ref: dev
+          ref: d1eb5d39a81ec41a5a30383822e5706e4b13b37c
           submodules: recursive
           path: upstream
           persist-credentials: false
@@ -118,6 +119,27 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git sdl2
+          # SwiftUI already runs UIApplicationMain. Give the engine window
+          # the same foreground scene as the launcher window.
+          python3 - <<'PY'
+          from pathlib import Path
+          window = Path("sdl2/src/video/uikit/SDL_uikitwindow.m")
+          source = window.read_text()
+          anchor = "uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];"
+          assert source.count(anchor) == 1
+          window.write_text(source.replace(anchor, anchor + """
+          #if TARGET_OS_IOS
+                  for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+                      if (scene.activationState == UISceneActivationStateForegroundActive &&
+                          [scene isKindOfClass:UIWindowScene.class] &&
+                          ((UIWindowScene *)scene).screen == data.uiscreen) {
+                          uiwindow.windowScene = (UIWindowScene *)scene;
+                          break;
+                      }
+                  }
+          #endif
+          """, 1))
+          PY
           cmake -S sdl2 -B sdl2-build -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Release -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps"
           cmake --build sdl2-build --parallel 2
           cmake --install sdl2-build
@@ -306,33 +328,64 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          engine_header = Path("upstream/src/xrEngine/x_ray.h")
+          engine_source = Path("upstream/src/xrEngine/x_ray.cpp")
+          signature = "GameModule* game, const std::array<RendererModule*, 2>& modules)"
+          for path, suffix in [(engine_header, " = nullptr"), (engine_source, "")]:
+              source = path.read_text()
+              constructor = "CApplication(pcstr commandLine, " + signature
+              assert source.count(constructor) == 1, f"Unexpected constructor in {path}"
+              updated = constructor[:-1] + ", pcstr filesystemConfig" + suffix + ")"
+              source = source.replace(constructor, updated, 1)
+              if path == engine_source:
+                  parser = "if (strstr(commandLine, fsltx))"
+                  initialize = '*fsgame ? fsgame : nullptr'
+                  assert source.count(parser) == source.count(initialize) == 1
+                  source = source.replace(parser, "if (!filesystemConfig && strstr(commandLine, fsltx))", 1)
+                  source = source.replace(initialize, "filesystemConfig ? filesystemConfig : (*fsgame ? fsgame : nullptr)", 1)
+              path.write_text(source)
+
           p = Path("upstream/src/xr_3da/entry_point.cpp")
           s = p.read_text()
-          s = '#include <sys/stat.h>\n#include <string>\n' + s
+          s = '#include <sys/stat.h>\n#include <string>\n#include <pthread.h>\n#include <SDL_main.h>\n#include <SDL_system.h>\n' + s
           anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
           assert s.count(anchor) == 1, "Upstream entry point layout changed"
           engine, standalone_main = s.split(anchor, 1)
+          entry = "int entry_point(pcstr commandLine)"
+          construct = "CApplication app{ commandLine, game, s_render_modules };"
+          assert engine.count(entry) == engine.count(construct) == 1
+          engine = engine.replace(entry, "int entry_point(pcstr commandLine, pcstr filesystemConfig = nullptr)", 1)
+          engine = engine.replace(construct, "CApplication app{ commandLine, game, s_render_modules, filesystemConfig };", 1)
           bridge = "\n".join([
-              '// Experimental C ABI; UIKit/SDL lifecycle is not yet adapted.',
-              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
+              'static int run_embedded(pcstr commandLine, pcstr filesystemConfig = nullptr)',
               '{',
-              '    return entry_point(command_line ? command_line : "");',
+              '    if (!pthread_main_np()) return -10;',
+              '    SDL_SetMainReady();',
+              '    SDL_iPhoneSetEventPump(SDL_TRUE);',
+              '    struct ResetEventPump {',
+              '        ~ResetEventPump() { SDL_iPhoneSetEventPump(SDL_FALSE); }',
+              '    } resetEventPump;',
+              '    return entry_point(commandLine, filesystemConfig);',
               '}',
               '',
-              '// Resource-aware entry (paths containing spaces need upstream parser adaptation).',
+              'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run(const char* command_line)',
+              '{',
+              '    return run_embedded(command_line ? command_line : "");',
+              '}',
+              '',
+              '// Pass the validated config to xrCore without serializing it as a flag.',
               'extern "C" __attribute__((used, visibility("default"), retain)) int st_xray_embedded_run_with_resources(const char* command_line, const char* resource_root)',
               '{',
-              '    if (!resource_root || resource_root[0] != 47) return -6;',
+              "    if (!resource_root || resource_root[0] != '/') return -6;",
               '    const std::string root(resource_root);',
-              '    if (root.find_first_of(" \\t\\r\\n\\\"") != std::string::npos) return -6;',
-              '    if (root.size() > 1 && root.back() == 47) return -6;',
+              "    if (root.size() > 1 && root.back() == '/') return -6;",
               '    struct stat root_info {};',
               '    if (lstat(root.c_str(), &root_info) != 0 || !S_ISDIR(root_info.st_mode)) return -6;',
               '    const std::string config = root + "/fsgame.ltx";',
+              '    if (config.size() >= sizeof(string_path)) return -6;',
               '    struct stat info {};',
               '    if (lstat(config.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) return -7;',
-              '    const std::string args = std::string(command_line ? command_line : "") + " -fsltx " + config;',
-              '    return entry_point(args.c_str());',
+              '    return run_embedded(command_line ? command_line : "", config.c_str());',
               '}',
               '',
               ''
@@ -342,7 +395,7 @@ jobs:
           p.write_text(engine + bridge)
           p.with_name("standalone_main.cpp").write_text(
               '#include "stdafx.h"\n#include <cstdlib>\n\n'
-              'int entry_point(pcstr commandLine);\n\n' + anchor + standalone_main
+              'int entry_point(pcstr commandLine, pcstr filesystemConfig = nullptr);\n\n' + anchor + standalone_main
           )
           cmake = p.with_name("CMakeLists.txt")
           targets = cmake.read_text()
@@ -351,10 +404,12 @@ jobs:
           cmake.write_text(targets.replace(source, source + "    standalone_main.cpp\n", 1))
           patched = p.read_text()
           assert patched.count('int st_xray_embedded_run(') == 1
-          assert 'return entry_point(command_line ? command_line : "");' in patched
+          assert 'return run_embedded(command_line ? command_line : "", config.c_str());' in patched
           print("Experimental X-Ray C ABI inserted and verified before CMake configuration")
 
           PY
+      - name: Adapt the OpenXRay renderer for SDL OpenGL ES on iPhoneOS
+        run: python3 scripts/patch_openxray_ios_renderer.py upstream
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |
@@ -695,7 +750,7 @@ jobs:
           /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
           printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=present\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
           rm engine-integration/exported-symbols.txt
-          printf '%s\n' 'OpenXRay arm64 object archive for future in-process iOS linkage.' 'Resource-aware ABI present, but iOS runtime and paths with spaces are not yet supported.' 'Not a signed app, complete engine framework, or playable game.' > engine-integration/README.txt
+          printf '%s\n' 'Experimental OpenXRay arm64 archive for in-process iOS linkage.' 'The resource-aware ABI passes the imported filesystem config to xrCore.' 'Device rendering and gameplay remain unverified.' > engine-integration/README.txt
           if [ ! -s embedded-entry/all-link-command-paths.txt ]; then
             echo "::error::No CMake link.txt files found; cannot reconstruct engine linkage."
             exit 1

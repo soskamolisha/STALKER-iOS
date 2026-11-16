@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Connects the Swift launcher to the existing native X-Ray resource catalog.
 /// This is resource inspection, NOT a playable engine implementation.
@@ -56,7 +57,7 @@ final class STXRayLauncherBridge {
                 return "X-Ray: игровой движок ещё не подключён к лаунчеру"
             case -7: return "X-Ray: отсутствует или повреждён fsgame.ltx"
             case -8: return "X-Ray: не найдены игровые данные (gamedata.db0 или gamedata)"
-            case -6: return "X-Ray: папка игры недоступна или путь содержит пробелы"
+            case -6: return "X-Ray: папка игры недоступна"
             case -9: return "X-Ray: нативный каталог не смог подключить игровые ресурсы"
             default: return "X-Ray: ошибка проверки ресурсов (\(preflightStatus))"
             }
@@ -64,11 +65,14 @@ final class STXRayLauncherBridge {
     }
 
     /// Invoke the real embedded engine only after it has been linked.
-    /// This call blocks until the engine returns; never call on the UI thread.
-    static func launchImportedShadowOfChernobyl(root: URL) -> Int32 {
-        guard st_openxray_runtime_resources_linked() == 1 else { return -5 }
-        let readiness = root.path.withCString { st_openxray_runtime_preflight($0) }
+    /// SDL on iOS owns the game window and pumps its events on the main thread.
+    @MainActor
+    static func launchImportedShadowOfChernobyl(root: URL) async -> Int32 {
+        let readiness = await Task.detached(priority: .userInitiated) {
+            root.path.withCString { st_openxray_runtime_preflight($0) }
+        }.value
         guard readiness == 0 else { return readiness }
+        guard let defaults = XRayLaunchProfile.arguments(for: "shadow") else { return -2 }
         let argsFile = root.appendingPathComponent("ios_args.txt")
         let arguments: String
         let argsAttributes = try? argsFile.resourceValues(forKeys: [
@@ -84,8 +88,12 @@ final class STXRayLauncherBridge {
            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             arguments = text.trimmingCharacters(in: .whitespacesAndNewlines)
         } else {
-            arguments = "-soc -nointro -nosplash"
+            arguments = defaults.joined(separator: " ")
         }
+        let launcherWindow = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?.keyWindow
+        defer { launcherWindow?.makeKey() }
         return arguments.withCString { command in
             root.path.withCString { path in
                 st_openxray_runtime_run_with_resources(command, path)

@@ -23,6 +23,7 @@ enum EngineStartError: LocalizedError {
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
         case .nativeEntryFailed(let code):
             switch code {
+            case -10: return "SDL требует запуска на главном потоке iOS (-10)"
             case -8: return "Не найдены игровые данные: нужна папка gamedata или непустой gamedata.db0 (-8)"
             case -7: return "Файл fsgame.ltx отсутствует, пустой или недоступен (-7)"
             case -6: return "Папка игровых ресурсов не существует или недоступна (-6)"
@@ -102,48 +103,15 @@ final class XRayBootstrapEngine: GameEngine {
         throw EngineStartError.notPorted
     }
 
-    /// Experimental native entry invocation. Never run on the UI thread.
-    /// This is not a verified gameplay path: SDL/UIKit integration is pending.
-    /// Call only after resource preflight and explicit user opt-in.
+    /// Enter the experimental SDL adapter with the same root the importer uses.
+    @MainActor
     func runEmbeddedEntryForDiagnostics() async throws -> Int32 {
-        guard st_openxray_runtime_resources_linked() == 1 else { throw EngineStartError.notPorted }
-        // Archive probing performs synchronous disk reads; keep it off the
-        // SwiftUI main actor just like the blocking native entry point.
-        let editionID = gameID
-        let root = try XRayGameResourcePaths.root(for: editionID)
-        let hasData = await Task.detached(priority: .userInitiated) {
-            XRayResourcePreflight.inspect(gameID: editionID)?.hasRecognizedGameData == true
-        }.value
-        guard hasData else { throw EngineStartError.resourcesUnavailable }
-        // Keep the resource root explicit for the future embedded-runtime
-        // configuration bridge. Do not change the process working directory:
-        // it is global to the entire iOS application.
-        guard FileManager.default.fileExists(atPath: root.path) else {
-            throw EngineStartError.resourcesUnavailable
+        guard gameID == "shadow", st_openxray_runtime_resources_linked() == 1 else {
+            throw EngineStartError.notPorted
         }
-        // The upstream X-Ray filesystem requires a game-specific fsgame.ltx.
-        // Recognized gamedata archives alone are insufficient for mounting.
-        let config = root.appendingPathComponent("fsgame.ltx", isDirectory: false)
-        guard let configInfo = try? config.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
-              configInfo.isRegularFile == true,
-              configInfo.isSymbolicLink != true,
-              (configInfo.fileSize ?? 0) > 0 else {
-            throw EngineStartError.resourcesUnavailable
-        }
-        // The embedded C entry is synchronous and may block indefinitely.
-        // Do not capture the Swift engine or any UIKit state on this worker.
-        // Do not pass a synthetic -stalker-ios flag: upstream OpenXRay
-        // does not define it. The empty command line uses upstream defaults.
-        // Requires the engine to export the resource-aware ABI; otherwise
-        // the bridge returns -5 rather than launching with the wrong data.
-        let result = await Task.detached(priority: .userInitiated) {
-            root.path.withCString { rootPointer in
-                "".withCString { argsPointer in
-                    st_openxray_runtime_run_with_resources(argsPointer, rootPointer)
-                }
-            }
-        }.value
-        if (-8 ... -1).contains(result) {
+        let root = try XRayGameResourcePaths.root(for: gameID)
+        let result = await STXRayLauncherBridge.launchImportedShadowOfChernobyl(root: root)
+        if result < 0 {
             throw EngineStartError.nativeEntryFailed(result)
         }
         return result

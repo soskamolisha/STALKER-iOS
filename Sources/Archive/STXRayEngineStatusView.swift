@@ -87,17 +87,15 @@ struct STXRayEngineStatusView: View {
         canLaunch = false
         launchResult = "Передача управления встроенному X-Ray…"
         let root = gameRoot
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = STXRayLauncherBridge.launchImportedShadowOfChernobyl(root: root)
-            DispatchQueue.main.async {
-                isLaunching = false
-                launchResult = result == 0
-                    ? "X-Ray завершил работу (код 0). Успешный запуск игры не подтверждён."
-                    : "X-Ray вернул код \(result): " +
-                      String(cString: st_openxray_runtime_status_message(result))
-                needsRecheck = false
-                refresh()
-            }
+        Task { @MainActor in
+            let result = await STXRayLauncherBridge.launchImportedShadowOfChernobyl(root: root)
+            isLaunching = false
+            launchResult = result == 0
+                ? "X-Ray завершил работу (код 0). Успешный запуск игры не подтверждён."
+                : "X-Ray вернул код \(result): " +
+                  String(cString: st_openxray_runtime_status_message(result))
+            needsRecheck = false
+            refresh()
         }
     }
 

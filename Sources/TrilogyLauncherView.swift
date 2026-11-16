@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Trilogy selection screen. Game launching remains disabled until a compatible iOS engine exists.
+/// Trilogy selection screen with the experimental Shadow of Chernobyl entry.
 struct TrilogyLauncherView: View {
     var importRevision = 0
     @Environment(\.scenePhase) private var scenePhase
@@ -53,6 +53,11 @@ struct TrilogyLauncherView: View {
     }
 
     private var russian: Bool { language == "ru" }
+
+    private func canAttemptNativeLaunch(_ game: GameEdition) -> Bool {
+        game == .shadow && resources.detectedResources[game.rawValue] == true &&
+            st_openxray_runtime_resources_linked() == 1
+    }
 
     private func checkEngineResources(for game: GameEdition) {
         guard let handle = st_xray_create() else {
@@ -324,6 +329,10 @@ struct TrilogyLauncherView: View {
     }
 
     private func handleGameCardAction(for game: GameEdition) {
+        if canAttemptNativeLaunch(game) {
+            nativeRunGame = game
+            return
+        }
                                         if resources.detectedResources[game.rawValue] != true {
                                             selectedGame = game
                                             showImporter = true
@@ -459,14 +468,6 @@ struct TrilogyLauncherView: View {
                                     ProgressView(russian ? "Выполняется X-Ray…" : "X-Ray running…")
                                         .tint(.orange)
                                 }
-                                if showDiagnostics && st_openxray_runtime_resources_linked() == 1 {
-                                    Button(russian ? "Тест запуска X-Ray" : "Test X-Ray entry") {
-                                        nativeRunGame = game
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .tint(.orange)
-                                    .disabled(nativeRunInProgress || isCopying || resources.importInProgress)
-                                }
                                 HStack {
                                     if showDiagnostics { Button(russian ? "Проверить ядро" : "Check engine") {
                                         checkEngineResources(for: game)
@@ -480,7 +481,9 @@ struct TrilogyLauncherView: View {
                                     } label: {
                                         Label(resources.detectedResources[game.rawValue] != true
                                               ? (russian ? "Добавить файлы игры" : "Add game files")
-                                              : (russian ? "Проверить запуск" : "Check launch"),
+                                              : canAttemptNativeLaunch(game)
+                                                  ? (russian ? "Тестовый запуск" : "Experimental launch")
+                                                  : (russian ? "Проверить запуск" : "Check launch"),
                                               systemImage: resources.detectedResources[game.rawValue] != true ? "folder" : "play.fill")
                                             .frame(maxWidth: .infinity)
                                             .lineLimit(1)
@@ -711,7 +714,8 @@ struct TrilogyLauncherView: View {
                 titleVisibility: .visible
             ) {
                 Button(russian ? "Запустить тест" : "Run test") {
-                    guard let game = nativeRunGame, !nativeRunInProgress else { return }
+                    guard let game = nativeRunGame, game == .shadow, !nativeRunInProgress,
+                          !isCopying, !resources.importInProgress else { return }
                     nativeRunningGame = game
                     nativeRunGame = nil
                     nativeRunInProgress = true

@@ -188,6 +188,30 @@ int main() {
                            0, restored.data(), 16, &decodedSize,
                            st_lzo1x_decode, nullptr) == -7);
     assert(decodedSize == 0);
+    // Exercise nested structural chunks with an actual LZO-compressed parent.
+    const auto nestedOriginal = chunk(19, {0xAB, 0xCD});
+    std::vector<uint8_t> nestedPacked(nestedOriginal.size() +
+        nestedOriginal.size() / 16 + 64 + 3);
+    lzo_uint nestedPackedLength = static_cast<lzo_uint>(nestedPacked.size());
+    assert(lzo1x_1_compress(nestedOriginal.data(),
+        static_cast<lzo_uint>(nestedOriginal.size()),
+        nestedPacked.data(), &nestedPackedLength, work.data()) == LZO_E_OK);
+    nestedPacked.resize(static_cast<size_t>(nestedPackedLength));
+    const auto nestedLzoParent = chunk(0x80000009u, nestedPacked);
+    uint8_t nestedLzoScratch[128] = {};
+    uint32_t nestedDecodedSize = 0, nestedChildCount = 0, nestedFirstID = 0;
+    assert(st_chunk_scan_decoded_children(nestedLzoParent.data(),
+        static_cast<uint32_t>(nestedLzoParent.size()), 0,
+        nestedLzoScratch, sizeof(nestedLzoScratch), &nestedDecodedSize,
+        &nestedChildCount, &nestedFirstID, st_lzo1x_decode, nullptr) == 0);
+    assert(nestedDecodedSize == nestedOriginal.size());
+    assert(nestedChildCount == 1 && nestedFirstID == 19);
+    assert(st_chunk_scan_decoded_children(nestedLzoParent.data(),
+        static_cast<uint32_t>(nestedLzoParent.size()), 0,
+        nestedLzoScratch, 2, &nestedDecodedSize,
+        &nestedChildCount, &nestedFirstID, st_lzo1x_decode, nullptr) == -7);
+    assert(nestedDecodedSize == 0 && nestedChildCount == 0);
+
     // A truncated compressed stream must never produce a successful decode.
     auto brokenLzoChunk = lzoChunk;
     brokenLzoChunk.pop_back();

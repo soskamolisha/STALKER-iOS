@@ -18,6 +18,7 @@ fi
 if [[ ! -f "$SOURCE_DIR/minilzo/minilzo.c" ]]; then
   curl --fail --location --retry 3 --output "$ARCHIVE" \
     "https://www.oberhumer.com/opensource/lzo/download/lzo-${LZO_VERSION}.tar.gz"
+  tar -tzf "$ARCHIVE" | grep -q "^lzo-${LZO_VERSION}/minilzo/minilzo.c$" || { echo "Invalid LZO source archive" >&2; exit 1; }
   tar -xzf "$ARCHIVE" -C "$BUILD_DIR"
 fi
 if [[ ! -f "$SOURCE_DIR/minilzo/minilzo.h" ]]; then
@@ -34,6 +35,12 @@ AR="$(xcrun --sdk iphoneos --find ar)"
   -c "$SOURCE_DIR/minilzo/minilzo.c" -o "$BUILD_DIR/minilzo.o"
 "$AR" rcs "$BUILD_DIR/libminilzo.a" "$BUILD_DIR/minilzo.o"
 echo "LZO library: $BUILD_DIR/libminilzo.a"
+cat > "$BUILD_DIR/lzo-build-settings.xcconfig" <<EOF
+ST_LZO_HEADER_PATH = $SOURCE_DIR/minilzo
+ST_LZO_DEFINES = ST_HAVE_LZO1X=1
+ST_LZO_LINK_FLAGS = $BUILD_DIR/libminilzo.a
+EOF
+echo "Generated Xcode build settings: $BUILD_DIR/lzo-build-settings.xcconfig"
 echo "For xcodebuild set:"
 echo "  ST_LZO_HEADER_PATH=$SOURCE_DIR/minilzo"
 echo "  ST_LZO_DEFINES=ST_HAVE_LZO1X=1"

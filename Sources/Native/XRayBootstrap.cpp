@@ -79,7 +79,18 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
         result.names.push_back(name);
     }
     closedir(dir);
-    std::sort(result.names.begin(), result.names.end());
+    // Order by numeric archive index, not lexicographic spelling: db2 precedes db10.
+    auto archiveIndex = [](const std::string& name) -> unsigned int {
+        unsigned int value = 0;
+        for (size_t i = sizeof("gamedata.db") - 1; i < name.size(); ++i)
+            value = value * 10u + static_cast<unsigned int>(name[i] - '0');
+        return value;
+    };
+    std::sort(result.names.begin(), result.names.end(),
+              [&](const std::string& left, const std::string& right) {
+                  const auto a = archiveIndex(left), b = archiveIndex(right);
+                  return a != b ? a < b : left < right;
+              });
     return result;
 }
 }

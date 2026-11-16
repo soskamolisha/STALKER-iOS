@@ -13,6 +13,8 @@ enum STArchiveInventory {
         let missingNumbers: [Int]
         let warnings: [String]
         var hasBaseArchive: Bool { archives.contains { $0.number == 0 } }
+        // A filename inventory alone cannot establish archive integrity or playability.
+        var isEngineReady: Bool { false }
     }
 
     static func scan(directory: URL) throws -> Report {
@@ -43,12 +45,13 @@ enum STArchiveInventory {
                 warnings.append("Not a regular file: \(name)")
                 continue
             }
-            guard seen.insert(number).inserted else {
+            guard !seen.contains(number) else {
                 warnings.append("Duplicate archive index: \(number)")
                 continue
             }
             let size = UInt64(max(0, values.fileSize ?? 0))
             if size == 0 { warnings.append("Empty archive: \(name)"); continue }
+            seen.insert(number)
             archives.append(Archive(number: number, filename: name, bytes: size))
         }
         archives.sort { $0.number < $1.number }

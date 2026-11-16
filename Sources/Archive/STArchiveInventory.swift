@@ -61,7 +61,7 @@ enum STArchiveInventory {
                 ((signature[2] == 0x03 && signature[3] == 0x04) ||
                  (signature[2] == 0x05 && signature[3] == 0x06) ||
                  (signature[2] == 0x07 && signature[3] == 0x08)) {
-                warnings.append("ZIP content detected in \\(name); extract it first")
+                warnings.append("ZIP content detected in \(name); extract it first")
                 continue
             }
             seen.insert(number)

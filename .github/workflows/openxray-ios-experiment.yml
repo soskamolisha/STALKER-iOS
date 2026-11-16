@@ -315,6 +315,18 @@ jobs:
           curl -fL --retry 3 https://www.lua.org/ftp/lua-5.1.5.tar.gz -o "$RUNNER_TEMP/lua.tar.gz"
           mkdir -p "$RUNNER_TEMP/lua-src"
           tar -xzf "$RUNNER_TEMP/lua.tar.gz" -C "$RUNNER_TEMP/lua-src" --strip-components=1
+          # iOS does not provide system(3); disable Lua os.execute instead of
+          # attempting to invoke a shell from a sandboxed application.
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path(__import__("os").environ["RUNNER_TEMP"]) / "lua-src/src/loslib.c"
+          content = source.read_text()
+          original = "lua_pushinteger(L, system(luaL_optstring(L, 1, NULL)));"
+          replacement = 'return luaL_error(L, "os.execute is unavailable on iOS");'
+          if content.count(original) != 1:
+              raise SystemExit("Lua 5.1 os.execute patch anchor not found exactly once")
+          source.write_text(content.replace(original, replacement))
+          PY
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
           cd "$RUNNER_TEMP/lua-src"
           make -C src liblua.a -j3 \

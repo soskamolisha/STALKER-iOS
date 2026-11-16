@@ -3,6 +3,42 @@ import XCTest
 @testable import STALKERiOSStarter
 
 final class STArchiveStoreTests: XCTestCase {
+    func testImportsArchivesAndConfigIntoIsolatedDestination() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let archive = Data([1, 2, 3, 4])
+        let config = Data("[filesystem]".utf8)
+        try archive.write(to: source.appendingPathComponent("gamedata.db0"))
+        try config.write(to: source.appendingPathComponent("fsgame.ltx"))
+        let result = try STArchiveStore.importArchives(from: source, destinationOverride: destination)
+        XCTAssertEqual(result.archives.count, 1)
+        XCTAssertTrue(result.hasBaseArchive)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), archive)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("fsgame.ltx")), config)
+    }
+
+    func testFailedImportKeepsExistingGameFiles() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let previous = Data([9, 8, 7])
+        try previous.write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([1, 2]).write(to: source.appendingPathComponent("gamedata.db0"))
+        try Data().write(to: source.appendingPathComponent("fsgame.ltx"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), previous)
+        let leftovers = try fm.contentsOfDirectory(atPath: root.path)
+        XCTAssertFalse(leftovers.contains { $0.hasPrefix(".stalker-import-") })
+    }
+
     func testExplainsZipWrappedBaseArchive() throws {
         let manager = FileManager.default
         let folder = manager.temporaryDirectory.appendingPathComponent(UUID().uuidString)

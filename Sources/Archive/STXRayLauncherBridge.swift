@@ -34,8 +34,9 @@ final class STXRayLauncherBridge {
                 (archiveNames.isEmpty || allArchiveDirectoriesReadable)
         }
         var unreadableArchives: [String] {
-            zip(archiveNames, directoryRecordCounts).compactMap { name, count in
-                count < 0 ? name : nil
+            archiveNames.enumerated().compactMap { index, name in
+                guard index < directoryRecordCounts.count else { return name }
+                return directoryRecordCounts[index] < 0 ? name : nil
             }
         }
         var allArchiveDirectoriesReadable: Bool {

@@ -16,6 +16,7 @@ struct STArchiveImportView: View {
     @State private var storedArchiveStatus: String = "Проверка ранее загруженных файлов…"
     @State private var nativeArchiveStatus: String?
     @State private var engineReadinessStatus: String?
+    @State private var importedRevision = 0
 
     var body: some View {
         ScrollView {
@@ -43,6 +44,7 @@ struct STArchiveImportView: View {
                 }
                 if let importedRoot = try? STArchiveStore.destinationRoot() {
                     STXRayEngineStatusView(edition: 0, gameRoot: importedRoot)
+                        .id(importedRevision)
                 }
                 Button("Проверить готовность X-Ray") { inspectEngineReadiness() }
                     .disabled(isImporting)
@@ -200,6 +202,8 @@ struct STArchiveImportView: View {
                             importStatus = "Сохранено архивов: \(imported.archives.count). Содержимое ещё не проверено."
                             errorMessage = nil
                             refreshStoredArchives()
+                            importedRevision += 1
+                            inspectEngineReadiness()
                         case .failure(let error):
                             refreshStoredArchives()
                             report = nil

@@ -187,6 +187,26 @@ enum STArchiveStore {
             }
         }
 
+        // Keep the working port's launch arguments with its imported resources.
+        // These are data only; importing them does not execute the standalone IPA.
+        let argsInData = gameSource.appendingPathComponent("ios_args.txt", isDirectory: false)
+        let argsBesideData = configContainer.appendingPathComponent("ios_args.txt", isDirectory: false)
+        let argsSource = fileManager.fileExists(atPath: argsInData.path) ? argsInData : argsBesideData
+        if fileManager.fileExists(atPath: argsSource.path) {
+            let entry = try argsSource.resourceValues(forKeys: [
+                .isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey
+            ])
+            guard entry.isSymbolicLink == false, entry.isRegularFile == true,
+                  let bytes = entry.fileSize, bytes > 0, bytes <= 4096 else {
+                throw ImportError.invalidDestination
+            }
+            let arguments = try Data(contentsOf: argsSource)
+            guard arguments.count <= 4096, !arguments.contains(0) else {
+                throw ImportError.invalidDestination
+            }
+            try arguments.write(to: staging.appendingPathComponent("ios_args.txt"))
+        }
+
         // A new archive-only import must not silently discard the valid
         // filesystem configuration from an earlier import. This matters when
         // users import large numbered archives in a separate Files operation.

@@ -73,7 +73,24 @@ jobs:
         run: |
           set -euo pipefail
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Tests/XRayBootstrapTests.cpp -o /tmp/stalker-xray-bootstrap-tests
-          /tmp/stalker-xray-bootstrap-tests
+          echo "::group::X-Ray resource discovery lifecycle regression"
+          set +e
+          /tmp/stalker-xray-bootstrap-tests > /tmp/stalker-xray-bootstrap-output.log 2>/tmp/stalker-xray-bootstrap-errors.log
+          bootstrap_status=$?
+          set -e
+          if [ "$bootstrap_status" -ne 0 ]; then
+            cat /tmp/stalker-xray-bootstrap-output.log
+            cat /tmp/stalker-xray-bootstrap-errors.log
+            failing_line=$(sed -n 's/.*XRayBootstrapTests.cpp:\\([0-9][0-9]*\\):.*/\\1/p' /tmp/stalker-xray-bootstrap-errors.log | head -n 1)
+            if [ -n "$failing_line" ]; then
+              start=$(( failing_line > 5 ? failing_line - 5 : 1 ))
+              end=$(( failing_line + 5 ))
+              echo "::error file=Tests/XRayBootstrapTests.cpp,line=$failing_line::X-Ray resource inventory assertion failed"
+              sed -n "${start},${end}p" Tests/XRayBootstrapTests.cpp | nl -ba -v "$start"
+            fi
+            exit "$bootstrap_status"
+          fi
+          echo "::endgroup::"
           c++ -std=c++17 -Wall -Wextra -Werror Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp Sources/Native/STXRayResourceProbe.cpp Sources/Native/XRayChunkIndex.cpp Sources/Native/XRayChunkPayload.cpp Tests/STXRayResourceProbeTests.cpp -o /tmp/stalker-native-resource-probe-tests
           /tmp/stalker-native-resource-probe-tests
           # Compile upstream miniLZO as C, then exercise the production C++ wrapper.
@@ -125,6 +142,8 @@ jobs:
           path: |
             /tmp/stalker-xray-bridge-errors.log
             /tmp/stalker-xray-bridge-output.log
+            /tmp/stalker-xray-bootstrap-errors.log
+            /tmp/stalker-xray-bootstrap-output.log
           if-no-files-found: ignore
           retention-days: 7
   xray-ios-native-probe:

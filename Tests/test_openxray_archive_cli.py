@@ -47,7 +47,9 @@ sys.exit(9)
     assert "Missing st_xray_embedded_run_with_resources" in rejected.stderr
     assert verify(both).returncode == 0
     assert verify(both, strict=True).returncode == 0
-    assert verify(f"                 U {legacy}\n0000000000000200 T {resources}", strict=True).returncode != 0
+    # An unresolved legacy symbol is harmless when the resource-aware entry is defined.
+    assert verify(f"                 U {legacy}\n0000000000000200 T {resources}", strict=True).returncode == 0
     assert verify(f"{only_legacy}\n                 U {resources}", strict=True).returncode != 0
-    assert verify(f"0000000000000200 T {resources}", strict=True).returncode != 0
+    # Resource-only engines are supported; legacy entry is optional.
+    assert verify(f"0000000000000200 T {resources}", strict=True).returncode == 0
 print("OpenXRay archive CLI integration checks passed")

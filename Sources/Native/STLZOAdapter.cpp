@@ -3,7 +3,13 @@
 #include <limits>
 
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+#if __has_include(<lzo/lzo1x.h>)
 #include <lzo/lzo1x.h>
+#elif __has_include("minilzo.h")
+#include "minilzo.h"
+#else
+#error "ST_HAVE_LZO1X requires liblzo2 headers or minilzo.h"
+#endif
 #endif
 
 extern "C" int32_t st_lzo1x_decode(const uint8_t *source, uint32_t source_size,

@@ -3,6 +3,7 @@
 //   Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp -o /tmp/stchunks-test
 // Run: /tmp/stchunks-test
 #include "../Sources/Native/STChunks.h"
+#include "../Sources/Native/STLZOAdapter.h"
 #include <cassert>
 #include <cstdint>
 #include <vector>
@@ -99,5 +100,13 @@ int main() {
     assert(st_chunk_decode(plain.data(), static_cast<uint32_t>(plain.size()),
                            0, output, sizeof(output), &decodedSize, nullptr, nullptr) == 0);
     assert(decodedSize == 3 && output[0] == 10);
+    // Without an explicitly linked LZO implementation, the adapter must
+    // report unavailable rather than pretending the input is decoded.
+#if !defined(ST_HAVE_LZO1X) || !ST_HAVE_LZO1X
+    decodedSize = 99;
+    assert(st_lzo1x_decode(compressed.data() + 8, 3, output,
+                           sizeof(output), &decodedSize, nullptr) == -4);
+    assert(decodedSize == 0);
+#endif
     return 0;
 }

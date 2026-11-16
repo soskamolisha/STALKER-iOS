@@ -39,6 +39,14 @@ int32_t st_chunk_decode(const uint8_t *bytes, uint32_t length,
                         uint32_t destination_capacity, uint32_t *decoded_size,
                         st_chunk_decoder decoder, void *context);
 
+// Decode a parent chunk into caller-owned storage, then validate its children.
+// The caller supplies the exact maximum decoded size; no unbounded allocation.
+// Returns -6 when the decoded payload cannot fit the supplied buffer.
+int32_t st_chunk_scan_decoded_children(const uint8_t *bytes, uint32_t length,
+    uint32_t parent_index, uint8_t *scratch, uint32_t scratch_capacity,
+    uint32_t *decoded_size, uint32_t *child_count, uint32_t *first_child_id,
+    st_chunk_decoder decoder, void *context);
+
 #ifdef __cplusplus
 }
 #endif

@@ -6,6 +6,8 @@ on:
     paths:
       - 'Sources/Native/STChunks.cpp'
       - 'Sources/Native/STChunks.h'
+      - 'Sources/Native/STLZOAdapter.cpp'
+      - 'Sources/Native/STLZOAdapter.h'
       - 'Tests/STChunksRegression.cpp'
       - '.github/workflows/native-chunk-regression.yml'
   pull_request:
@@ -20,7 +22,7 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
             -fsanitize=address,undefined -fno-omit-frame-pointer \
-            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp Sources/Native/STLZOAdapter.cpp \
             -o /tmp/stchunks-regression
       - name: Run native chunk regression
         env:

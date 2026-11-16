@@ -103,6 +103,9 @@ int main() {
     assert(st_chunk_decode(plain.data(), static_cast<uint32_t>(plain.size()),
                            0, output, sizeof(output), &decodedSize, nullptr, nullptr) == 0);
     assert(decodedSize == 3 && output[0] == 10);
+    assert(st_chunk_decode_lzo(plain.data(), static_cast<uint32_t>(plain.size()),
+                               0, output, sizeof(output), &decodedSize) == 0);
+    assert(decodedSize == 3 && output[2] == 30);
     // Without an explicitly linked LZO implementation, the adapter must
     // report unavailable rather than pretending the input is decoded.
 #if !defined(ST_HAVE_LZO1X) || !ST_HAVE_LZO1X
@@ -110,6 +113,8 @@ int main() {
     assert(st_lzo1x_decode(compressed.data() + 8, 3, output,
                            sizeof(output), &decodedSize, nullptr) == -4);
     assert(decodedSize == 0);
+    assert(st_chunk_decode_lzo(compressed.data(), static_cast<uint32_t>(compressed.size()),
+                               0, output, sizeof(output), &decodedSize) == -7);
 #endif
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
     // Real LZO1X round-trip: generate a valid compressed payload, pass it
@@ -129,6 +134,11 @@ int main() {
     assert(st_chunk_decode(lzoChunk.data(), static_cast<uint32_t>(lzoChunk.size()),
                            0, restored.data(), static_cast<uint32_t>(restored.size()),
                            &decodedSize, st_lzo1x_decode, nullptr) == 0);
+    assert(decodedSize == original.size() && restored == original);
+    decodedSize = 0;
+    assert(st_chunk_decode_lzo(lzoChunk.data(), static_cast<uint32_t>(lzoChunk.size()),
+                               0, restored.data(), static_cast<uint32_t>(restored.size()),
+                               &decodedSize) == 0);
     assert(decodedSize == original.size() && restored == original);
     decodedSize = 99;
     assert(st_chunk_decode(lzoChunk.data(), static_cast<uint32_t>(lzoChunk.size()),

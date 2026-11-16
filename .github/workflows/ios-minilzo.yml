@@ -59,6 +59,22 @@ jobs:
             ST_LZO_DEFINES=ST_HAVE_LZO1X=1 \
             ST_LZO_LINK_FLAGS="$ROOT/libminilzo.a" \
             build
+      - name: Verify linked LZO symbols in unsigned app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          test -f "$APP/STALKERiOSStarter"
+          xcrun lipo -info "$APP/STALKERiOSStarter"
+          xcrun nm "$APP/STALKERiOSStarter" | grep 'st_chunk_decode_lzo'
+          xcrun nm "$APP/STALKERiOSStarter" | grep 'lzo1x_decompress_safe'
+      - name: Upload unsigned iOS app for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: stalker-ios-minilzo-unsigned-app
+          path: ${{ runner.temp }}/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app
+          if-no-files-found: error
       - name: Upload iPhone arm64 native library
         uses: actions/upload-artifact@v4
         with:

@@ -41,6 +41,24 @@ jobs:
             "$ROOT/STChunks.o" "$ROOT/STLZOAdapter.o" "$ROOT/minilzo.o"
           xcrun lipo -info "$ROOT/libstchunks-lzo.a"
           xcrun nm "$ROOT/libstchunks-lzo.a" | grep 'st_chunk_decode_lzo'
+      - name: Build iOS launcher with MiniLZO linked
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec project.yml
+          ROOT="$PWD/build/minilzo-ios"
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-lzo-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            ST_LZO_HEADER_PATH="$ROOT/lzo-2.10/minilzo" \
+            ST_LZO_DEFINES=ST_HAVE_LZO1X=1 \
+            ST_LZO_LINK_FLAGS="$ROOT/libminilzo.a" \
+            build
       - name: Upload iPhone arm64 native library
         uses: actions/upload-artifact@v4
         with:

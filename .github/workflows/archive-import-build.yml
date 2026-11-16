@@ -132,6 +132,21 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/stalker-simulator-tests" \
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
+      - name: Verify simulator test host and XCTest bundle identifiers
+        run: |
+          set -euo pipefail
+          PRODUCTS="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator"
+          APP="$PRODUCTS/STALKERiOSStarter.app"
+          TESTS="$PRODUCTS/STArchiveTests.xctest"
+          test -d "$APP" && test -d "$TESTS"
+          for bundle in "$APP" "$TESTS"; do
+            test -s "$bundle/Info.plist" || { echo "Missing Info.plist: $bundle"; exit 1; }
+            identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")
+            test -n "$identifier" || { echo "Empty bundle ID: $bundle"; exit 1; }
+            echo "$bundle => $identifier"
+          done
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.stalkermobile.ios"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TESTS/Info.plist")" = "com.stalkermobile.ios.tests"
       - name: Run archive integration tests on iPhone Simulator
         timeout-minutes: 12
         run: |

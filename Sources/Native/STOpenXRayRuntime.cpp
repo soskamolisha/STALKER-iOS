@@ -10,11 +10,13 @@
 // When a real static engine adapter is compiled into the target, use a strong
 // link reference. dlsym cannot reliably discover dead-stripped static symbols.
 #if defined(ST_XRAY_STATIC_ENGINE_ADAPTER)
-extern "C" int st_xray_embedded_run(const char*);
+// The resource-aware ABI is mandatory for a statically linked engine.
+// The legacy no-resource entry is optional: an iOS adapter need not expose it.
+extern "C" int st_xray_embedded_run(const char*) __attribute__((weak));
 extern "C" int st_xray_embedded_run_with_resources(const char*, const char*);
 using EmbeddedRun = int (*)(const char*);
 using EmbeddedRunWithResources = int (*)(const char*, const char*);
-static EmbeddedRun embedded_run() { return &st_xray_embedded_run; }
+static EmbeddedRun embedded_run() { return st_xray_embedded_run; }
 static EmbeddedRunWithResources embedded_run_with_resources() { return &st_xray_embedded_run_with_resources; }
 #else
 // Resolve optional exports at runtime in the standalone iOS launcher.

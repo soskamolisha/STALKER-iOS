@@ -56,9 +56,14 @@ enum STArchiveStore {
             let (sum, overflow) = partial.addingReportingOverflow(archive.bytes)
             return overflow ? UInt64.max : sum
         }
+        // Include the optional original config in the capacity estimate.
+        let sourceConfig = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        let configBytes = ((try? fileManager.attributesOfItem(atPath: sourceConfig.path))?[.size] as? NSNumber)?.uint64Value ?? 0
+        let (totalRequired, sizeOverflow) = requiredBytes.addingReportingOverflow(configBytes)
+        guard !sizeOverflow else { throw ImportError.insufficientSpace }
         if let values = try? parent.resourceValues(forKeys: [.volumeAvailableCapacityKey]),
            let available = values.volumeAvailableCapacity,
-           available >= 0, requiredBytes > UInt64(available) {
+           available >= 0, totalRequired > UInt64(available) {
             throw ImportError.insufficientSpace
         }
         let staging = parent.appendingPathComponent(".stalker-import-\(UUID().uuidString)", isDirectory: true)

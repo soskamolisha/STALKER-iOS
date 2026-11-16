@@ -91,6 +91,30 @@ int main() {
                                   0, &children, &childId) == 0);
     assert(children == 1 && childId == 19);
 
+    // Decode a parent and scan nested structural chunks with bounded scratch.
+    uint8_t nestedScratch[64] = {};
+    uint32_t nestedSize = 99;
+    assert(st_chunk_scan_decoded_children(parent.data(),
+        static_cast<uint32_t>(parent.size()), 0, nestedScratch,
+        sizeof(nestedScratch), &nestedSize, &children, &childId,
+        nullptr, nullptr) == 0);
+    assert(nestedSize == child.size() && children == 1 && childId == 19);
+    const auto compressedParent = chunk(0x80000009u, child);
+    assert(st_chunk_scan_decoded_children(compressedParent.data(),
+        static_cast<uint32_t>(compressedParent.size()), 0, nestedScratch,
+        sizeof(nestedScratch), &nestedSize, &children, &childId,
+        copyDecoder, nullptr) == 0);
+    assert(children == 1 && childId == 19);
+    assert(st_chunk_scan_decoded_children(compressedParent.data(),
+        static_cast<uint32_t>(compressedParent.size()), 0, nestedScratch,
+        sizeof(nestedScratch), &nestedSize, &children, &childId,
+        nullptr, nullptr) == -4);
+    assert(nestedSize == 0 && children == 0);
+    assert(st_chunk_scan_decoded_children(parent.data(),
+        static_cast<uint32_t>(parent.size()), 0, nestedScratch,
+        2, &nestedSize, &children, &childId,
+        nullptr, nullptr) == -6);
+
     // A malformed nested chunk is rejected without reading beyond its parent.
     const auto malformedParent = chunk(9, {0x01, 0x02, 0x03});
     assert(st_chunk_scan_children(malformedParent.data(),

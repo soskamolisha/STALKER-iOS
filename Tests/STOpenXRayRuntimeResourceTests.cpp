@@ -100,6 +100,21 @@ int main() {
     assert(st_openxray_runtime_preflight(expected_root) == 0);
     assert(std::remove(nested_empty.c_str()) == 0);
     assert(st_openxray_runtime_preflight(expected_root) == -8);
+    // Real level resources can be nested several directories deep.
+    const std::string deeper = nested_dir + "/l01_escape";
+    const std::string deepest = deeper + "/textures";
+    assert(mkdir(deeper.c_str(), 0700) == 0);
+    assert(mkdir(deepest.c_str(), 0700) == 0);
+    const std::string deep_file = deepest + "/level.bin";
+    FILE* deep_content = std::fopen(deep_file.c_str(), "wb");
+    assert(deep_content != nullptr);
+    assert(std::fputs("mock level", deep_content) >= 0);
+    assert(std::fclose(deep_content) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == 0);
+    assert(std::remove(deep_file.c_str()) == 0);
+    assert(st_openxray_runtime_preflight(expected_root) == -8);
+    assert(rmdir(deepest.c_str()) == 0);
+    assert(rmdir(deeper.c_str()) == 0);
     assert(rmdir(nested_dir.c_str()) == 0);
     // A nonempty regular file inside a loose gamedata directory is
     // sufficient for resource discovery (not proof of valid game data).

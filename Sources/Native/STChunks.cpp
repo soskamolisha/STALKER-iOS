@@ -111,7 +111,7 @@ extern "C" int32_t st_chunk_decode(const uint8_t* bytes, uint32_t length,
     const int32_t decoded = decoder(bytes + offset, size, destination,
                                     destination_capacity, &written, context);
     if (decoded != 0 || written > destination_capacity ||
-        (written != 0 && !destination)) return -7;
+        (written != 0 && !destination)) return decoded == -4 ? -4 : -7;
     *decoded_size = written;
     return 0;
 }

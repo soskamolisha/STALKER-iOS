@@ -23,9 +23,9 @@ extern "C" int32_t st_lzo1x_available(void) {
 extern "C" int32_t st_lzo1x_decode(const uint8_t *source, uint32_t source_size,
     uint8_t *destination, uint32_t capacity, uint32_t *decoded_size, void *context) {
     (void)context;
-    if (!decoded_size || (source_size && !source) || (capacity && !destination))
-        return -1;
+    if (!decoded_size) return -1;
     *decoded_size = 0;
+    if ((source_size && !source) || (capacity && !destination)) return -1;
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
     if (!source || !destination || !capacity) return -1;
     if (static_cast<uint64_t>(source_size) >

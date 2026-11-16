@@ -23,6 +23,7 @@ enum EngineStartError: LocalizedError {
         case .resourcesUnavailable: return "Не удалось открыть игровые ресурсы X-Ray"
         case .nativeEntryFailed(let code):
             switch code {
+            case -8: return "Не найдены игровые данные: нужна папка gamedata или непустой gamedata.db0 (-8)"
             case -7: return "Файл fsgame.ltx отсутствует, пустой или недоступен (-7)"
             case -6: return "Папка игровых ресурсов не существует или недоступна (-6)"
             case -5: return "Движок не поддерживает запуск с папкой игровых ресурсов (-5)"
@@ -148,7 +149,7 @@ final class XRayBootstrapEngine: GameEngine {
                 }
             }
         }.value
-        if (-7 ... -1).contains(result) {
+        if (-8 ... -1).contains(result) {
             throw EngineStartError.nativeEntryFailed(result)
         }
         return result

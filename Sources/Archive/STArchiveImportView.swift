@@ -28,7 +28,7 @@ struct STArchiveImportView: View {
                         .disabled(isImporting)
                         .buttonStyle(.bordered)
                 }
-                Text("Выбери папку с оригинальными gamedata.db0, gamedata.db1 и другими архивами. Для будущего запуска X-Ray также нужен непустой fsgame.ltx в корне ImportedGame. Проверяются имена и размеры архивов, но не содержимое. Движок X-Ray пока не запускается.")
+                Text("Выбери папку Data из рабочего iOS-порта или папку StalkerMobile.app, содержащую Data. Импортируются gamedata.db0, другие архивы, папка gamedata (configs, levels, textures) и fsgame.ltx, если он находится рядом с архивами. Это подготовка ресурсов, не запуск игры.")
                     .font(.subheadline)
                 Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 Text("Если кнопка «Открыть» при выборе папки неактивна: открой «Файлы» → «На iPhone» → STALKERiOSStarter → ImportedGame и скопируй туда оригинальные gamedata.db0 и fsgame.ltx (если они есть). Затем вернись сюда и нажми «Проверить файлы», после чего «Проверить готовность X-Ray».")
@@ -55,7 +55,7 @@ struct STArchiveImportView: View {
                 Button("Выбрать папку игры") { showingImporter = true }
                     .disabled(isImporting)
                     .buttonStyle(.borderedProminent)
-                if isImporting { ProgressView("Копирование архивов… Не закрывай экран") }
+                if isImporting { ProgressView("Копирование файлов игры… Не закрывай экран") }
                 if let importStatus { Text(importStatus).font(.subheadline) }
                 if let selectedFolder {
                     Text("Выбрана папка: \(selectedFolder)").font(.caption)
@@ -97,7 +97,7 @@ struct STArchiveImportView: View {
             }
         }
         .confirmationDialog("Импортировать архивы игры?", isPresented: $showingReplaceConfirmation, titleVisibility: .visible) {
-            Button("Скопировать архивы") {
+            Button("Импортировать файлы игры") {
                 guard let folder = pendingFolder else { return }
                 pendingFolder = nil
                 beginImport(folder)

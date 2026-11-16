@@ -82,9 +82,28 @@ jobs:
           test -d "$APP"
           test -f "$APP/STALKERiOSStarter"
           xcrun lipo -info "$APP/STALKERiOSStarter"
-          xcrun nm "$APP/STALKERiOSStarter" | grep 'st_chunk_decode_lzo'
-          xcrun nm "$APP/STALKERiOSStarter" | grep 'lzo1x_decompress_safe'
-          xcrun nm "$APP/STALKERiOSStarter" | grep 'st_lzo1x_available'
+          for symbol in _st_chunk_decode_lzo _lzo1x_decompress_safe _st_lzo1x_available; do
+            if ! xcrun nm "$APP/STALKERiOSStarter" | awk '{print $NF}' | grep -Fxq "$symbol"; then
+              echo "::error::Missing linked symbol: $symbol"
+              exit 1
+            fi
+          done
+      - name: Package unsigned IPA for ESign
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          mkdir -p "$RUNNER_TEMP/stalker-ipa/Payload"
+          ditto "$APP" "$RUNNER_TEMP/stalker-ipa/Payload/STALKERiOSStarter.app"
+          cd "$RUNNER_TEMP/stalker-ipa"
+          zip -qry "$GITHUB_WORKSPACE/STALKERMobile-MiniLZO-unsigned.ipa" Payload
+          unzip -t "$GITHUB_WORKSPACE/STALKERMobile-MiniLZO-unsigned.ipa" >/dev/null
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: stalker-mobile-minilzo-unsigned-ipa
+          path: STALKERMobile-MiniLZO-unsigned.ipa
+          if-no-files-found: error
       - name: Upload unsigned iOS app for inspection
         uses: actions/upload-artifact@v4
         with:

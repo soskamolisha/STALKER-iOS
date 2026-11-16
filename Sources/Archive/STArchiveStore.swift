@@ -223,6 +223,48 @@ enum STArchiveStore {
             try fileManager.copyItem(at: previousConfig, to: stagedConfig)
         }
 
+        // Reimporting archives must not discard previously imported loose
+        // gamedata or launch arguments when those are absent from this batch.
+        let previousLoose = destination.appendingPathComponent("gamedata", isDirectory: true)
+        let stagedLoose = staging.appendingPathComponent("gamedata", isDirectory: true)
+        if !fileManager.fileExists(atPath: stagedLoose.path),
+           fileManager.fileExists(atPath: previousLoose.path) {
+            let values = try previousLoose.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard values.isDirectory == true, values.isSymbolicLink == false else {
+                throw ImportError.invalidDestination
+            }
+            guard let enumerator = fileManager.enumerator(at: previousLoose,
+                includingPropertiesForKeys: [.isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey],
+                options: [], errorHandler: nil) else { throw ImportError.invalidDestination }
+            for case let entry as URL in enumerator {
+                let item = try entry.resourceValues(forKeys: [
+                    .isSymbolicLinkKey, .isDirectoryKey, .isRegularFileKey
+                ])
+                guard item.isSymbolicLink == false,
+                      item.isDirectory == true || item.isRegularFile == true else {
+                    throw ImportError.invalidDestination
+                }
+            }
+            try fileManager.copyItem(at: previousLoose, to: stagedLoose)
+        }
+        let stagedArgs = staging.appendingPathComponent("ios_args.txt")
+        let previousArgs = destination.appendingPathComponent("ios_args.txt")
+        if !fileManager.fileExists(atPath: stagedArgs.path),
+           fileManager.fileExists(atPath: previousArgs.path) {
+            let values = try previousArgs.resourceValues(forKeys: [
+                .isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey
+            ])
+            guard values.isSymbolicLink == false, values.isRegularFile == true,
+                  let size = values.fileSize, size > 0, size <= 4096 else {
+                throw ImportError.invalidDestination
+            }
+            let args = try Data(contentsOf: previousArgs)
+            guard args.count <= 4096, !args.contains(0) else {
+                throw ImportError.invalidDestination
+            }
+            try args.write(to: stagedArgs)
+        }
+
         // Preserve any previously imported game until the new set is fully staged.
         if fileManager.fileExists(atPath: destination.path) {
             let backup = parent.appendingPathComponent(".stalker-backup-\(UUID().uuidString)", isDirectory: true)

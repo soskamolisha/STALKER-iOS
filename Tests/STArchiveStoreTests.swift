@@ -328,4 +328,24 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(root.path.withCString { st_openxray_runtime_preflight($0) }, -8)
     }
 
+    func testEmptyAdditionalArchiveCannotReplaceInstalledGame() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let previous = Data([8, 7, 6])
+        try previous.write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([1, 2, 3, 4]).write(to: source.appendingPathComponent("gamedata.db0"))
+        try Data().write(to: source.appendingPathComponent("gamedata.db1"))
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination)) { error in
+            guard case STArchiveStore.ImportError.incompleteArchiveSet = error else {
+                return XCTFail("Expected incompleteArchiveSet")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), previous)
+    }
+
 }

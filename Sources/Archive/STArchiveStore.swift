@@ -29,7 +29,7 @@ enum STArchiveStore {
     }
 
     /// An existing destination is never overwritten. A failed copy removes its staging folder.
-    static func importArchives(from source: URL, fileManager: FileManager = .default) throws -> STArchiveInventory.Report {
+    static func importArchives(from source: URL, fileManager: FileManager = .default, destinationOverride: URL? = nil) throws -> STArchiveInventory.Report {
         let granted = source.startAccessingSecurityScopedResource()
         defer { if granted { source.stopAccessingSecurityScopedResource() } }
 
@@ -46,7 +46,7 @@ enum STArchiveStore {
               !report.warnings.contains(where: { $0.hasPrefix("Duplicate archive index:") || $0.hasPrefix("Not a regular file:") || $0.hasPrefix("Unrecognized archive name:") }) else {
             throw ImportError.incompleteArchiveSet
         }
-        let destination = try destinationRoot(fileManager: fileManager)
+        let destination = try destinationOverride ?? destinationRoot(fileManager: fileManager)
         let parent = destination.deletingLastPathComponent()
         // Never copy the imported folder onto itself.
         guard source.standardizedFileURL.resolvingSymlinksInPath() != destination.standardizedFileURL.resolvingSymlinksInPath() else {

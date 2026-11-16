@@ -46,14 +46,14 @@ def main():
         return 1
     # A legacy entry alone cannot receive the imported game root.
     # Always require the resource-aware entry for the iOS integration path.
-    required = ["_st_xray_embedded_run", "_st_xray_embedded_run_with_resources"]
+    required = ["_st_xray_embedded_run_with_resources"]
     for symbol in required:
         if not has_defined_export(symbols, symbol):
             print(f"Missing {symbol[1:]} export; archive cannot run imported "
                   "Shadow of Chernobyl resources", file=sys.stderr)
             return 1
-    # The entry symbol is weak in the launcher bridge; a static archive
-    # therefore requires force-loading or the linker may omit the engine.
+    # The resource-aware entry is mandatory; the legacy entry is optional.
+    # Force-load the archive because the default launcher uses dynamic lookup.
     print("Validated arm64 OpenXRay archive and embedded entry symbol.")
     print("Validated resource-aware entry export (runtime behavior remains unverified).")
     # xcodebuild receives the flag as one build-setting argument.

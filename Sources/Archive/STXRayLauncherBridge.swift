@@ -29,10 +29,22 @@ final class STXRayLauncherBridge {
         let preflightStatus: Int32
         /// A successful preflight only verifies prerequisites, not gameplay.
         var prerequisitesPresent: Bool { preflightStatus == 0 }
+        var unreadableArchives: [String] {
+            zip(archiveNames, directoryRecordCounts).compactMap { name, count in
+                count < 0 ? name : nil
+            }
+        }
+        var allArchiveDirectoriesReadable: Bool {
+            !archiveNames.isEmpty && unreadableArchives.isEmpty
+        }
         var statusText: String {
             switch preflightStatus {
             case 0: return "X-Ray: предварительная проверка пройдена; запуск игры не подтверждён"
-            case -5: return "X-Ray: игровой движок ещё не подключён к лаунчеру"
+            case -5:
+                if !unreadableArchives.isEmpty {
+                    return "X-Ray: ошибки каталогов архивов (\(unreadableArchives.count)); движок не подключён"
+                }
+                return "X-Ray: игровой движок ещё не подключён к лаунчеру"
             case -7: return "X-Ray: отсутствует или повреждён fsgame.ltx"
             case -8: return "X-Ray: отсутствует базовый архив gamedata.db0"
             case -6: return "X-Ray: папка игры недоступна"

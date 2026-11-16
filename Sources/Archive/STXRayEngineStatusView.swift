@@ -24,6 +24,8 @@ struct STXRayEngineStatusView: View {
     @State private var archiveDetails = ""
     @State private var engineDetails = ""
     @State private var failedArchives = ""
+    @State private var importedArchiveCount = 0
+    @State private var hasCompletedScan = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -35,6 +37,17 @@ struct STXRayEngineStatusView: View {
                     .font(.caption).foregroundStyle(.orange)
             }
             Text(summary).font(.subheadline)
+            if importedArchiveCount > 0 {
+                Label("Лаунчер обнаружил \(importedArchiveCount) игровых архивов",
+                      systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            } else if hasCompletedScan {
+                Label("Игровые архивы пока не обнаружены",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
             if !engineDetails.isEmpty { Text(engineDetails).font(.caption).foregroundStyle(.secondary) }
             if !failedArchives.isEmpty {
                 Text(failedArchives).font(.caption).foregroundStyle(.orange)
@@ -117,6 +130,8 @@ struct STXRayEngineStatusView: View {
                 }
                 switch result {
                 case .success(let snapshot):
+                    hasCompletedScan = true
+                    importedArchiveCount = snapshot.archiveNames.count
                     summary = snapshot.statusText
                     canLaunch = edition == 0 && snapshot.prerequisitesPresent && snapshot.resourceEngineLinked && !isLaunching
                     failedArchives = snapshot.unreadableArchives.isEmpty ? "" : "Не удалось прочитать: " + snapshot.unreadableArchives.prefix(5).joined(separator: ", ")
@@ -130,6 +145,8 @@ struct STXRayEngineStatusView: View {
                     archiveDetails = "Архивов: \(snapshot.archiveNames.count), байт: \(snapshot.archiveBytes). " +
                         (checked.isEmpty ? "Архивы не найдены." : checked.joined(separator: "; "))
                 case .failure(let error):
+                    hasCompletedScan = true
+                    importedArchiveCount = 0
                     summary = error.localizedDescription
                     canLaunch = false
                     engineDetails = ""

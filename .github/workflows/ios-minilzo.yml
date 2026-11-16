@@ -12,6 +12,7 @@ on:
       - 'Tests/STChunksRegression.cpp'
       - 'Sources/Archive/**'
       - 'Sources/Native/STOpenXRayRuntime.cpp'
+      - 'Sources/Native/XRayBootstrap.cpp'
       - 'Tests/STArchiveStoreTests.swift'
       - 'Tests/STOpenXRayPreflightRegression.cpp'
       - 'Scripts/test-archive-inventory-macos.sh'

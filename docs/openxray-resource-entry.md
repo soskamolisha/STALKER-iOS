@@ -32,10 +32,16 @@ Upstream source references:
 
 ## Concrete launcher-to-engine path contract
 
-The launcher currently imports each edition under
-`Application Support/ImportedGames/{shadow,clearSky,pripyat}` and passes
-that **directory** as `resource_root` to
-`st_openxray_runtime_run_with_resources`. The existing native
+The active archive import screen stores **Shadow of Chernobyl** resources
+under `Documents/ImportedGame`. The Swift `XRayGameResourcePaths`
+resolver in `Sources/EngineBridge.swift` now points the Shadow engine
+bootstrap and preflight to that same location. The other two editions
+retain the planned `Application Support/ImportedGames/{clearSky,pripyat}`
+roots; their import flows are not yet established.
+
+The launcher passes the selected **directory**, not a config-file path,
+as `resource_root` to `st_openxray_runtime_run_with_resources`.
+The existing native
 `XRayBootstrap::attachResources` recognizes a nonempty `gamedata/`
 directory or `gamedata.db*` archives at that root; it does **not**
 locate or validate an `fsgame.ltx` filesystem configuration. Thus

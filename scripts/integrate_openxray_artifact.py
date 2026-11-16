@@ -42,10 +42,12 @@ def main():
             if member.create_system == 3 and stat.S_ISLNK(mode):
                 parser.error("artifact contains a symbolic link")
             name = Path(member.filename)
-            if member.is_dir():
-                continue
+            # Validate every member, including directory entries: do not silently
+            # accept traversal paths just because ZIP marks them as folders.
             if name.is_absolute() or ".." in name.parts or chr(92) in member.filename:
                 parser.error("unsafe path inside artifact ZIP")
+            if member.is_dir():
+                continue
             if name.suffix == ".a":
                 candidates.append(member)
         if len(candidates) != 1:

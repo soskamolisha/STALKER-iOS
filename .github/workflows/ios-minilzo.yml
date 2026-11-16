@@ -11,6 +11,8 @@ on:
       - 'Sources/Native/STChunks.h'
       - 'Tests/STChunksRegression.cpp'
       - 'Sources/Archive/**'
+      - 'Sources/Native/STOpenXRayRuntime.cpp'
+      - 'Tests/STArchiveStoreTests.swift'
       - 'Scripts/test-archive-inventory-macos.sh'
       - 'Tests/STArchiveInventoryTests.swift'
       - 'project.yml'

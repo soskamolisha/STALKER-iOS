@@ -11,3 +11,6 @@
 
 // Portable read-only chunk diagnostics exposed to Swift.
 #include "Portable/ChunkReaderC.h"
+
+// Bounded LZO-aware chunk decoding, available to Swift via the bridging header.
+#include "STLZOAdapter.h"

@@ -131,6 +131,34 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
+      - name: Run archive integration tests on iPhone Simulator
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin)
+          candidates=[d for devices in data["devices"].values() for d in devices
+                      if d.get("isAvailable") and "iPhone" in d.get("name","")]
+          if not candidates:
+              raise SystemExit("No available iPhone simulator; cannot claim tests passed")
+          print(candidates[0]["udid"])
+          ')"
+          echo "Running XCTest on iPhone Simulator $DEVICE_ID"
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -resultBundlePath "$RUNNER_TEMP/stalker-archive-tests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            test-without-building 2>&1 | tee "$RUNNER_TEMP/stalker-tests-run.log"
+      - name: Upload XCTest result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-archive-xctest-results
+          path: ${{ runner.temp }}/stalker-archive-tests.xcresult
+          if-no-files-found: ignore
       - name: Summarize first Swift and linker failures
         if: always()
         run: |
@@ -141,7 +169,7 @@ jobs:
           pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|TEST BUILD FAILED|The following build commands failed|undefined symbols|ld: |clang: error:", re.I)
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write("### iOS build diagnostics\n")
-              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-device-build.log"):
+              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-tests-run.log", "stalker-device-build.log"):
                   summary.write(f"\n**{filename}**\n")
                   file = temp / filename
                   if not file.exists():
@@ -165,4 +193,5 @@ jobs:
             ${{ runner.temp }}/stalker-simulator-build.log
             ${{ runner.temp }}/stalker-device-build.log
             ${{ runner.temp }}/stalker-tests-build.log
+            ${{ runner.temp }}/stalker-tests-run.log
           if-no-files-found: ignore

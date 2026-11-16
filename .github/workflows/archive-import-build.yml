@@ -129,6 +129,7 @@ jobs:
             -scheme STALKERiOSStarter \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-simulator-tests" \
             CODE_SIGNING_ALLOWED=NO \
             build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
       - name: Run archive integration tests on iPhone Simulator
@@ -145,11 +146,16 @@ jobs:
           print(candidates[0]["udid"])
           ')"
           echo "Running XCTest on iPhone Simulator $DEVICE_ID"
-          xcodebuild -project STALKERiOSStarter.xcodeproj \
-            -scheme STALKERiOSStarter \
-            -sdk iphonesimulator \
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          XCTESTRUN="$(find "$RUNNER_TEMP/stalker-simulator-tests/Build/Products" -maxdepth 1 -name '*.xctestrun' -print -quit)"
+          test -n "$XCTESTRUN" || { echo "Missing build-for-testing .xctestrun file"; exit 1; }
+          echo "Using compiled test bundle: $XCTESTRUN"
+          xcodebuild \
+            -xctestrun "$XCTESTRUN" \
             -destination "platform=iOS Simulator,id=$DEVICE_ID" \
             -resultBundlePath "$RUNNER_TEMP/stalker-archive-tests.xcresult" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             test-without-building 2>&1 | tee "$RUNNER_TEMP/stalker-tests-run.log"
       - name: Upload XCTest result bundle

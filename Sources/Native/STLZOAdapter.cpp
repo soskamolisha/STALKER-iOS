@@ -14,6 +14,8 @@ extern "C" int32_t st_lzo1x_decode(const uint8_t *source, uint32_t source_size,
     *decoded_size = 0;
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
     if (!source || !destination || !capacity) return -1;
+    if (static_cast<uint64_t>(source_size) >
+        static_cast<uint64_t>(std::numeric_limits<lzo_uint>::max())) return -1;
     if (static_cast<uint64_t>(capacity) >
         static_cast<uint64_t>(std::numeric_limits<lzo_uint>::max())) return -1;
     lzo_uint output_length = static_cast<lzo_uint>(capacity);

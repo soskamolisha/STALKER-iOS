@@ -137,8 +137,11 @@ jobs:
           APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
           test -d "$APP"
           test -s "$APP/STALKERiOSStarter"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.stalkermobile.ios"
+          test "$EXECUTABLE" = "STALKERiOSStarter"
+          echo "Verified bundle ID: $BUNDLE_ID; executable: $EXECUTABLE"
           file "$APP/STALKERiOSStarter"
           lipo -archs "$APP/STALKERiOSStarter" | grep -qw arm64
           echo "Verified nonempty arm64 iPhone app executable"
@@ -153,6 +156,9 @@ jobs:
           cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
           (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" Payload)
           unzip -t "$RUNNER_TEMP/STALKERMobile-unsigned.ipa"
+          unzip -Z1 "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" | grep -qx "Payload/STALKERiOSStarter.app/Info.plist"
+          unzip -Z1 "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" | grep -qx "Payload/STALKERiOSStarter.app/STALKERiOSStarter"
+          echo "IPA contains the expected iPhone app and executable"
       - name: Upload unsigned IPA for external signing
         if: success() || failure()
         uses: actions/upload-artifact@v4

@@ -39,15 +39,20 @@ final class STXRayLauncherBridge {
         }
         var statusText: String {
             switch preflightStatus {
-            case 0: return "X-Ray: предварительная проверка пройдена; запуск игры не подтверждён"
+            case 0:
+                if !unreadableArchives.isEmpty {
+                    return "X-Ray: проверка запуска пройдена, но каталоги архивов повреждены"
+                }
+                return "X-Ray: предварительная проверка пройдена; запуск игры не подтверждён"
             case -5:
                 if !unreadableArchives.isEmpty {
                     return "X-Ray: ошибки каталогов архивов (\(unreadableArchives.count)); движок не подключён"
                 }
                 return "X-Ray: игровой движок ещё не подключён к лаунчеру"
             case -7: return "X-Ray: отсутствует или повреждён fsgame.ltx"
-            case -8: return "X-Ray: отсутствует базовый архив gamedata.db0"
-            case -6: return "X-Ray: папка игры недоступна"
+            case -8: return "X-Ray: не найдены игровые данные (gamedata.db0 или gamedata)"
+            case -6: return "X-Ray: папка игры недоступна или путь содержит пробелы"
+            case -9: return "X-Ray: нативный каталог не смог подключить игровые ресурсы"
             default: return "X-Ray: ошибка проверки ресурсов (\(preflightStatus))"
             }
         }
@@ -67,7 +72,7 @@ final class STXRayLauncherBridge {
                             looseDataPresent: false,
                             nativeEngineLinked: st_openxray_runtime_linked() == 1,
                             resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,
-                            preflightStatus: preflight == 0 ? -8 : preflight)
+                            preflightStatus: preflight == 0 ? -9 : preflight)
         }
 
         let count = st_xray_archive_count(handle)

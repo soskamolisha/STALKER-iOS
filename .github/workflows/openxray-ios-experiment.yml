@@ -209,8 +209,25 @@ jobs:
             2>&1 | tee "$RUNNER_TEMP/jpeg-configure.log"
           cmake --build "$RUNNER_TEMP/jpeg-ios" --config Release --parallel 3 \
             2>&1 | tee "$RUNNER_TEMP/jpeg-build.log"
-          cmake --install "$RUNNER_TEMP/jpeg-ios" --config Release \
-            2>&1 | tee "$RUNNER_TEMP/jpeg-install.log"
+          # Upstream's full install also expects CLI tools (cjpeg-static) that
+          # are not built for this iOS library-only configuration.
+          # Install the produced archive and public headers directly.
+          mkdir -p "$RUNNER_TEMP/ios-deps/lib" "$RUNNER_TEMP/ios-deps/include"
+          JPEG_BUILT="$(find "$RUNNER_TEMP/jpeg-ios" -name libjpeg.a -print -quit)"
+          test -s "$JPEG_BUILT"
+          cp "$JPEG_BUILT" "$RUNNER_TEMP/ios-deps/lib/libjpeg.a"
+          for header in jpeglib.h jconfig.h jmorecfg.h jerror.h; do
+            if [[ -f "$RUNNER_TEMP/jpeg-ios/$header" ]]; then
+              cp "$RUNNER_TEMP/jpeg-ios/$header" "$RUNNER_TEMP/ios-deps/include/"
+            elif [[ -f "$RUNNER_TEMP/libjpeg-turbo/$header" ]]; then
+              cp "$RUNNER_TEMP/libjpeg-turbo/$header" "$RUNNER_TEMP/ios-deps/include/"
+            else
+              echo "Missing required JPEG header: $header"
+              exit 1
+            fi
+          done
+          echo "Installed libjpeg.a and public headers without optional CLI tools" \
+            | tee "$RUNNER_TEMP/jpeg-install.log"
           JPEG_LIB="$(find "$RUNNER_TEMP/ios-deps" -name libjpeg.a -print -quit)"
           test -s "$JPEG_LIB"
           xcrun lipo -info "$JPEG_LIB" | grep -q arm64

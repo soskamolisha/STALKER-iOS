@@ -371,6 +371,18 @@ final class STArchiveStoreTests: XCTestCase {
             resourceEngineLinked: false,
             preflightStatus: -5
         )
+        let corruptDespitePreflight = STXRayLauncherBridge.Snapshot(
+            archiveNames: ["gamedata.db0"],
+            archiveBytes: 1024,
+            directoryRecordCounts: [-4],
+            looseDataPresent: false,
+            nativeEngineLinked: true,
+            resourceEngineLinked: true,
+            preflightStatus: 0
+        )
+        XCTAssertFalse(corruptDespitePreflight.prerequisitesPresent)
+        XCTAssertFalse(corruptDespitePreflight.allArchiveDirectoriesReadable)
+        XCTAssertTrue(corruptDespitePreflight.statusText.contains("повреждены"))
         XCTAssertTrue(readable.allArchiveDirectoriesReadable)
         XCTAssertFalse(readable.prerequisitesPresent)
         XCTAssertTrue(readable.statusText.contains("не подключён"))

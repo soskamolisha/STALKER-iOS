@@ -138,7 +138,13 @@ jobs:
           PRODUCTS="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator"
           APP="$PRODUCTS/STALKERiOSStarter.app"
           TESTS="$PRODUCTS/STArchiveTests.xctest"
-          test -d "$APP" && test -d "$TESTS"
+          echo "Simulator build products:"
+          find "$RUNNER_TEMP/stalker-simulator-tests/Build/Products" -maxdepth 4 \
+            \( -name '*.app' -o -name '*.xctest' -o -name '*.xctestrun' -o -name 'Info.plist' \) -print
+          if [[ ! -d "$APP" || ! -d "$TESTS" ]]; then
+            echo "Missing expected app or test bundle. App: $APP; tests: $TESTS"
+            exit 1
+          fi
           for bundle in "$APP" "$TESTS"; do
             test -s "$bundle/Info.plist" || { echo "Missing Info.plist: $bundle"; exit 1; }
             identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")

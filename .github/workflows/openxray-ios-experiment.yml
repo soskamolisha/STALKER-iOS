@@ -307,6 +307,27 @@ jobs:
           test -s "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
           test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
           xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/liblzo2.a" | grep -q arm64
+      - name: Build Lua 5.1 for iPhone ARM64
+        id: lua
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.lua.org/ftp/lua-5.1.5.tar.gz -o "$RUNNER_TEMP/lua.tar.gz"
+          mkdir -p "$RUNNER_TEMP/lua-src"
+          tar -xzf "$RUNNER_TEMP/lua.tar.gz" -C "$RUNNER_TEMP/lua-src" --strip-components=1
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          cd "$RUNNER_TEMP/lua-src"
+          make -C src liblua.a -j3 \
+            CC="$(xcrun --sdk iphoneos -f clang)" \
+            AR="$(xcrun -f ar) rcu" \
+            RANLIB="$(xcrun -f ranlib)" \
+            CFLAGS="-O2 -arch arm64 -isysroot $SDK -miphoneos-version-min=17.0" \
+            2>&1 | tee "$RUNNER_TEMP/lua-build.log"
+          mkdir -p "$RUNNER_TEMP/ios-deps/lib" "$RUNNER_TEMP/ios-deps/include"
+          cp src/liblua.a "$RUNNER_TEMP/ios-deps/lib/liblua.a"
+          cp src/lua.h src/luaconf.h src/lualib.h src/lauxlib.h "$RUNNER_TEMP/ios-deps/include/"
+          test -s "$RUNNER_TEMP/ios-deps/lib/liblua.a"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/liblua.a" | grep -q arm64
       - name: Audit upstream third-party dependency requirements
         continue-on-error: true
         if: steps.sdlready.outcome == 'success'
@@ -336,7 +357,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a liblzo2.a; do
+          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a liblzo2.a liblua.a; do
             test -s "$RUNNER_TEMP/ios-deps/lib/$lib" || { echo "::error::Missing iOS ARM64 dependency: $lib"; exit 1; }
           done
           test -n "${SDL2_DIR:-}" || { echo "::error::SDL2_DIR is missing"; exit 1; }
@@ -359,6 +380,8 @@ jobs:
             -DTHEORA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DLZO_LIBRARY="$RUNNER_TEMP/ios-deps/lib/liblzo2.a" \
             -DLZO_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLUA_LIBRARIES="$RUNNER_TEMP/ios-deps/lib/liblua.a" \
+            -DLUA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -456,6 +479,7 @@ jobs:
           echo "Vorbis iOS outcome: ${{ steps.vorbis.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "Theora iOS outcome: ${{ steps.theora.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "LZO iOS outcome: ${{ steps.lzo.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Lua 5.1 iOS outcome: ${{ steps.lua.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.ogg.outcome }}" = "failure" ]; then
             echo "### Blocker: libogg iPhone ARM64 build failed; see ogg logs." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -505,6 +529,7 @@ jobs:
             ${{ runner.temp }}/lzo-configure.log
             ${{ runner.temp }}/lzo-build.log
             ${{ runner.temp }}/lzo-install.log
+            ${{ runner.temp }}/lua-build.log
             ${{ runner.temp }}/openxray-configure.log
             ${{ runner.temp }}/openxray-compile.log
             ${{ runner.temp }}/openxray-linkage.txt

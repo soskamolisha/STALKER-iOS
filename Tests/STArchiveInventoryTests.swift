@@ -75,4 +75,25 @@ final class STArchiveInventoryTests: XCTestCase {
             XCTAssertEqual(report.archives.count, 1)
         }
     }
+    func testRenamedZipIsNotAcceptedAsDb0() throws {
+        try withDirectory { directory in
+            try Data([0x50, 0x4B, 0x03, 0x04, 0x00]).write(
+                to: directory.appendingPathComponent("gamedata.db0"))
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertFalse(report.hasBaseArchive)
+            XCTAssertTrue(report.warnings.contains { $0.contains("ZIP content") })
+        }
+    }
+
+    func testZipSignatureDoesNotMaskAnotherValidCandidate() throws {
+        try withDirectory { directory in
+            try Data([0x50, 0x4B, 0x03, 0x04]).write(
+                to: directory.appendingPathComponent("gamedata.db0"))
+            try Data([0x01, 0x02, 0x03, 0x04]).write(
+                to: directory.appendingPathComponent("gamedata.db00"))
+            let report = try STArchiveInventory.scan(directory: directory)
+            XCTAssertTrue(report.hasBaseArchive)
+            XCTAssertEqual(report.archives.count, 1)
+        }
+    }
 }

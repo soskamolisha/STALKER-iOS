@@ -211,4 +211,42 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertThrowsError(try STArchiveStore.importArchives(from: folder))
     }
 
+
+    func testMissingMiddleArchiveDoesNotReplaceExistingInstallation() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let original = Data([0xAA, 0xBB, 0xCC])
+        try original.write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data("existing config".utf8).write(to: destination.appendingPathComponent("fsgame.ltx"))
+        try Data([1]).write(to: source.appendingPathComponent("gamedata.db0"))
+        try Data([2]).write(to: source.appendingPathComponent("gamedata.db2"))
+
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), original)
+        XCTAssertFalse(fm.fileExists(atPath: destination.appendingPathComponent("gamedata.db2").path))
+    }
+
+    func testZipWrappedArchiveDoesNotOverwriteExistingInstallation() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("ImportedGame", isDirectory: true)
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let original = Data([0x10, 0x20])
+        try original.write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data([0x50, 0x4B, 0x03, 0x04]).write(to: source.appendingPathComponent("gamedata.db0.zip"))
+
+        XCTAssertThrowsError(try STArchiveStore.importArchives(from: source, destinationOverride: destination))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), original)
+    }
+
 }

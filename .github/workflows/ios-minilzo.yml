@@ -21,6 +21,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build MiniLZO for physical iPhone
         run: bash Scripts/build-ios-minilzo.sh
+      - name: Verify real MiniLZO roundtrip on macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/build/minilzo-ios"
+          HEADER="$ROOT/lzo-2.10/minilzo"
+          clang -O2 -I"$HEADER" -c "$HEADER/minilzo.c" -o "$ROOT/minilzo-host.o"
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp \
+            Sources/Native/STLZOAdapter.cpp "$ROOT/minilzo-host.o" \
+            -o "$ROOT/stchunks-minilzo-host"
+          "$ROOT/stchunks-minilzo-host"
       - name: Compile and link iOS chunk decoder
         shell: bash
         run: |

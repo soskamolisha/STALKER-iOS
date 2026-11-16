@@ -27,10 +27,10 @@ struct STArchiveImportView: View {
                         .disabled(isImporting)
                         .buttonStyle(.bordered)
                 }
-                Text("Выбери папку с оригинальными gamedata.db0, gamedata.db1 и другими архивами. Проверяются имена и размеры, но не содержимое. Движок X-Ray пока не запускается.")
+                Text("Выбери папку с оригинальными gamedata.db0, gamedata.db1 и другими архивами. Для будущего запуска X-Ray также нужен непустой fsgame.ltx в корне ImportedGame. Проверяются имена и размеры архивов, но не содержимое. Движок X-Ray пока не запускается.")
                     .font(.subheadline)
                 Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)
-                Text("Если кнопка «Открыть» при выборе папки неактивна: открой приложение «Файлы» → «На iPhone» → STALKERiOSStarter → ImportedGame и скопируй архивы туда. Затем вернись сюда и нажми «Проверить файлы».")
+                Text("Если кнопка «Открыть» при выборе папки неактивна: открой «Файлы» → «На iPhone» → STALKERiOSStarter → ImportedGame и скопируй туда оригинальные gamedata.db0 и fsgame.ltx (если они есть). Затем вернись сюда и нажми «Проверить файлы», после чего «Проверить готовность X-Ray».")
                     .font(.footnote)
                 Button("Проверить файлы") { refreshStoredArchives() }
                     .disabled(isImporting)

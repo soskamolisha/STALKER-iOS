@@ -18,6 +18,15 @@ static std::vector<uint8_t> chunk(uint32_t id, const std::vector<uint8_t>& paylo
     bytes.insert(bytes.end(), payload.begin(), payload.end());
     return bytes;
 }
+static int32_t copyDecoder(const uint8_t* input, uint32_t inputSize,
+                           uint8_t* output, uint32_t capacity,
+                           uint32_t* written, void*) {
+    if (inputSize > capacity) return -1;
+    for (uint32_t i = 0; i < inputSize; ++i) output[i] = input[i];
+    *written = inputSize;
+    return 0;
+}
+
 int main() {
     // The high bit indicates compression; structural scanning must not
     // mistake it for an ordinary chunk ID or silently decompress payloads.
@@ -75,5 +84,20 @@ int main() {
                                0, 3, 0, nullptr, 0) == 0);
     assert(st_chunk_copy_slice(plain.data(), static_cast<uint32_t>(plain.size()),
                                0, 0, 2, output, 1) == -6);
+    // Decoder integration: compressed payloads are passed through a bounded
+    // callback, never silently interpreted as plain bytes.
+    uint32_t decodedSize = 99;
+    assert(st_chunk_decode(compressed.data(), static_cast<uint32_t>(compressed.size()),
+                           0, output, sizeof(output), &decodedSize, nullptr, nullptr) == -4);
+    assert(decodedSize == 0);
+    assert(st_chunk_decode(compressed.data(), static_cast<uint32_t>(compressed.size()),
+                           0, output, sizeof(output), &decodedSize, copyDecoder, nullptr) == 0);
+    assert(decodedSize == 3 && output[0] == 1 && output[2] == 3);
+    assert(st_chunk_decode(compressed.data(), static_cast<uint32_t>(compressed.size()),
+                           0, output, 1, &decodedSize, copyDecoder, nullptr) == -7);
+    assert(decodedSize == 0);
+    assert(st_chunk_decode(plain.data(), static_cast<uint32_t>(plain.size()),
+                           0, output, sizeof(output), &decodedSize, nullptr, nullptr) == 0);
+    assert(decodedSize == 3 && output[0] == 10);
     return 0;
 }

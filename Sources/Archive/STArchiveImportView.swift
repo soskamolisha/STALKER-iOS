@@ -41,6 +41,9 @@ struct STArchiveImportView: View {
                 if let nativeArchiveStatus {
                     Text(nativeArchiveStatus).font(.footnote).foregroundStyle(.secondary)
                 }
+                if let importedRoot = try? STArchiveStore.destinationRoot() {
+                    STXRayEngineStatusView(edition: 0, gameRoot: importedRoot)
+                }
                 Button("Проверить готовность X-Ray") { inspectEngineReadiness() }
                     .disabled(isImporting)
                     .buttonStyle(.bordered)

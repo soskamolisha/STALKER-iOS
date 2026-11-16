@@ -163,6 +163,31 @@ jobs:
               print(f"SDL2_DIR={configs[0].parent}", file=env)
           print("Using SDL2 CMake config:", configs[0])
           PY
+      - name: Build libogg for iPhone ARM64
+        id: ogg
+        if: steps.sdlready.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.5 https://github.com/xiph/ogg.git "$RUNNER_TEMP/libogg"
+          cmake -S "$RUNNER_TEMP/libogg" -B "$RUNNER_TEMP/libogg-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+            2>&1 | tee "$RUNNER_TEMP/ogg-configure.log"
+          cmake --build "$RUNNER_TEMP/libogg-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/ogg-build.log"
+          cmake --install "$RUNNER_TEMP/libogg-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/ogg-install.log"
+          OGG_LIB="$(find "$RUNNER_TEMP/ios-deps" -name libogg.a -print -quit)"
+          test -s "$OGG_LIB"
+          xcrun lipo -info "$OGG_LIB" | grep -q arm64
+          test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
+          echo "iPhone ARM64 Ogg archive: $OGG_LIB"
       - name: Audit upstream third-party dependency requirements
         continue-on-error: true
         if: steps.sdlready.outcome == 'success'
@@ -201,6 +226,8 @@ jobs:
             -DXRAY_USE_LUAJIT=OFF \
             -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
             -DSDL2_DIR="$SDL2_DIR" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_BUILD_TYPE=Release \
             2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
@@ -269,7 +296,7 @@ jobs:
           patterns = re.compile(r"(fatal error:| error:|CMake Error|Could NOT find|No such file or directory|unsupported|not supported|undefined symbol|ld:)", re.I)
           report = temp / "openxray-failure-summary.txt"
           with report.open("w") as out:
-              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "openxray-configure.log", "openxray-compile.log"):
+              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "ogg-configure.log", "ogg-build.log", "ogg-install.log", "openxray-configure.log", "openxray-compile.log"):
                   log = temp / name
                   print(f"=== {name} ===", file=out)
                   if not log.exists():

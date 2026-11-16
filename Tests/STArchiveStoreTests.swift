@@ -348,4 +348,32 @@ final class STArchiveStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), previous)
     }
 
+    func testXRayDiagnosticsDoNotConfuseArchivesWithPlayableEngine() {
+        let snapshot = STXRayLauncherBridge.Snapshot(
+            archiveNames: ["gamedata.db0", "gamedata.db1"],
+            archiveBytes: 2048,
+            directoryRecordCounts: [12, -4],
+            looseDataPresent: false,
+            nativeEngineLinked: false,
+            resourceEngineLinked: false,
+            preflightStatus: -5
+        )
+        XCTAssertEqual(snapshot.unreadableArchives, ["gamedata.db1"])
+        XCTAssertFalse(snapshot.allArchiveDirectoriesReadable)
+        XCTAssertFalse(snapshot.prerequisitesPresent)
+        XCTAssertTrue(snapshot.statusText.contains("каталог"))
+        let readable = STXRayLauncherBridge.Snapshot(
+            archiveNames: ["gamedata.db0"],
+            archiveBytes: 1024,
+            directoryRecordCounts: [8],
+            looseDataPresent: false,
+            nativeEngineLinked: false,
+            resourceEngineLinked: false,
+            preflightStatus: -5
+        )
+        XCTAssertTrue(readable.allArchiveDirectoriesReadable)
+        XCTAssertFalse(readable.prerequisitesPresent)
+        XCTAssertTrue(readable.statusText.contains("не подключён"))
+    }
+
 }

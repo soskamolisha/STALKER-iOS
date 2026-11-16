@@ -1,0 +1,28 @@
+name: X-Ray native launcher contract
+on:
+  push:
+    branches: [feature/trilogy-launcher-v3]
+    paths:
+      - 'Sources/Native/STOpenXRayRuntime.*'
+      - 'Tests/STOpenXRayRuntimeContract.cpp'
+      - '.github/workflows/xray-native-contract.yml'
+  pull_request:
+    paths:
+      - 'Sources/Native/STOpenXRayRuntime.*'
+      - 'Tests/STOpenXRayRuntimeContract.cpp'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run resource-aware launch contract
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -DST_XRAY_STATIC_ENGINE_ADAPTER=1 \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/STOpenXRayRuntimeContract.cpp \
+            -o /tmp/stalker-xray-contract
+          /tmp/stalker-xray-contract

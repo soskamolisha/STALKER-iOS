@@ -29,7 +29,7 @@ final class STXRayLauncherBridge {
         let preflightStatus: Int32
         /// A successful preflight only verifies prerequisites, not gameplay.
         var prerequisitesPresent: Bool {
-            preflightStatus == 0 && unreadableArchives.isEmpty
+            preflightStatus == 0 && (archiveNames.isEmpty || allArchiveDirectoriesReadable)
         }
         var unreadableArchives: [String] {
             zip(archiveNames, directoryRecordCounts).compactMap { name, count in
@@ -37,7 +37,7 @@ final class STXRayLauncherBridge {
             }
         }
         var allArchiveDirectoriesReadable: Bool {
-            !archiveNames.isEmpty && unreadableArchives.isEmpty
+            !archiveNames.isEmpty && archiveNames.count == directoryRecordCounts.count && directoryRecordCounts.allSatisfy { $0 >= 0 }
         }
         var statusText: String {
             switch preflightStatus {

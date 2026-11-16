@@ -25,8 +25,19 @@ final class STXRayLauncherBridge {
         let looseDataPresent: Bool
         let nativeEngineLinked: Bool
         let resourceEngineLinked: Bool
-        /// A resource catalog is not proof of successful game startup.
-        var canLaunchGame: Bool { nativeEngineLinked && resourceEngineLinked }
+        let preflightStatus: Int32
+        /// A successful preflight only verifies prerequisites, not gameplay.
+        var prerequisitesPresent: Bool { preflightStatus == 0 }
+        var statusText: String {
+            switch preflightStatus {
+            case 0: return "X-Ray: предварительная проверка пройдена; запуск игры не подтверждён"
+            case -5: return "X-Ray: игровой движок ещё не подключён к лаунчеру"
+            case -7: return "X-Ray: отсутствует или повреждён fsgame.ltx"
+            case -8: return "X-Ray: отсутствует базовый архив gamedata.db0"
+            case -6: return "X-Ray: папка игры недоступна"
+            default: return "X-Ray: ошибка проверки ресурсов (\(preflightStatus))"
+            }
+        }
     }
 
     static func inspect(root: URL, edition: Int32 = 0) throws -> Snapshot {
@@ -60,7 +71,8 @@ final class STXRayLauncherBridge {
             archiveBytes: st_xray_archive_bytes(handle),
             looseDataPresent: st_xray_has_loose_data(handle) == 1,
             nativeEngineLinked: st_openxray_runtime_linked() == 1,
-            resourceEngineLinked: st_openxray_runtime_resources_linked() == 1
+            resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,
+            preflightStatus: root.path.withCString { st_openxray_runtime_preflight($0) }
         )
     }
 }

@@ -80,6 +80,29 @@ enum STArchiveStore {
             }
         }
 
+        // Preserve the original X-Ray filesystem configuration alongside archives.
+        // The native runtime preflight requires fsgame.ltx at ImportedGame root.
+        // Do not follow symlinks or silently import an empty configuration.
+        let configSource = source.appendingPathComponent("fsgame.ltx", isDirectory: false)
+        if fileManager.fileExists(atPath: configSource.path) {
+            let configAttributes = try fileManager.attributesOfItem(atPath: configSource.path)
+            guard configAttributes[.type] as? FileAttributeType == .typeRegular,
+                  let configSize = (configAttributes[.size] as? NSNumber)?.uint64Value,
+                  configSize > 0 else {
+                throw ImportError.invalidDestination
+            }
+            let configModified = configAttributes[.modificationDate] as? Date
+            let configDestination = staging.appendingPathComponent("fsgame.ltx", isDirectory: false)
+            try fileManager.copyItem(at: configSource, to: configDestination)
+            let copiedSize = (try fileManager.attributesOfItem(atPath: configDestination.path)[.size] as? NSNumber)?.uint64Value
+            let currentAttributes = try fileManager.attributesOfItem(atPath: configSource.path)
+            guard copiedSize == configSize,
+                  (currentAttributes[.size] as? NSNumber)?.uint64Value == configSize,
+                  (currentAttributes[.modificationDate] as? Date) == configModified else {
+                throw ImportError.sourceChanged
+            }
+        }
+
         // Preserve any previously imported game until the new set is fully staged.
         if fileManager.fileExists(atPath: destination.path) {
             let backup = parent.appendingPathComponent(".stalker-backup-\(UUID().uuidString)", isDirectory: true)

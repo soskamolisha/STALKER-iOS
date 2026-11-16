@@ -55,7 +55,8 @@ jobs:
           xcrun --sdk iphoneos ar rcs "$ROOT/libstchunks-lzo.a" \
             "$ROOT/STChunks.o" "$ROOT/STLZOAdapter.o" "$ROOT/minilzo.o"
           xcrun lipo -info "$ROOT/libstchunks-lzo.a"
-          xcrun nm "$ROOT/libstchunks-lzo.a" | grep 'st_chunk_decode_lzo'
+          xcrun nm "$ROOT/libstchunks-lzo.a" > "$ROOT/native-symbols.txt"
+          awk '$NF == "_st_chunk_decode_lzo" { found = 1 } END { exit !found }' "$ROOT/native-symbols.txt"
       - name: Build iOS launcher with MiniLZO linked
         shell: bash
         run: |
@@ -72,7 +73,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             ST_LZO_HEADER_PATH="$ROOT/lzo-2.10/minilzo" \
             ST_LZO_DEFINES=ST_HAVE_LZO1X=1 \
-            ST_LZO_LINK_FLAGS="-Wl,-u,_st_chunk_decode_lzo -Wl,-u,_lzo1x_decompress_safe $ROOT/libminilzo.a" \
+            ST_LZO_LINK_FLAGS="-Wl,-u,_st_chunk_decode_lzo -Wl,-u,_st_lzo1x_available -Wl,-u,_lzo1x_decompress_safe $ROOT/libminilzo.a" \
             build
       - name: Verify linked LZO symbols in unsigned app
         shell: bash

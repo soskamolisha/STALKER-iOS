@@ -9,6 +9,8 @@ on:
       - 'Sources/Native/STLZOAdapter.h'
       - 'Sources/Native/STChunks.cpp'
       - 'Sources/Native/STChunks.h'
+      - 'Tests/STChunksRegression.cpp'
+      - 'project.yml'
       - '.github/workflows/ios-minilzo.yml'
   pull_request:
   workflow_dispatch:
@@ -16,7 +18,7 @@ on:
 jobs:
   iphoneos-arm64:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Build MiniLZO for physical iPhone

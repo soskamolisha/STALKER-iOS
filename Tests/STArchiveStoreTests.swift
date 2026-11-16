@@ -15,10 +15,12 @@ final class STArchiveStoreTests: XCTestCase {
         try Data([1, 2, 3]).write(to: data.appendingPathComponent("gamedata.db0"))
         try Data([4, 5]).write(to: data.appendingPathComponent("gamedata.db1"))
         try Data("config".utf8).write(to: app.appendingPathComponent("fsgame.ltx"))
+        try Data("-soc -nointro -nosplash\n".utf8).write(to: app.appendingPathComponent("ios_args.txt"))
         try Data("settings".utf8).write(to: loose.appendingPathComponent("system.ltx"))
 
         let result = try STArchiveStore.importArchives(from: app, destinationOverride: destination)
         XCTAssertEqual(result.archives.count, 2)
+        XCTAssertEqual(try String(contentsOf: destination.appendingPathComponent("ios_args.txt"), encoding: .utf8), "-soc -nointro -nosplash\n")
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("fsgame.ltx")),
                        Data("config".utf8))
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata/configs/system.ltx")),

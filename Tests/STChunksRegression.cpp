@@ -8,7 +8,13 @@
 #include <cstdint>
 #include <vector>
 #if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+#if __has_include(<lzo/lzo1x.h>)
 #include <lzo/lzo1x.h>
+#elif __has_include("minilzo.h")
+#include "minilzo.h"
+#else
+#error "LZO regression requires lzo1x.h or minilzo.h"
+#endif
 #endif
 
 static void append32(std::vector<uint8_t>& data, uint32_t value) {

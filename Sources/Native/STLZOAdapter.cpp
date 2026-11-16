@@ -12,6 +12,14 @@
 #endif
 #endif
 
+extern "C" int32_t st_lzo1x_available(void) {
+#if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 extern "C" int32_t st_lzo1x_decode(const uint8_t *source, uint32_t source_size,
     uint8_t *destination, uint32_t capacity, uint32_t *decoded_size, void *context) {
     (void)context;

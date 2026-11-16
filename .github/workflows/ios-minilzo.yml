@@ -13,6 +13,7 @@ on:
       - 'Sources/Archive/**'
       - 'Sources/Native/STOpenXRayRuntime.cpp'
       - 'Sources/Native/XRayBootstrap.cpp'
+      - 'Tests/STXRayArchiveCatalogRegression.cpp'
       - 'Tests/STArchiveStoreTests.swift'
       - 'Tests/STOpenXRayPreflightRegression.cpp'
       - 'Scripts/test-archive-inventory-macos.sh'
@@ -39,6 +40,15 @@ jobs:
             Sources/Native/STOpenXRayRuntime.cpp \
             -o "$RUNNER_TEMP/stalker-preflight-test"
           "$RUNNER_TEMP/stalker-preflight-test"
+      - name: Verify native X-Ray archive catalog on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            Tests/STXRayArchiveCatalogRegression.cpp \
+            Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp \
+            -o "$RUNNER_TEMP/stalker-catalog-test"
+          "$RUNNER_TEMP/stalker-catalog-test"
       - name: Build MiniLZO for physical iPhone
         run: bash Scripts/build-ios-minilzo.sh
       - name: Verify real MiniLZO roundtrip on macOS host

@@ -153,9 +153,14 @@ struct STArchiveImportView: View {
             }
             let saved = try STArchiveInventory.scan(directory: destination)
             let config = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
-            let configAttributes = try? FileManager.default.attributesOfItem(atPath: config.path)
-            let configValid = configAttributes?[.type] as? FileAttributeType == .typeRegular
-                && ((configAttributes?[.size] as? NSNumber)?.uint64Value ?? 0) > 0
+            // Match the native lstat-based preflight: a symlinked config
+            // must never appear valid in the import screen.
+            let configValues = try? config.resourceValues(forKeys: [
+                .isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey
+            ])
+            let configValid = configValues?.isSymbolicLink == false
+                && configValues?.isRegularFile == true
+                && (configValues?.fileSize ?? 0) > 0
 
             let bytes = saved.archives.reduce(UInt64(0)) { total, archive in
                 let (sum, overflow) = total.addingReportingOverflow(archive.bytes)

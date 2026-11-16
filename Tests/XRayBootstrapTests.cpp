@@ -91,11 +91,23 @@ int main() {
     assert(engine.packedArchiveNames().size() == 2);
     assert(engine.packedArchiveNames()[0] == "gamedata.db0");
     assert(engine.packedArchiveNames()[1] == "gamedata.db2");
+    // ZIP files renamed to a numbered archive must not enter the catalog.
+    { std::ofstream renamedZip(root + "/gamedata.db3", std::ios::binary);
+      const unsigned char signature[] = {0x50, 0x4b, 0x03, 0x04};
+      renamedZip.write(reinterpret_cast<const char*>(signature), sizeof(signature)); }
+    engine.shutdown();
+    assert(engine.initialize(GameEdition::shadow));
+    assert(engine.attachResources(root));
+    assert(engine.packedArchiveCount() == 2);
+    assert(engine.packedArchiveBytes() == 11);
+    assert(engine.packedArchiveNames()[0] == "gamedata.db0");
+    assert(engine.packedArchiveNames()[1] == "gamedata.db2");
     engine.shutdown();
     assert(engine.packedArchiveCount() == 0);
     assert(engine.packedArchiveBytes() == 0);
     assert(std::remove((root + "/gamedata.db0").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db2").c_str()) == 0);
+    assert(std::remove((root + "/gamedata.db3").c_str()) == 0);
     assert(std::remove((root + "/gamedata.dba").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db1").c_str()) == 0);
     assert(std::remove((root + "/gamedata.db.backup").c_str()) == 0);

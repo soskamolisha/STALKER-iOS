@@ -1,0 +1,30 @@
+name: X-Ray runtime ABI dispatch regression
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/Native/STOpenXRayRuntime.cpp'
+      - 'Sources/Native/STOpenXRayRuntime.h'
+      - 'Tests/STOpenXRayRuntimeDispatchRegression.cpp'
+      - '.github/workflows/xray-runtime-dispatch.yml'
+  workflow_dispatch:
+
+jobs:
+  mock-engine-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile resource-aware runtime dispatch regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            Tests/STOpenXRayRuntimeDispatchRegression.cpp \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -o /tmp/stalker-runtime-dispatch
+      - name: Test native engine ABI with mock adapter
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/stalker-runtime-dispatch

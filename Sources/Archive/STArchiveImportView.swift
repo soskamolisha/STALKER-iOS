@@ -148,6 +148,11 @@ struct STArchiveImportView: View {
                 return
             }
             let saved = try STArchiveInventory.scan(directory: destination)
+            let config = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
+            let configAttributes = try? FileManager.default.attributesOfItem(atPath: config.path)
+            let configValid = configAttributes?[.type] as? FileAttributeType == .typeRegular
+                && ((configAttributes?[.size] as? NSNumber)?.uint64Value ?? 0) > 0
+
             let bytes = saved.archives.reduce(UInt64(0)) { total, archive in
                 let (sum, overflow) = total.addingReportingOverflow(archive.bytes)
                 return overflow ? UInt64.max : sum
@@ -157,9 +162,10 @@ struct STArchiveImportView: View {
                 && saved.missingNumbers.isEmpty
                 && !saved.archives.contains(where: { $0.bytes == 0 })
                 && saved.warnings.isEmpty
-            storedArchiveStatus = valid
+            let configMessage = configValid ? "fsgame.ltx найден." : "fsgame.ltx отсутствует или пустой — проверка запуска X-Ray не пройдёт."
+            storedArchiveStatus = (valid
                 ? "Найдено архивов: \(saved.archives.count), общий размер: \(size). Имена и размеры проверены; содержимое не проверено."
-                : "Файлы требуют проверки: архивов \(saved.archives.count), размер \(size). Убедись, что есть gamedata.db0, нет пропусков и ошибок."
+                : "Файлы требуют проверки: архивов \(saved.archives.count), размер \(size). Убедись, что есть gamedata.db0, нет пропусков и ошибок.") + " " + configMessage
         } catch {
             storedArchiveStatus = "Не удалось проверить сохранённые файлы: \(error.localizedDescription)"
         }

@@ -48,8 +48,8 @@ enum STArchiveInventory {
                 continue
             }
             let size = UInt64(max(0, values.fileSize ?? 0))
+            if size == 0 { warnings.append("Empty archive: \(name)"); continue }
             archives.append(Archive(number: number, filename: name, bytes: size))
-            if size == 0 { warnings.append("Empty archive: \(name)") }
         }
         archives.sort { $0.number < $1.number }
         let indices = Set(archives.map(\.number))

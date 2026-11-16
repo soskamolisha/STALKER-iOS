@@ -22,6 +22,7 @@ final class STXRayLauncherBridge {
     struct Snapshot {
         let archiveNames: [String]
         let archiveBytes: UInt64
+        let directoryRecordCounts: [Int32]
         let looseDataPresent: Bool
         let nativeEngineLinked: Bool
         let resourceEngineLinked: Bool
@@ -50,7 +51,7 @@ final class STXRayLauncherBridge {
         }
         let preflight = root.path.withCString { st_openxray_runtime_preflight($0) }
         guard root.path.withCString({ st_xray_attach_resources(handle, $0) }) == 0 else {
-            return Snapshot(archiveNames: [], archiveBytes: 0,
+            return Snapshot(archiveNames: [], archiveBytes: 0, directoryRecordCounts: [],
                             looseDataPresent: false,
                             nativeEngineLinked: st_openxray_runtime_linked() == 1,
                             resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,
@@ -62,6 +63,7 @@ final class STXRayLauncherBridge {
             throw BridgeError.nativeFailure(count)
         }
         var names: [String] = []
+        var recordCounts: [Int32] = []
         for index in 0..<Int(count) {
             var buffer = [CChar](repeating: 0, count: 256)
             let result = buffer.withUnsafeMutableBufferPointer { pointer in
@@ -69,11 +71,15 @@ final class STXRayLauncherBridge {
             }
             guard result == 0 else { throw BridgeError.nativeFailure(result) }
             names.append(String(cString: buffer))
+            // Negative results are retained for diagnostics: a filename alone
+            // never proves that an X-Ray archive directory is readable.
+            recordCounts.append(st_xray_archive_directory_count(handle, UInt32(index)))
         }
 
         return Snapshot(
             archiveNames: names,
             archiveBytes: st_xray_archive_bytes(handle),
+            directoryRecordCounts: recordCounts,
             looseDataPresent: st_xray_has_loose_data(handle) == 1,
             nativeEngineLinked: st_openxray_runtime_linked() == 1,
             resourceEngineLinked: st_openxray_runtime_resources_linked() == 1,

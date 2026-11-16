@@ -3,6 +3,28 @@ import XCTest
 @testable import STALKERiOSStarter
 
 final class STArchiveStoreTests: XCTestCase {
+    func testArchiveReimportPreservesLooseResourcesAndLaunchArguments() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let source = root.appendingPathComponent("source")
+        let destination = root.appendingPathComponent("ImportedGame")
+        let loose = destination.appendingPathComponent("gamedata/configs")
+        try fm.createDirectory(at: source, withIntermediateDirectories: true)
+        try fm.createDirectory(at: loose, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        try Data([9]).write(to: destination.appendingPathComponent("gamedata.db0"))
+        try Data("config".utf8).write(to: destination.appendingPathComponent("fsgame.ltx"))
+        try Data("-soc -nointro -nosplash".utf8).write(to: destination.appendingPathComponent("ios_args.txt"))
+        try Data("level".utf8).write(to: loose.appendingPathComponent("system.ltx"))
+        try Data([1, 2]).write(to: source.appendingPathComponent("gamedata.db0"))
+
+        _ = try STArchiveStore.importArchives(from: source, destinationOverride: destination)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata.db0")), Data([1, 2]))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("gamedata/configs/system.ltx")), Data("level".utf8))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("ios_args.txt")), Data("-soc -nointro -nosplash".utf8))
+    }
+
+
     func testImportsCompletePortAppDataLayout() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)

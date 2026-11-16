@@ -11,6 +11,10 @@ on:
       - '.github/workflows/archive-import-build.yml'
   workflow_dispatch:
 
+concurrency:
+  group: archive-import-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   compile-ios:
     runs-on: macos-15

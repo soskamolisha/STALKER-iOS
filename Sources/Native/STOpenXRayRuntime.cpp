@@ -72,6 +72,31 @@ extern "C" int32_t st_openxray_runtime_run(const char* command_line) {
 #endif
 }
 
+// Scan imported loose resources recursively without following symlinked folders.
+// Level data is commonly nested deeper than gamedata/levels/<level>/.
+static bool has_loose_resources(const std::string& directory, unsigned depth = 0) {
+    if (depth > 32) return false;
+    struct stat info {};
+    if (lstat(directory.c_str(), &info) != 0 || !S_ISDIR(info.st_mode)) return false;
+    DIR* entries = opendir(directory.c_str());
+    if (!entries) return false;
+    bool found = false;
+    while (auto* entry = readdir(entries)) {
+        if (std::strcmp(entry->d_name, ".") == 0 ||
+            std::strcmp(entry->d_name, "..") == 0) continue;
+        const std::string path = directory + "/" + entry->d_name;
+        struct stat child {};
+        if (lstat(path.c_str(), &child) != 0) continue;
+        if (S_ISREG(child.st_mode) && child.st_size > 0) { found = true; break; }
+        if (S_ISDIR(child.st_mode) && has_loose_resources(path, depth + 1)) {
+            found = true;
+            break;
+        }
+    }
+    closedir(entries);
+    return found;
+}
+
 extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     if (!resource_root || !resource_root[0]) return -2;
     // The upstream resource-aware entry requires an absolute filesystem root.
@@ -104,47 +129,7 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
     // A config alone is not enough to boot Shadow of Chernobyl.
     // Accept either loose gamedata or a nonempty base gamedata.db0 archive.
     // Later numbered archives alone cannot form a bootable base resource set.
-    bool has_game_data = false;
-    const std::string loose_path = std::string(resource_root) + "/gamedata";
-    struct stat loose_info {};
-    if (lstat(loose_path.c_str(), &loose_info) == 0 && S_ISDIR(loose_info.st_mode)) {
-        // An empty gamedata directory is not evidence of imported game files.
-        DIR* loose = opendir(loose_path.c_str());
-        if (loose) {
-            while (struct dirent* item = readdir(loose)) {
-                if (std::strcmp(item->d_name, ".") == 0 ||
-                    std::strcmp(item->d_name, "..") == 0) continue;
-                const std::string item_path = loose_path + "/" + item->d_name;
-                struct stat item_info {};
-                // Only actual nonempty files or nonempty directories count;
-                // symlinks and empty placeholder files are not game data.
-                if (lstat(item_path.c_str(), &item_info) != 0) continue;
-                if (S_ISREG(item_info.st_mode) && item_info.st_size > 0) {
-                    has_game_data = true;
-                    break;
-                }
-                if (S_ISDIR(item_info.st_mode)) {
-                    DIR* child = opendir(item_path.c_str());
-                    if (child) {
-                        while (struct dirent* nested = readdir(child)) {
-                            if (std::strcmp(nested->d_name, ".") == 0 ||
-                                std::strcmp(nested->d_name, "..") == 0) continue;
-                            const std::string nested_path = item_path + "/" + nested->d_name;
-                            struct stat nested_info {};
-                            if (lstat(nested_path.c_str(), &nested_info) == 0 &&
-                                S_ISREG(nested_info.st_mode) && nested_info.st_size > 0) {
-                                has_game_data = true;
-                                break;
-                            }
-                        }
-                        closedir(child);
-                    }
-                    if (has_game_data) break;
-                }
-            }
-            closedir(loose);
-        }
-    }
+    bool has_game_data = has_loose_resources(std::string(resource_root) + "/gamedata");
     DIR* dir = opendir(resource_root);
     if (dir) {
         while (!has_game_data) {

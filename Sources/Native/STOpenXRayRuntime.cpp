@@ -196,9 +196,6 @@ extern "C" int32_t st_openxray_runtime_preflight(const char* resource_root) {
 extern "C" int32_t st_openxray_runtime_run_with_resources(const char* command_line,
                                                              const char* resource_root) {
     if (!command_line) return -2;
-    // Prevent a second caller from racing the filesystem preflight while an
-    // engine instance is active. The atomic flag below remains the final guard.
-    if (runtime_active.test(std::memory_order_acquire)) return -3;
     const int32_t readiness = st_openxray_runtime_preflight(resource_root);
     if (readiness != 0) return readiness;
     const auto run = embedded_run_with_resources();

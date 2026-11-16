@@ -16,6 +16,7 @@ struct STXRayEngineStatusView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var isChecking = false
     @State private var needsRecheck = false
+    @State private var scanGeneration = 0
     @State private var summary = "Проверка X-Ray ещё не выполнена"
     @State private var archiveDetails = ""
     @State private var engineDetails = ""
@@ -51,10 +52,13 @@ struct STXRayEngineStatusView: View {
         isChecking = true
         let root = gameRoot
         let gameEdition = edition
+        scanGeneration += 1
+        let generation = scanGeneration
         DispatchQueue.global(qos: .userInitiated).async {
             let result: Result<STXRayLauncherBridge.Snapshot, Error> =
                 Result { try STXRayLauncherBridge.inspect(root: root, edition: gameEdition) }
             DispatchQueue.main.async {
+                guard generation == scanGeneration else { return }
                 isChecking = false
                 if needsRecheck {
                     needsRecheck = false

@@ -32,6 +32,11 @@ static int32_t copyDecoder(const uint8_t* input, uint32_t inputSize,
 }
 
 int main() {
+#if defined(ST_HAVE_LZO1X) && ST_HAVE_LZO1X
+    assert(st_lzo1x_available() == 1);
+#else
+    assert(st_lzo1x_available() == 0);
+#endif
     // The high bit indicates compression; structural scanning must not
     // mistake it for an ordinary chunk ID or silently decompress payloads.
     const auto compressed = chunk(0x8000002Au, {1, 2, 3});

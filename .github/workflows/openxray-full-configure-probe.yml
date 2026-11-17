@@ -402,6 +402,29 @@ jobs:
           old = 'set(ENV{MACOSX_DEPLOYMENT_TARGET} ${CMAKE_OSX_DEPLOYMENT_TARGET})'
           assert old in s
           s = s.replace(old, 'if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n        ' + old + '\n    endif()')
+          probe = '    COMMAND ${CMAKE_C_COMPILER} ${CCOPTIONS} -E lj_arch.h -dM'
+          assert s.count(probe) == 1
+          target_probe = """if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+              execute_process(COMMAND xcrun --sdk iphoneos --show-sdk-path
+                  OUTPUT_VARIABLE lua_ios_sdk OUTPUT_STRIP_TRAILING_WHITESPACE
+                  COMMAND_ERROR_IS_FATAL ANY)
+              set(lua_probe_flags
+                  --target=arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}
+                  -isysroot "${lua_ios_sdk}")
+          endif()
+
+          """
+          s = s.replace('execute_process(\n' + probe,
+              target_probe + 'execute_process(\n' +
+              probe.replace('${CCOPTIONS}', '${lua_probe_flags} ${CCOPTIONS}'))
+          anchor = 'if ("${TESTARCH_OUTPUT}" MATCHES "LJ_TARGET_X64")'
+          assert s.count(anchor) == 1
+          s = s.replace(anchor, """if (CMAKE_SYSTEM_NAME STREQUAL "iOS" AND
+              NOT "${TESTARCH_OUTPUT}" MATCHES "#define LJ_TARGET_ARM64 1")
+              message(FATAL_ERROR "LuaJIT target probe did not select iPhoneOS ARM64")
+          endif()
+
+          """ + anchor)
           p.write_text(s)
           PY
       - name: Adapt upstream executable install rule for iOS

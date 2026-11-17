@@ -12,6 +12,70 @@ def replace(path, old, new):
     path.write_text(source.replace(old, new, 1))
 
 
+def patch_ios_dds_loader(layers):
+    folder = layers / "xrRenderGL"
+    header = Path(__file__).with_name("openxray_ios_gles_dds.h")
+    (folder / header.name).write_bytes(header.read_bytes())
+    texture = folder / "glTexture.cpp"
+    replace(texture, "#include <gli/gli.hpp>", """#include <gli/gli.hpp>
+#ifdef XR_RENDER_IOS_GLES
+#include "openxray_ios_gles_dds.h"
+#endif""")
+    replace(texture, "    R_ASSERT2(!texture.empty(), fn);", """    if (texture.empty())
+    {
+        Msg("! Could not read DDS texture '%s'", fn);
+        FS.r_close(S);
+        return 0;
+    }
+
+#ifdef XR_RENDER_IOS_GLES
+    const bool expandDDS = ios_gles::requiresDDSConversion(texture.format());
+    if (expandDDS)
+    {
+        texture = ios_gles::expandDDS(texture);
+        if (texture.empty())
+        {
+            Msg("! Could not expand DDS texture '%s' for OpenGL ES", fn);
+            FS.r_close(S);
+            return 0;
+        }
+    }
+#endif""")
+    replace(texture, "    ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);",
+        """#ifdef XR_RENDER_IOS_GLES
+    if (expandDDS)
+        ret_msize = static_cast<u32>(texture.size());
+    else
+#endif
+        ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);""")
+
+
+def patch_ios_shader_rewriter(layers):
+    shader = layers / "xrRenderPC_GL/rgl_essl_web.h"
+    replace(shader, "        if (is_builtin_redeclaration(tokens))", """#ifdef XR_RENDER_IOS_GLES
+        // Legacy shaders from imported resources may still write desktop clip
+        // distances. OpenGL ES 3.0 has no such built-in on the iPhone.
+        if (vertexStage && tokens.size() > 2 && tokens[0] == "gl_ClipDistance" && tokens[1] == "[")
+        {
+            output += '\n';
+            continue;
+        }
+
+        // The imported gather shader can come from a loose file or a DB.
+        // Fix its integer coordinate offset even when loaded from the DB.
+        constexpr std::string_view legacyOffset = "rcp_scale * offset + tc";
+        if (const auto position = strip_comment(line).find(legacyOffset); position != std::string_view::npos)
+        {
+            output.append(line.data(), position);
+            output += "rcp_scale * vec2(offset) + tc";
+            output.append(line.data() + position + legacyOffset.size(), line.size() - position - legacyOffset.size());
+            output += '\n';
+            continue;
+        }
+#endif
+        if (is_builtin_redeclaration(tokens))""")
+
+
 def patch(layers):
     # Keep WebGL canvas/context calls browser-specific. Its GLES shader,
     # buffer, and draw compatibility code also applies to iOS.
@@ -99,6 +163,9 @@ extern "C" void glDrawElementsInstancedBaseVertexBaseInstanceWEBGL(
     replace(draw, '    SetBaseVertex(baseV);\n    CHK_GL(glDrawElements(topology, indexCount, GL_UNSIGNED_SHORT, indices));',
             '#endif\n    SetBaseVertex(baseV);\n'
             '    CHK_GL(glDrawElements(topology, indexCount, GL_UNSIGNED_SHORT, indices));')
+
+    patch_ios_dds_loader(layers)
+    patch_ios_shader_rewriter(layers)
 
     cmake = layers / "xrRenderPC_GL/CMakeLists.txt"
     replace(cmake, '    XRRENDER_GL_EXPORTS\n    USE_OGL',

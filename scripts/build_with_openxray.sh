@@ -52,8 +52,8 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
   ENABLE_DEBUG_DYLIB=NO STRIP_INSTALLED_PRODUCT=NO \
   PRODUCT_BUNDLE_IDENTIFIER=com.stalkermobile.ios.openxray \
   INFOPLIST_KEY_CFBundleDisplayName="STALKER X-Ray" \
-  MARKETING_VERSION=1.0.4 CURRENT_PROJECT_VERSION=5 \
-  INFOPLIST_KEY_CFBundleShortVersionString=1.0.4 INFOPLIST_KEY_CFBundleVersion=5 \
+  MARKETING_VERSION=1.0.5 CURRENT_PROJECT_VERSION=6 \
+  INFOPLIST_KEY_CFBundleShortVersionString=1.0.5 INFOPLIST_KEY_CFBundleVersion=6 \
   OPENXRAY_ENGINE_DEFINES=ST_XRAY_STATIC_ENGINE_ADAPTER=1 \
   OPENXRAY_EXCLUDED_SOURCES="${OPENXRAY_EXCLUDED_SOURCES:-}" \
   OPENXRAY_ARCHIVE_LINK_FLAGS="$archive ${OPENXRAY_SYSTEM_LINK_FLAGS:-}" build
@@ -76,7 +76,7 @@ app = Path(sys.argv[1])
 path = app / "Info.plist"
 info = plistlib.loads(path.read_bytes())
 assert info["CFBundleIdentifier"] == "com.stalkermobile.ios.openxray"
-assert info["CFBundleVersion"] == "5"
+assert info["CFBundleVersion"] == "6"
 assert "rcp_scale * float2(offset)" in (app / "gather.ps").read_text()
 icon_files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
 assert icon_files and all(any(app.glob(f"{name}*.png")) for name in icon_files)

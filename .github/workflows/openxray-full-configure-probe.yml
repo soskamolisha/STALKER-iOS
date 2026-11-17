@@ -12,6 +12,7 @@ on:
       - '.github/workflows/openxray-full-configure-probe.yml'
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
+      - 'scripts/openxray_ios_gles_dds.h'
       - 'scripts/patch_openxray_ios_archives.py'
       - 'scripts/prepare_ios_app_icon.py'
 permissions:

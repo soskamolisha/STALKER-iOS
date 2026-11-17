@@ -135,6 +135,8 @@ jobs:
           relative_app=Payload/STALKERiOSStarter.app
           app="$staging/$relative_app"
           executable="$app/STALKERiOSStarter"
+          # The older bundle copied a source README onto the app's code level.
+          rm -f "$app/README.md"
           python3 - "$app/Info.plist" <<'PY'
           import plistlib
           from pathlib import Path

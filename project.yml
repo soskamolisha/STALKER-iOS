@@ -17,6 +17,8 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+        excludes:
+          - Native/README.md
       - path: Resources
         type: folder
         optional: true

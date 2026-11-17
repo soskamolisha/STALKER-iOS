@@ -70,6 +70,14 @@ jobs:
           run-id: ${{ steps.engine.outputs.run }}
           github-token: ${{ github.token }}
           path: embedded-entry/
+      - name: Retrieve the separately uploaded integration archive
+        if: hashFiles('embedded-entry/libOpenXRayCombinedProbe.a') == ''
+        uses: actions/download-artifact@v4
+        with:
+          name: openxray-arm64-integration-archive
+          run-id: ${{ steps.engine.outputs.run }}
+          github-token: ${{ github.token }}
+          path: embedded-entry/
       - name: Link the arm64 launcher and package the unsigned IPA
         shell: bash
         run: |

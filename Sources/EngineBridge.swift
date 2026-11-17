@@ -24,6 +24,7 @@ enum EngineStartError: LocalizedError {
         case .nativeEntryFailed(let code):
             switch code {
             case -10: return "SDL требует запуска на главном потоке iOS (-10)"
+            case -12: return "Не удалось обновить шейдер gather.ps в папке игры."
             case -11: return "X-Ray не смог прочитать каталоги архивов. Открой «Импорт ресурсов» и проверь список файлов."
             case -8: return "Не найдены игровые данные: нужна папка gamedata или непустой gamedata.db0 (-8)"
             case -7: return "Файл fsgame.ltx отсутствует, пустой или недоступен (-7)"

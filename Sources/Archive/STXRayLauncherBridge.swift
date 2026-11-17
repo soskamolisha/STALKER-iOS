@@ -64,6 +64,43 @@ final class STXRayLauncherBridge {
         }
     }
 
+    // The legacy GLES shader in some imported ports multiplies an integer
+    // offset by a float. Apple GLSL ES requires an explicit conversion.
+    private static func updateLegacyGatherShader(in root: URL) throws {
+        guard let bundled = Bundle.main.url(forResource: "gather", withExtension: "ps") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let files = FileManager.default
+        var directory = root
+        for component in ["gamedata", "shaders", "gl"] {
+            directory.appendPathComponent(component, isDirectory: true)
+            if files.fileExists(atPath: directory.path) {
+                let values = try directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values.isDirectory == true, values.isSymbolicLink == false else {
+                    throw CocoaError(.fileReadUnsupportedScheme)
+                }
+            } else {
+                try files.createDirectory(at: directory, withIntermediateDirectories: false)
+            }
+        }
+        let shader = directory.appendingPathComponent("gather.ps")
+        guard files.fileExists(atPath: shader.path) else {
+            try files.copyItem(at: bundled, to: shader)
+            return
+        }
+        let values = try shader.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink == false,
+              let size = values.fileSize, size <= 128 * 1024 else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        let original = try String(contentsOf: shader, encoding: .utf8)
+        guard original.contains("float4 sm_gather"), original.contains("float4 sm_minmax_gather") else { return }
+        let corrected = original.replacingOccurrences(of: "rcp_scale * offset", with: "rcp_scale * float2(offset)")
+        if corrected != original {
+            try corrected.write(to: shader, atomically: true, encoding: .utf8)
+        }
+    }
+
     /// Invoke the real embedded engine only after it has been linked.
     /// SDL on iOS owns the game window and pumps its events on the main thread.
     @MainActor
@@ -72,9 +109,15 @@ final class STXRayLauncherBridge {
             do {
                 let snapshot = try inspect(root: root)
                 if snapshot.preflightStatus != 0 { return snapshot.preflightStatus }
-                return snapshot.prerequisitesPresent ? 0 : -11
+                if !snapshot.prerequisitesPresent { return -11 }
             } catch {
                 return -11
+            }
+            do {
+                try updateLegacyGatherShader(in: root)
+                return 0
+            } catch {
+                return -12
             }
         }.value
         guard readiness == 0 else { return readiness }

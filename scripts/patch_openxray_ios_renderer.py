@@ -52,7 +52,7 @@ def patch_ios_dds_loader(layers):
 
 def patch_ios_shader_rewriter(layers):
     shader = layers / "xrRenderPC_GL/rgl_essl_web.h"
-    replace(shader, "        if (is_builtin_redeclaration(tokens))", """#ifdef XR_RENDER_IOS_GLES
+    replace(shader, "        if (is_builtin_redeclaration(tokens))", r"""#ifdef XR_RENDER_IOS_GLES
         // Legacy shaders from imported resources may still write desktop clip
         // distances. OpenGL ES 3.0 has no such built-in on the iPhone.
         if (vertexStage && tokens.size() > 2 && tokens[0] == "gl_ClipDistance" && tokens[1] == "[")

@@ -15,7 +15,7 @@ final class GameResourceStore: ObservableObject {
     private var refreshGenerations: [String: Int] = [:]
 
     func refresh(gameID: String) async {
-        guard ["shadow", "clearSky", "pripyat"].contains(gameID) else { return }
+        guard !importInProgress, ["shadow", "clearSky", "pripyat"].contains(gameID) else { return }
         let generation = (refreshGenerations[gameID] ?? 0) + 1
         refreshGenerations[gameID] = generation
         guard let folder = try? XRayGameResourcePaths.root(for: gameID) else { return }
@@ -25,6 +25,10 @@ final class GameResourceStore: ObservableObject {
         // Returning from Files and dismissing the importer can overlap.
         // A slower old scan must not replace a newer result.
         guard refreshGenerations[gameID] == generation else { return }
+        update(gameID: gameID, inventory: inventory)
+    }
+
+    private func update(gameID: String, inventory: GameResourceScanner.Inventory?) {
         guard let inventory else {
             fileCounts.removeValue(forKey: gameID)
             detectedResources.removeValue(forKey: gameID)
@@ -55,10 +59,11 @@ final class GameResourceStore: ObservableObject {
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else {
             throw ImportError.invalidEdition
         }
-        try await Task.detached(priority: .userInitiated) {
+        let inventory = try await Task.detached(priority: .userInitiated) {
             try GameResourceImporter.copy(source, gameID: gameID)
         }.value
-        await refresh(gameID: gameID)
+        refreshGenerations[gameID, default: 0] += 1
+        update(gameID: gameID, inventory: inventory)
     }
 
     enum ImportError: LocalizedError {

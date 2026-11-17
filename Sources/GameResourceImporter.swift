@@ -1,58 +1,87 @@
 import Foundation
 
 /// Performs long-running disk operations off the main actor.
-/// The caller retains the selected security-scoped URL until this method returns.
 enum GameResourceImporter {
-    static func copy(_ source: URL, gameID: String) throws {
+    @discardableResult
+    static func copy(_ source: URL, gameID: String, destinationOverride: URL? = nil) throws -> GameResourceScanner.Inventory {
         XRayGameResourcePaths.importLock.lock()
         defer { XRayGameResourcePaths.importLock.unlock() }
         guard ["shadow", "clearSky", "pripyat"].contains(gameID) else { throw ImportFailure.invalidEdition }
+        let target = try destinationOverride ?? XRayGameResourcePaths.destination(for: gameID)
+        let legacy = try destinationOverride ?? XRayGameResourcePaths.legacyRoot(for: gameID)
+        #if os(iOS) || os(macOS)
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        var coordinationError: NSError?
+        var result: Result<GameResourceScanner.Inventory, Error>?
+        NSFileCoordinator().coordinate(readingItemAt: source, options: [], error: &coordinationError) { folder in
+            result = Result { try copyFolder(folder, gameID: gameID, target: target, legacy: legacy) }
+        }
+        if let result { return try result.get() }
+        if let coordinationError { throw coordinationError }
+        throw ImportFailure.invalidFolder
+        #else
+        return try copyFolder(source, gameID: gameID, target: target, legacy: legacy)
+        #endif
+    }
+
+    static func filesInbox() throws -> URL {
+        let documents = try XRayGameResourcePaths.destination(for: "shadow").deletingLastPathComponent()
+        let folder = documents.appendingPathComponent("Import", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+
+    private static func copyFolder(_ source: URL, gameID: String, target: URL,
+                                   legacy: URL) throws -> GameResourceScanner.Inventory {
         let fm = FileManager.default
-        var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+        let sourceValues = try source.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard sourceValues.isDirectory == true, sourceValues.isSymbolicLink != true else {
             throw ImportFailure.invalidFolder
         }
-        let target = try XRayGameResourcePaths.destination(for: gameID)
         let root = target.deletingLastPathComponent()
-        try fm.createDirectory(at: root, withIntermediateDirectories: true)
-        // Reject importing our own managed directory (or a descendant) to avoid
-        // recursive copies, accidental replacement, and storage exhaustion.
-        guard isSafeImportSource(source, managedRoot: target),
-              isSafeImportSource(source, managedRoot: try XRayGameResourcePaths.legacyRoot(for: gameID)) else {
-            throw ImportFailure.managedFolderSelected
-        }
-        let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
-        let incoming = try folderSize(source)
-        // Replacement keeps the existing installation until the new copy is validated.
-        // Reserve headroom for filesystem metadata and temporary writes.
-        let headroom: Int64 = max(256 * 1024 * 1024, incoming / 20)
-        if let available, incoming > Int64(available) - headroom {
-            throw ImportFailure.insufficientStorage
-        }
         let incomingFolder = root.appendingPathComponent(target.lastPathComponent + ".incoming", isDirectory: true)
         let backup = root.appendingPathComponent(target.lastPathComponent + ".backup", isDirectory: true)
+        guard [target, legacy, incomingFolder, backup].allSatisfy({ isSafeImportSource(source, managedRoot: $0) }) else {
+            throw ImportFailure.managedFolderSelected
+        }
+        let game = try findGameFolder(in: source)
+        let looseFolder = game.lastPathComponent.lowercased() == "gamedata"
+        let incoming = try folderSize(game)
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        // Replacement keeps the existing installation until the new copy is validated.
+        let headroom: Int64 = max(256 * 1024 * 1024, incoming / 20)
+        if let available = try? root.resourceValues(forKeys: [.volumeAvailableCapacityKey]).volumeAvailableCapacity,
+           incoming > max(0, Int64(available) - headroom) {
+            throw ImportFailure.insufficientStorage
+        }
         if fm.fileExists(atPath: incomingFolder.path) { try fm.removeItem(at: incomingFolder) }
         if fm.fileExists(atPath: backup.path) {
             if !fm.fileExists(atPath: target.path) { try fm.moveItem(at: backup, to: target) }
             else { try fm.removeItem(at: backup) }
         }
         do {
-            try fm.copyItem(at: source, to: incomingFolder)
-            // Verify the copied tree before promoting it to the engine's resource root.
-            // Detect incomplete iCloud/provider copies and newly introduced links.
+            if looseFolder {
+                try fm.createDirectory(at: incomingFolder, withIntermediateDirectories: false)
+                try fm.copyItem(at: game, to: incomingFolder.appendingPathComponent("gamedata", isDirectory: true))
+            } else {
+                try fm.copyItem(at: game, to: incomingFolder)
+            }
             guard try folderSize(incomingFolder) == incoming else {
                 throw ImportFailure.incompleteCopy
             }
-            // Some iOS ports store the game root inside a Data/ directory.
-            // Flatten only a recognized wrapper, never an arbitrary nested folder.
-            try unwrapPortDataDirectory(in: incomingFolder)
-            guard let inventory = GameResourceScanner.scan(incomingFolder), inventory.detected else {
-                throw ImportFailure.missingResources
+            if looseFolder || game.lastPathComponent.lowercased() == "data" {
+                try copyPortConfig(beside: game, to: incomingFolder)
             }
             try validateEdition(in: incomingFolder, selected: gameID)
+            try preserveAppData(from: target, in: incomingFolder)
             try adaptFilesystemConfig(in: incomingFolder)
+            guard let inventory = GameResourceScanner.scan(incomingFolder) else {
+                throw ImportFailure.missingResources
+            }
+            guard inventory.detected else {
+                throw inventory.hasCompressedArchives ? ImportFailure.compressedArchive : ImportFailure.missingResources
+            }
             if fm.fileExists(atPath: target.path) { try fm.moveItem(at: target, to: backup) }
             do {
                 try fm.moveItem(at: incomingFolder, to: target)
@@ -70,6 +99,7 @@ enum GameResourceImporter {
             // The replacement is committed. A cleanup failure must not
             // report the import as failed or delete the newly installed game.
             if fm.fileExists(atPath: backup.path) { try? fm.removeItem(at: backup) }
+            return inventory
         } catch {
             try? fm.removeItem(at: incomingFolder)
             throw error
@@ -91,8 +121,10 @@ enum GameResourceImporter {
               lower.dropFirst("gamedata.db".count).allSatisfy({ $0.isNumber }) else {
             throw ImportFailure.invalidArchive
         }
+        #if os(iOS) || os(macOS)
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        #endif
         let values = try source.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
         guard values.isRegularFile == true, let size = values.fileSize, size > 0 else {
             throw ImportFailure.invalidArchive
@@ -104,7 +136,7 @@ enum GameResourceImporter {
               isSafeImportSource(source, managedRoot: try XRayGameResourcePaths.legacyRoot(for: gameID)) else {
             throw ImportFailure.managedFolderSelected
         }
-        let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
+        let available = (try? root.resourceValues(forKeys: [.volumeAvailableCapacityKey]))?.volumeAvailableCapacity
         if let available, Int64(size) > Int64(available) - 256 * 1024 * 1024 {
             throw ImportFailure.insufficientStorage
         }
@@ -134,37 +166,37 @@ enum GameResourceImporter {
         }
     }
 
-    /// Relocate writable X-Ray app data without changing the original resource aliases.
-    /// ISO Latin-1 is used as a reversible byte mapping: older .ltx files may be
-    /// CP1251, but the ASCII $app_data_root$ line can still be edited losslessly.
+    /// Edit only the ASCII save-path setting so CP1251 comments and CRLF survive.
     private static func adaptFilesystemConfig(in staging: URL) throws {
         let config = staging.appendingPathComponent("fsgame.ltx")
         let fm = FileManager.default
         guard fm.fileExists(atPath: config.path) else { return }
         // A copied symlink could point outside the staged import. Never read
         // or rewrite an external configuration through that link.
-        let configValues = try config.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey])
-        guard configValues.isSymbolicLink != true, configValues.isRegularFile == true else {
+        let configValues = try config.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey])
+        guard configValues.isSymbolicLink != true, configValues.isRegularFile == true,
+              let size = configValues.fileSize, size > 0, size <= 1024 * 1024 else {
             throw ImportFailure.invalidFilesystemConfig
         }
         let original = try Data(contentsOf: config)
-        guard let text = String(data: original, encoding: .isoLatin1) else {
-            throw ImportFailure.invalidFilesystemConfig
+        let bom: [UInt8] = [0xef, 0xbb, 0xbf]
+        let hasBOM = original.starts(with: bom)
+        var lines = original.dropFirst(hasBOM ? bom.count : 0)
+            .split(separator: 10, omittingEmptySubsequences: false)
+            .map { Data($0) }
+        let matches = lines.indices.filter { index in
+            let line = lines[index]
+            guard let equals = line.firstIndex(of: 61) else { return false }
+            let key = String(decoding: line[..<equals], as: UTF8.self)
+            return key.trimmingCharacters(in: .whitespaces).lowercased() == "$app_data_root$"
         }
-        let lines = text.components(separatedBy: "\n")
-        let indices = lines.indices.filter { lineIndex in
-            let line = lines[lineIndex].trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let equals = line.firstIndex(of: "=") else { return false }
-            return line[..<equals].trimmingCharacters(in: .whitespaces)
-                .lowercased() == "$app_data_root$"
-        }
-        guard indices.count == 1 else { throw ImportFailure.invalidFilesystemConfig }
-        var edited = lines
-        let line = lines[indices[0]]
-        let ending = line.hasSuffix("\r") ? "\r" : ""
-        edited[indices[0]] = "$app_data_root$ = true| false| $fs_root$| appdata\\" + ending
-        guard let bytes = edited.joined(separator: "\n").data(using: .isoLatin1) else {
-            throw ImportFailure.invalidFilesystemConfig
+        guard matches.count == 1, let index = matches.first else { throw ImportFailure.invalidFilesystemConfig }
+        let ending = lines[index].last == 13 ? "\r" : ""
+        lines[index] = Data(("$app_data_root$ = true| false| $fs_root$| appdata\\" + ending).utf8)
+        var bytes = hasBOM ? Data(bom) : Data()
+        for (index, line) in lines.enumerated() {
+            if index != 0 { bytes.append(10) }
+            bytes.append(line)
         }
         // Do not overwrite the source folder; modify only the staged import.
         let appdata = staging.appendingPathComponent("appdata", isDirectory: true)
@@ -180,28 +212,73 @@ enum GameResourceImporter {
         try bytes.write(to: config, options: .atomic)
     }
 
-    private static func unwrapPortDataDirectory(in staging: URL) throws {
+    /// Find one installation inside an extracted folder or the local Import inbox.
+    private static func findGameFolder(in source: URL) throws -> URL {
         let fm = FileManager.default
-        let nested = staging.appendingPathComponent("Data", isDirectory: true)
-        var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: nested.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else { return }
-        let nestedNames = Set((try fm.contentsOfDirectory(atPath: nested.path))
-            .map { $0.lowercased() })
-        guard nestedNames.contains("gamedata") ||
-              nestedNames.contains(where: { $0.hasPrefix("gamedata.db") }) else { return }
-        let rootNames = Set((try fm.contentsOfDirectory(atPath: staging.path))
-            .map { $0.lowercased() })
-        // Never overwrite existing files or flatten an already valid game root.
-        guard !rootNames.contains("gamedata"),
-              !rootNames.contains(where: { $0.hasPrefix("gamedata.db") }) else { return }
-        let entries = try fm.contentsOfDirectory(at: nested, includingPropertiesForKeys: nil)
-        guard entries.allSatisfy({ !fm.fileExists(atPath:
-            staging.appendingPathComponent($0.lastPathComponent).path) }) else { return }
-        for entry in entries {
-            try fm.moveItem(at: entry, to: staging.appendingPathComponent(entry.lastPathComponent))
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .isSymbolicLinkKey]
+        var folders = [source]
+        var foundZip = false
+        for _ in 0...4 {
+            var matches: [URL] = []
+            var children: [URL] = []
+            for folder in folders {
+                let entries = try fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: Array(keys),
+                                                        options: [.skipsHiddenFiles])
+                let names = entries.map { $0.lastPathComponent.lowercased() }
+                if folder.lastPathComponent.lowercased() == "gamedata" ||
+                    (folder.pathExtension.lowercased() != "app" &&
+                     (names.contains("gamedata") || names.contains(where: GameResourceScanner.isArchiveName))) {
+                    matches.append(folder)
+                    continue
+                }
+                foundZip = foundZip || names.contains { $0.hasSuffix(".zip") }
+                for entry in entries {
+                    let values = try entry.resourceValues(forKeys: keys)
+                    if values.isDirectory == true && values.isSymbolicLink != true {
+                        children.append(entry)
+                    }
+                }
+            }
+            guard matches.count <= 1 else { throw ImportFailure.multipleGameFolders }
+            if let match = matches.first { return match }
+            guard !children.isEmpty else { break }
+            guard children.count <= 256 else { throw ImportFailure.multipleGameFolders }
+            folders = children
         }
-        try fm.removeItem(at: nested)
+        throw foundZip ? ImportFailure.compressedArchive : ImportFailure.missingResources
+    }
+
+    private static func copyPortConfig(beside game: URL, to staging: URL) throws {
+        let fm = FileManager.default
+        let parent = game.deletingLastPathComponent()
+        // Files may give access to Data only. Use sibling files when the
+        // provider makes them available to the app.
+        guard let entries = try? fm.contentsOfDirectory(atPath: parent.path) else { return }
+        for (name, maxBytes) in [("fsgame.ltx", 1024 * 1024), ("ios_args.txt", 4096)] {
+            let destination = staging.appendingPathComponent(name)
+            guard !fm.fileExists(atPath: destination.path), entries.contains(name) else { continue }
+            let source = parent.appendingPathComponent(name)
+            let values = try source.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey])
+            guard values.isSymbolicLink != true, values.isRegularFile == true,
+                  let size = values.fileSize, size > 0, size <= maxBytes else {
+                throw ImportFailure.invalidFilesystemConfig
+            }
+            try fm.copyItem(at: source, to: destination)
+        }
+    }
+
+    private static func preserveAppData(from target: URL, in staging: URL) throws {
+        let fm = FileManager.default
+        let current = target.appendingPathComponent("appdata", isDirectory: true)
+        guard fm.fileExists(atPath: current.path) else { return }
+        let values = try current.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true else {
+            throw ImportFailure.invalidFilesystemConfig
+        }
+        _ = try folderSize(current)
+        let destination = staging.appendingPathComponent("appdata", isDirectory: true)
+        if fm.fileExists(atPath: destination.path) { try fm.removeItem(at: destination) }
+        try fm.copyItem(at: current, to: destination)
     }
 
     /// Returns false for the managed root, its descendants, and its ancestors.
@@ -216,12 +293,17 @@ enum GameResourceImporter {
 
     private static func folderSize(_ url: URL) throws -> Int64 {
         let fm = FileManager.default
-        guard let files = fm.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey]) else {
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey]
+        var traversalError: Error?
+        guard let files = fm.enumerator(at: url, includingPropertiesForKeys: keys, errorHandler: { _, error in
+            traversalError = error
+            return false
+        }) else {
             throw ImportFailure.invalidFolder
         }
         var bytes: Int64 = 0
         while let file = files.nextObject() as? URL {
-            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey])
+            let values = try file.resourceValues(forKeys: Set(keys))
             // A game folder must not contain links that escape the selected tree.
             // Reject links rather than following or silently dropping them.
             if values.isSymbolicLink == true { throw ImportFailure.unsafeSymlink }
@@ -230,8 +312,11 @@ enum GameResourceImporter {
                 let (total, overflow) = bytes.addingReportingOverflow(size)
                 guard size >= 0, !overflow else { throw ImportFailure.invalidFolder }
                 bytes = total
+            } else if values.isDirectory != true {
+                throw ImportFailure.invalidFolder
             }
         }
+        if let traversalError { throw traversalError }
         return bytes
     }
 
@@ -260,7 +345,29 @@ enum GameResourceImporter {
     }
 
     enum ImportFailure: LocalizedError {
-        case invalidEdition, invalidFolder, invalidArchive, unsafeSymlink, incompleteCopy, insufficientStorage, missingResources, tooManyFiles, editionMismatch, managedFolderSelected, restoreFailed, invalidFilesystemConfig
+        case invalidEdition, invalidFolder, invalidArchive, unsafeSymlink, incompleteCopy, insufficientStorage
+        case missingResources, multipleGameFolders, compressedArchive, tooManyFiles, editionMismatch
+        case managedFolderSelected, restoreFailed, invalidFilesystemConfig
+
+        static func message(for error: Error, russian: Bool) -> String {
+            guard russian, let failure = error as? Self else { return error.localizedDescription }
+            switch failure {
+            case .invalidEdition, .editionMismatch: return "Для этих файлов нужна другая карточка игры."
+            case .invalidFolder: return "Не удалось открыть папку игры."
+            case .invalidArchive: return "Нужен исходный файл gamedata.db."
+            case .unsafeSymlink: return "В папке есть ссылки на другие файлы. Выбери папку с самими файлами игры."
+            case .incompleteCopy: return "Скопировались не все файлы. Убедись, что папка полностью загружена в «Файлах»."
+            case .insufficientStorage: return "На iPhone не хватает места для копии игры."
+            case .missingResources: return "В папке не найдены gamedata или архивы gamedata.db."
+            case .multipleGameFolders: return "Найдено несколько папок. Оставь в Import одну игру или выбери её папку отдельно."
+            case .compressedArchive: return "Распакуй ZIP в «Файлах», затем выбери распакованную папку."
+            case .tooManyFiles: return "В папке слишком много файлов для проверки."
+            case .managedFolderSelected: return "Выбери исходную папку игры за пределами ImportedGame."
+            case .restoreFailed: return "Не удалось вернуть прежнюю папку игры. Резервная копия сохранена."
+            case .invalidFilesystemConfig: return "Не удалось прочитать настройки fsgame.ltx или ios_args.txt."
+            }
+        }
+
         var errorDescription: String? {
             switch self {
             case .invalidFilesystemConfig: return "Invalid fsgame.ltx filesystem configuration"
@@ -273,6 +380,8 @@ enum GameResourceImporter {
             case .incompleteCopy: return "Copied game folder is incomplete; check free space and Files provider downloads"
             case .insufficientStorage: return "Not enough free storage on this device"
             case .missingResources: return "No recognizable X-Ray game resources found"
+            case .multipleGameFolders: return "Select one game folder or leave only one game in Import"
+            case .compressedArchive: return "Extract the ZIP in Files, then select the extracted game folder"
             case .tooManyFiles: return "Too many files to validate safely"
             case .editionMismatch: return "These files appear to belong to a different S.T.A.L.K.E.R. game"
             }

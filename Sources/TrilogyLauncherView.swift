@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Trilogy selection screen with the experimental Shadow of Chernobyl entry.
 struct TrilogyLauncherView: View {
@@ -9,7 +8,7 @@ struct TrilogyLauncherView: View {
     @State private var selectedGame: GameEdition?
     @State private var showImporter = false
     @State private var showImportEditionPicker = false
-    @StateObject private var resources = GameResourceStore()
+    @EnvironmentObject private var resources: GameResourceStore
     @State private var importError: String?
     @State private var isCopying = false
     @State private var engineDiagnostics: [String: String] = [:]
@@ -755,7 +754,7 @@ struct TrilogyLauncherView: View {
                     Task { await refreshResources() }
                 }
             }
-            .alert("Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+            .alert(russian ? "Ошибка импорта" : "Import error", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
                 Button("OK", role: .cancel) { importError = nil }
             } message: { Text(importError ?? "") }
             .confirmationDialog(
@@ -771,27 +770,21 @@ struct TrilogyLauncherView: View {
                 }
                 Button(russian ? "Отмена" : "Cancel", role: .cancel) {}
             }
-            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.folder]) { result in
-                guard let selectedGame else { return }
-                do {
-                    let folder = try result.get()
+            .sheet(isPresented: $showImporter, onDismiss: { selectedGame = nil }) {
+                GameFolderPicker { folder in
+                    let game = selectedGame
+                    showImporter = false
+                    guard let folder, let game else { return }
                     isCopying = true
-                    let edition = selectedGame.rawValue
                     Task {
-                        defer { isCopying = false; self.selectedGame = nil }
+                        defer { isCopying = false }
                         do {
-                            try await resources.importFolder(folder, gameID: edition)
-                            if let game = GameEdition(rawValue: edition) {
-                                checkEngineResources(for: game)
-                                showDiagnostics = true
-                            }
+                            try await resources.importFolder(folder, gameID: game.rawValue)
+                            engineDiagnostics.removeValue(forKey: game.rawValue)
                         } catch {
-                            importError = error.localizedDescription
+                            importError = GameResourceImporter.ImportFailure.message(for: error, russian: russian)
                         }
                     }
-                } catch {
-                    importError = error.localizedDescription
-                    self.selectedGame = nil
                 }
             }
         }

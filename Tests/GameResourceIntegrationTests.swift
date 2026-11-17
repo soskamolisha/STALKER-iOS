@@ -20,15 +20,62 @@ final class GameResourceIntegrationTests: XCTestCase {
             let data = app.appendingPathComponent("Data")
             try fm.createDirectory(at: data, withIntermediateDirectories: true)
             try Data([1, 2, 3, 4]).write(to: data.appendingPathComponent("gamedata.db0"))
-            try Data("config".utf8).write(to: app.appendingPathComponent("fsgame.ltx"))
-            _ = try STArchiveStore.importArchives(from: app, destinationOverride: destination)
+            try Data("$app_data_root$ = true|false| C:\\Old Saves\\\r\n".utf8)
+                .write(to: app.appendingPathComponent("fsgame.ltx"))
+            try Data("-soc -nointro -nosplash".utf8).write(to: app.appendingPathComponent("ios_args.txt"))
+            try Data([9]).write(to: app.appendingPathComponent("StalkerMobile"))
+            for source in [app, data] {
+                try GameResourceImporter.copy(source, gameID: "shadow", destinationOverride: destination)
+                XCTAssertEqual(try String(contentsOf: destination.appendingPathComponent("fsgame.ltx"), encoding: .utf8),
+                               "$app_data_root$ = true| false| $fs_root$| appdata\\\r\n")
+                XCTAssertTrue(fm.fileExists(atPath: destination.appendingPathComponent("ios_args.txt").path))
+                XCTAssertFalse(fm.fileExists(atPath: destination.appendingPathComponent("StalkerMobile").path))
+            }
 
             let active = XRayGameResourcePaths.preferredRoot(destination: destination, legacy: legacy)
             XCTAssertEqual(active, destination)
             let inventory = try XCTUnwrap(GameResourceScanner.scan(active))
             XCTAssertTrue(inventory.detected)
             XCTAssertEqual(inventory.archiveCount, 1)
-            XCTAssertEqual(inventory.count, 2)
+            XCTAssertEqual(inventory.count, 3)
+        }
+    }
+
+    func testImportFromFilesInboxKeepsExistingSaves() throws {
+        try withFolders { root, destination, _ in
+            let inbox = root.appendingPathComponent("Documents/Import")
+            let configs = inbox.appendingPathComponent("My Game/gamedata/config")
+            let saves = destination.appendingPathComponent("appdata/savedgames")
+            try fm.createDirectory(at: configs, withIntermediateDirectories: true)
+            try fm.createDirectory(at: saves, withIntermediateDirectories: true)
+            try Data([1]).write(to: configs.appendingPathComponent("system.ltx"))
+            try Data([2]).write(to: saves.appendingPathComponent("save.sav"))
+            let imported = try GameResourceImporter.copy(inbox, gameID: "shadow", destinationOverride: destination)
+            XCTAssertTrue(imported.detected)
+            XCTAssertEqual(try Data(contentsOf: saves.appendingPathComponent("save.sav")), Data([2]))
+            XCTAssertTrue(fm.fileExists(atPath: configs.appendingPathComponent("system.ltx").path))
+        }
+    }
+
+    func testMultipleFoldersAndRenamedZIPDoNotReplaceAnExistingImport() throws {
+        try withFolders { root, destination, _ in
+            let inbox = root.appendingPathComponent("Documents/Import")
+            let existing = destination.appendingPathComponent("gamedata.db0")
+            try Data([9]).write(to: existing)
+            for name in ["first", "second"] {
+                let game = inbox.appendingPathComponent(name)
+                try fm.createDirectory(at: game, withIntermediateDirectories: true)
+                try Data([0x50, 0x4b, 0x03, 0x04]).write(to: game.appendingPathComponent("gamedata.db0"))
+            }
+            XCTAssertThrowsError(try GameResourceImporter.copy(inbox, gameID: "shadow", destinationOverride: destination)) {
+                XCTAssertEqual($0 as? GameResourceImporter.ImportFailure, .multipleGameFolders)
+            }
+            let first = inbox.appendingPathComponent("first")
+            XCTAssertFalse(try XCTUnwrap(GameResourceScanner.scan(first)).detected)
+            XCTAssertThrowsError(try GameResourceImporter.copy(first, gameID: "shadow", destinationOverride: destination)) {
+                XCTAssertEqual($0 as? GameResourceImporter.ImportFailure, .compressedArchive)
+            }
+            XCTAssertEqual(try Data(contentsOf: existing), Data([9]))
         }
     }
 

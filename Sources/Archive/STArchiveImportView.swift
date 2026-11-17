@@ -1,39 +1,64 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
-/// Standalone import diagnostics screen. Embed in the launcher navigation
-/// after verifying the existing screen structure.
+/// Folder import and X-Ray diagnostics for Shadow of Chernobyl.
 struct STArchiveImportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var resources: GameResourceStore
     @State private var showingImporter = false
     @State private var isImporting = false
-    @State private var pendingFolder: URL?
-    @State private var showingReplaceConfirmation = false
-    @State private var importStatus: String?
     @State private var report: STArchiveInventory.Report?
-    @State private var selectedFolder: String?
     @State private var errorMessage: String?
-    @State private var storedArchiveStatus: String = "Проверка ранее загруженных файлов…"
+    @State private var storedArchiveStatus = "Проверка ранее загруженных файлов…"
     @State private var nativeArchiveStatus: String?
     @State private var engineReadinessStatus: String?
     @State private var importedRevision = 0
+
+    private var appFolderName: String {
+        let bundle = Bundle.main
+        return (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? "STALKERiOSStarter"
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("Импорт файлов игры").font(.title2.bold())
+                    Text("Импорт «Тени Чернобыля»").font(.title2.bold())
                     Spacer()
                     Button("Закрыть") { dismiss() }
                         .disabled(isImporting)
                         .buttonStyle(.bordered)
                 }
-                Text("Выбери папку Data из рабочего iOS-порта или папку StalkerMobile.app, содержащую Data. Импортируются gamedata.db0, другие архивы, папка gamedata (configs, levels, textures) и fsgame.ltx, если он находится рядом с архивами. Это подготовка ресурсов, не запуск игры.")
+                Text("Выбери папку игры целиком. Подойдёт и папка Data из iOS-порта.")
                     .font(.subheadline)
+                Button("Выбрать папку игры") { showingImporter = true }
+                    .disabled(isImporting)
+                    .buttonStyle(.borderedProminent)
+                if isImporting {
+                    ProgressView("Копирование файлов игры…")
+                } else if resources.detectedResources["shadow"] == true {
+                    Label("Ресурсы добавлены", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+                if let errorMessage {
+                    Text(errorMessage).foregroundStyle(.red)
+                }
+                DisclosureGroup("Если «Открыть» неактивно") {
+                    Text("Скопируй папку игры в «Файлы» → «На iPhone» → \(appFolderName) → Import.")
+                        .font(.footnote)
+                    Button("Импортировать из Import") {
+                        do {
+                            beginImport(try GameResourceImporter.filesInbox())
+                        } catch {
+                            errorMessage = error.localizedDescription
+                        }
+                    }
+                    .disabled(isImporting)
+                    .buttonStyle(.bordered)
+                }
                 Text(storedArchiveStatus).font(.footnote).foregroundStyle(.secondary)
-                Text("Если кнопка «Открыть» при выборе папки неактивна: открой «Файлы» → «На iPhone» → STALKERiOSStarter → ImportedGame и скопируй туда оригинальные gamedata.db0 и fsgame.ltx (если они есть). Затем вернись сюда и нажми «Проверить файлы», после чего «Проверить готовность X-Ray».")
-                    .font(.footnote)
                 Button("Проверить файлы") { refreshStoredArchives() }
                     .disabled(isImporting)
                     .buttonStyle(.bordered)
@@ -46,6 +71,7 @@ struct STArchiveImportView: View {
                 if let importedRoot = try? XRayGameResourcePaths.root(for: "shadow") {
                     STXRayEngineStatusView(edition: 0, gameRoot: importedRoot)
                         .id(importedRevision)
+                        .disabled(isImporting)
                 }
                 Button("Проверить готовность X-Ray") { inspectEngineReadiness() }
                     .disabled(isImporting)
@@ -53,15 +79,7 @@ struct STArchiveImportView: View {
                 if let engineReadinessStatus {
                     Text(engineReadinessStatus).font(.footnote).foregroundStyle(.secondary)
                 }
-                Button("Выбрать папку игры") { showingImporter = true }
-                    .disabled(isImporting)
-                    .buttonStyle(.borderedProminent)
-                if isImporting { ProgressView("Копирование файлов игры… Не закрывай экран") }
-                if let importStatus { Text(importStatus).font(.subheadline) }
-                if let selectedFolder {
-                    Text("Выбрана папка: \(selectedFolder)").font(.caption)
-                }
-                if let report {
+                if let report, !report.archives.isEmpty {
                     Text("Архивов найдено: \(report.archives.count)")
                     Text(report.hasBaseArchive ? "gamedata.db0 найден (содержимое не проверено)" : "gamedata.db0 отсутствует")
                     ForEach(report.archives, id: \.number) { archive in
@@ -71,12 +89,6 @@ struct STArchiveImportView: View {
                     if !report.missingNumbers.isEmpty {
                         Text("Отсутствуют номера: \(report.missingNumbers.map(String.init).joined(separator: ", "))")
                     }
-                    ForEach(Array(report.warnings.enumerated()), id: \.offset) { entry in
-                        Text(entry.element).font(.caption).foregroundStyle(.orange)
-                    }
-                }
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -87,28 +99,11 @@ struct STArchiveImportView: View {
             if phase == .active && !isImporting { refreshStoredArchives() }
         }
         .interactiveDismissDisabled(isImporting)
-        .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
-            switch result {
-            case .failure(let error):
-                errorMessage = "Не удалось открыть выбор папки: \(error.localizedDescription)"
-            case .success(let urls):
-                guard let folder = urls.first else {
-                    errorMessage = "Папка не выбрана"
-                    return
-                }
-                pendingFolder = folder
-                showingReplaceConfirmation = true
+        .sheet(isPresented: $showingImporter) {
+            GameFolderPicker { folder in
+                showingImporter = false
+                if let folder { beginImport(folder) }
             }
-        }
-        .confirmationDialog("Импортировать архивы игры?", isPresented: $showingReplaceConfirmation, titleVisibility: .visible) {
-            Button("Импортировать файлы игры") {
-                guard let folder = pendingFolder else { return }
-                pendingFolder = nil
-                beginImport(folder)
-            }
-            Button("Отмена", role: .cancel) { pendingFolder = nil }
-        } message: {
-            Text("Ранее загруженные архивы будут заменены только после успешного копирования новых. Для больших файлов понадобится свободное место.")
         }
     }
 
@@ -150,71 +145,37 @@ struct STArchiveImportView: View {
     }
 
     private func refreshStoredArchives() {
+        Task { await resources.refresh(gameID: "shadow") }
         do {
-            let filesDestination = try STArchiveStore.destinationRoot()
-            // Create the Files-visible destination before the first import.
-            // Folder picking can be disabled by some iOS document providers;
-            // users can then copy original game files into this folder manually.
-            if !FileManager.default.fileExists(atPath: filesDestination.path) {
-                try FileManager.default.createDirectory(at: filesDestination, withIntermediateDirectories: true)
-            }
             let destination = try XRayGameResourcePaths.root(for: "shadow")
-            let saved = try STArchiveInventory.scan(directory: destination)
+            report = try STArchiveInventory.scan(directory: destination)
             let config = destination.appendingPathComponent("fsgame.ltx", isDirectory: false)
-            // Match the native lstat-based preflight: a symlinked config
-            // must never appear valid in the import screen.
-            let configValues = try? config.resourceValues(forKeys: [
-                .isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey
-            ])
-            let configValid = configValues?.isSymbolicLink == false
-                && configValues?.isRegularFile == true
-                && (configValues?.fileSize ?? 0) > 0
-
-            let bytes = saved.archives.reduce(UInt64(0)) { total, archive in
-                let (sum, overflow) = total.addingReportingOverflow(archive.bytes)
-                return overflow ? UInt64.max : sum
-            }
-            let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .file)
-            let valid = saved.hasBaseArchive
-                && saved.missingNumbers.isEmpty
-                && !saved.archives.contains(where: { $0.bytes == 0 })
-                && saved.warnings.isEmpty
-            let configMessage = configValid ? "fsgame.ltx найден." : "fsgame.ltx отсутствует или пустой — проверка запуска X-Ray не пройдёт."
-            storedArchiveStatus = (valid
-                ? "Найдено архивов: \(saved.archives.count), общий размер: \(size). Имена и размеры проверены; содержимое не проверено."
-                : "Файлы требуют проверки: архивов \(saved.archives.count), размер \(size). Убедись, что есть gamedata.db0, нет пропусков и ошибок.") + " " + configMessage
+            let values = try? config.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey])
+            let valid = values?.isSymbolicLink == false
+                && values?.isRegularFile == true
+                && (values?.fileSize ?? 0) > 0
+            storedArchiveStatus = valid ? "fsgame.ltx найден." : "Для запуска X-Ray нужен файл fsgame.ltx."
         } catch {
+            report = nil
             storedArchiveStatus = "Не удалось проверить сохранённые файлы: \(error.localizedDescription)"
         }
     }
 
     private func beginImport(_ folder: URL) {
-                selectedFolder = folder.lastPathComponent
-                report = nil
-                errorMessage = nil
-                isImporting = true
-                importStatus = "Копирование файлов в память приложения…"
-                DispatchQueue.global(qos: .userInitiated).async {
-                    // STArchiveStore owns security-scoped access for the entire copy.
-                    let result = Result { try STArchiveStore.importArchives(from: folder) }
-                    DispatchQueue.main.async {
-                        isImporting = false
-                        switch result {
-                        case .success(let imported):
-                            report = imported
-                            importStatus = "Сохранено архивов: \(imported.archives.count). Содержимое ещё не проверено."
-                            errorMessage = nil
-                            refreshStoredArchives()
-                            importedRevision += 1
-                            inspectEngineReadiness()
-                        case .failure(let error):
-                            refreshStoredArchives()
-                            report = nil
-                            importStatus = nil
-                            errorMessage = "Ошибка импорта: \(error.localizedDescription)"
-                        }
-                    }
-                }
+        guard !isImporting else { return }
+        errorMessage = nil
+        isImporting = true
+        Task {
+            defer { isImporting = false }
+            do {
+                try await resources.importFolder(folder, gameID: "shadow")
+                refreshStoredArchives()
+                importedRevision += 1
+                nativeArchiveStatus = nil
+                engineReadinessStatus = nil
+            } catch {
+                errorMessage = GameResourceImporter.ImportFailure.message(for: error, russian: true)
+            }
+        }
     }
 }
-

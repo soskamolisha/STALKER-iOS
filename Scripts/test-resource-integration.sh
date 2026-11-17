@@ -4,7 +4,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TEST_ROOT"' EXIT
 mkdir -p "$TEST_ROOT/Sources/STALKERiOSStarter" "$TEST_ROOT/Tests/ResourceTests"
-for source in XRayGameResourcePaths.swift GameResourceScanner.swift XRayArchiveInspector.swift \
+for source in XRayGameResourcePaths.swift GameResourceImporter.swift GameResourceScanner.swift XRayArchiveInspector.swift \
               Archive/STArchiveInventory.swift Archive/STArchiveStore.swift; do
     cp "$PROJECT_ROOT/Sources/$source" "$TEST_ROOT/Sources/STALKERiOSStarter/"
 done

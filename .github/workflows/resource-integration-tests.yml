@@ -21,6 +21,7 @@ jobs:
         run: swift --version
       - name: Parse all app Swift sources
         run: |
+          set -euo pipefail
           find Sources -name '*.swift' -print0 | while IFS= read -r -d '' source; do
             swiftc -frontend -parse "$source"
           done

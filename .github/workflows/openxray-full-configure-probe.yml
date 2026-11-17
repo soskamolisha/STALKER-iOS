@@ -221,7 +221,8 @@ jobs:
     # An explicit marker lets the feature branch request a device build while
     # ordinary pushes continue to use only the portable regression job.
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[openxray-ios]')
-    runs-on: macos-15
+    # Xcode cross-compiles iPhoneOS arm64 on the standard Intel runner.
+    runs-on: macos-15-intel
     # Cap potentially billable cross-compilation while collecting diagnostics.
     timeout-minutes: 90
     steps:

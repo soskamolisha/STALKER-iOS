@@ -9,3 +9,4 @@ DerivedData/
 *.p12
 *.cer
 STALKERiOSStarter.xcodeproj/
+Sources/GeneratedAppIcons.xcassets/

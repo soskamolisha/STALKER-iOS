@@ -12,6 +12,7 @@ on:
       - '.github/workflows/openxray-full-configure-probe.yml'
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
+      - 'scripts/prepare_ios_app_icon.py'
 permissions:
   contents: read
 # Only a newer explicit iPhone build supersedes a running engine build.
@@ -104,6 +105,9 @@ jobs:
       contents: read
       actions: read
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Resolve the linked launcher build
         id: launcher
         env:
@@ -137,7 +141,21 @@ jobs:
           executable="$app/STALKERiOSStarter"
           # The older bundle copied a source README onto the app's code level.
           rm -f "$app/README.md"
-          python3 - "$app/Info.plist" <<'PY'
+          # Use the flat iPhoneOS bundle layout. The old Resources directory
+          # caused codesign to omit the root Info.plist from the code directory.
+          if [ -d "$app/Resources" ]; then
+            rm -f "$app/Resources/.gitkeep" "$app/Resources/AppIcon.png"
+            find "$app/Resources" -maxdepth 1 -type f -exec mv -n {} "$app/" \;
+            rmdir "$app/Resources"
+          fi
+          icon_catalog="$RUNNER_TEMP/STALKERIcons.xcassets"
+          icon_info="$RUNNER_TEMP/STALKERIcons.plist"
+          python3 scripts/prepare_ios_app_icon.py "$icon_catalog"
+          xcrun --sdk iphoneos actool "$icon_catalog" --compile "$app" \
+            --platform iphoneos --minimum-deployment-target 17.0 \
+            --target-device iphone --target-device ipad --app-icon AppIcon \
+            --output-partial-info-plist "$icon_info"
+          python3 - "$app/Info.plist" "$icon_info" <<'PY'
           import plistlib
           from pathlib import Path
           import sys
@@ -145,33 +163,45 @@ jobs:
           info = plistlib.loads(path.read_bytes())
           assert info["CFBundleIdentifier"] == "com.stalkermobile.ios"
           assert info["CFBundleSupportedPlatforms"] == ["iPhoneOS"]
+          info.update(plistlib.loads(Path(sys.argv[2]).read_bytes()))
+          files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
+          assert files and all(any(path.parent.glob(f"{name}*.png")) for name in files)
           info.update(CFBundleIdentifier="com.stalkermobile.ios.openxray",
                       CFBundleDisplayName="STALKER X-Ray",
-                      CFBundleShortVersionString="1.0.1",
-                      CFBundleVersion="2")
-          path.write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
+                      CFBundleName="STALKER X-Ray",
+                      CFBundleShortVersionString="1.0.2",
+                      CFBundleVersion="3",
+                      CFBundleIconFiles=files,
+                      CFBundleIconFile=files[0],
+                      UIFileSharingEnabled=True)
+          path.write_bytes(plistlib.dumps(info))
           PY
-          # Give the signer a standard Apple-created signature section and
-          # remove local symbols before signing the large linked binary.
+          # Strip local symbols from the linked binary and deliver a clean
+          # unsigned package. Verify the signing layout on an extracted copy.
           xcrun strip -x "$executable"
+          if /usr/bin/codesign -d "$executable" >/dev/null 2>&1; then
+            /usr/bin/codesign --remove-signature "$executable"
+          fi
           xcrun lipo "$executable" -verify_arch arm64
           xcrun nm -gUj "$executable" > "$RUNNER_TEMP/openxray-install-symbols.txt"
           grep -Fxq _st_xray_embedded_run_with_resources "$RUNNER_TEMP/openxray-install-symbols.txt"
-          /usr/bin/codesign --force --sign - --timestamp=none \
-            --identifier com.stalkermobile.ios.openxray "$app"
           find "$staging/Payload" -type d -exec chmod 755 {} +
-          output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-install-test.ipa"
+          output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-v3-unsigned.ipa"
           (cd "$staging" && /usr/bin/zip -qry "$output" Payload)
           /usr/bin/unzip -tq "$output"
           /usr/bin/unzip -q "$output" -d "$verify"
+          /usr/bin/codesign --force --sign - --timestamp=none \
+            --identifier com.stalkermobile.ios.openxray "$verify/$relative_app"
           /usr/bin/codesign --verify --strict --verbose=2 "$verify/$relative_app"
-          /usr/bin/codesign -dv --verbose=4 "$verify/$relative_app" 2>&1 | tee "$RUNNER_TEMP/openxray-install-signature.txt"
+          /usr/bin/codesign -dv --verbose=6 "$verify/$relative_app" 2>&1 | tee "$RUNNER_TEMP/openxray-install-signature.txt"
           grep -Fxq 'Identifier=com.stalkermobile.ios.openxray' "$RUNNER_TEMP/openxray-install-signature.txt"
+          info_hash="$(shasum -a 256 "$verify/$relative_app/Info.plist" | awk '{print $1}')"
+          grep -Eq "^[[:space:]]*-1=$info_hash$" "$RUNNER_TEMP/openxray-install-signature.txt"
       - name: Upload the OpenXRay installation test IPA
         uses: actions/upload-artifact@v4
         with:
           name: STALKERMobile-OpenXRay-install-test
-          path: STALKERMobile-OpenXRay-install-test.ipa
+          path: STALKERMobile-OpenXRay-v3-unsigned.ipa
           if-no-files-found: error
   configure:
     needs: portable-xray-regression

@@ -20,7 +20,11 @@ targets:
         excludes:
           - Native/README.md
       - path: Resources
-        type: folder
+        type: group
+        buildPhase: resources
+        excludes:
+          - AppIcon.png
+          - .gitkeep
         optional: true
     settings:
       base:

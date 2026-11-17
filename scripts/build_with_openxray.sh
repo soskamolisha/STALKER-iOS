@@ -41,6 +41,7 @@ if [[ "$archive" == *[[:space:]]* ]]; then
   exit 1
 fi
 
+python3 scripts/prepare_ios_app_icon.py
 xcodegen generate
 # The native bridge has a strong reference to the entry. Normal archive
 # linkage lets the linker pull the engine and dependencies it actually uses.

@@ -80,17 +80,18 @@ int main() {
     assert(engine.hasPackedGameData());
     assert(engine.packedArchiveCount() == 1);
     assert(engine.packedArchiveBytes() == 7);
-    // Count a second numbered archive, but ignore empty and backup-like files.
+    // Count numbered and lettered archives, but ignore empty and backup-like files.
     { std::ofstream second(root + "/gamedata.db2", std::ios::binary); second << "data"; }
-    { std::ofstream unrelated(root + "/gamedata.dba", std::ios::binary); unrelated << "data"; }
+    { std::ofstream lettered(root + "/gamedata.dba", std::ios::binary); lettered << "data"; }
     engine.shutdown();
     assert(engine.initialize(GameEdition::shadow));
     assert(engine.attachResources(root));
-    assert(engine.packedArchiveCount() == 2);
-    assert(engine.packedArchiveBytes() == 11);
-    assert(engine.packedArchiveNames().size() == 2);
+    assert(engine.packedArchiveCount() == 3);
+    assert(engine.packedArchiveBytes() == 15);
+    assert(engine.packedArchiveNames().size() == 3);
     assert(engine.packedArchiveNames()[0] == "gamedata.db0");
     assert(engine.packedArchiveNames()[1] == "gamedata.db2");
+    assert(engine.packedArchiveNames()[2] == "gamedata.dba");
     // ZIP files renamed to a numbered archive must not enter the catalog.
     { std::ofstream renamedZip(root + "/gamedata.db3", std::ios::binary);
       const unsigned char signature[] = {0x50, 0x4b, 0x03, 0x04};
@@ -98,18 +99,19 @@ int main() {
     engine.shutdown();
     assert(engine.initialize(GameEdition::shadow));
     assert(engine.attachResources(root));
-    assert(engine.packedArchiveCount() == 2);
-    assert(engine.packedArchiveBytes() == 11);
+    assert(engine.packedArchiveCount() == 3);
+    assert(engine.packedArchiveBytes() == 15);
     assert(engine.packedArchiveNames()[0] == "gamedata.db0");
     assert(engine.packedArchiveNames()[1] == "gamedata.db2");
+    assert(engine.packedArchiveNames()[2] == "gamedata.dba");
     // The catalog must sort numeric archive indices rather than filenames.
     { std::ofstream tenth(root + "/gamedata.db10", std::ios::binary); tenth << "tenth"; }
     engine.shutdown();
     assert(engine.initialize(GameEdition::shadow));
     assert(engine.attachResources(root));
-    assert(engine.packedArchiveCount() == 3);
-    assert(engine.packedArchiveBytes() == 16);
-    assert(engine.packedArchiveNames().size() == 3);
+    assert(engine.packedArchiveCount() == 4);
+    assert(engine.packedArchiveBytes() == 20);
+    assert(engine.packedArchiveNames().size() == 4);
     assert(engine.packedArchiveNames()[0] == "gamedata.db0");
     assert(engine.packedArchiveNames()[1] == "gamedata.db2");
     assert(engine.packedArchiveNames()[2] == "gamedata.db10");

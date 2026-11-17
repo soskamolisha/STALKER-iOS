@@ -17,6 +17,22 @@ enum STArchiveInventory {
         var isEngineReady: Bool { false }
     }
 
+    /// Shadow of Chernobyl uses dba–dbf after db9. Some sets spell
+    /// these indices as decimal db10–db15.
+    static func archiveNumber(_ name: String) -> Int? {
+        let prefix = "gamedata.db"
+        let lower = name.lowercased()
+        guard lower.hasPrefix(prefix) else { return nil }
+        let suffix = lower.dropFirst(prefix.count).utf8
+        if suffix.count == 1, let letter = suffix.first, (97...102).contains(letter) {
+            return Int(letter) - 87
+        }
+        guard (1...4).contains(suffix.count), suffix.allSatisfy({ (48...57).contains($0) }) else {
+            return nil
+        }
+        return Int(lower.dropFirst(prefix.count))
+    }
+
     static func scan(directory: URL) throws -> Report {
         let manager = FileManager.default
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
@@ -34,9 +50,7 @@ enum STArchiveInventory {
                 warnings.append("Extract ZIP before importing: \(name)")
                 continue
             }
-            let suffix = String(name.dropFirst(prefix.count))
-            guard !suffix.isEmpty, suffix.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
-                  let number = Int(suffix), number <= 9999 else {
+            guard let number = archiveNumber(name) else {
                 warnings.append("Unrecognized archive name: \(name)")
                 continue
             }

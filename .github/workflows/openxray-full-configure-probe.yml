@@ -12,6 +12,7 @@ on:
       - '.github/workflows/openxray-full-configure-probe.yml'
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
+      - 'scripts/patch_openxray_ios_archives.py'
       - 'scripts/prepare_ios_app_icon.py'
 permissions:
   contents: read
@@ -515,7 +516,7 @@ jobs:
 
           p = Path("upstream/src/xr_3da/entry_point.cpp")
           s = p.read_text()
-          s = '#include <sys/stat.h>\n#include <string>\n#include <pthread.h>\n#include <SDL_main.h>\n#include <SDL_system.h>\n' + s
+          s = '#include <fcntl.h>\n#include <unistd.h>\n#include <cstdio>\n#include <sys/stat.h>\n#include <string>\n#include <pthread.h>\n#include <SDL_main.h>\n#include <SDL_system.h>\n' + s.replace('#include "stdafx.h"', '#include "stdafx.h"\n#include "xrCore/log.h"', 1)
           anchor = "#if defined(XR_PLATFORM_WINDOWS)\nint StackoverflowFilter"
           assert s.count(anchor) == 1, "Upstream entry point layout changed"
           engine, standalone_main = s.split(anchor, 1)
@@ -553,7 +554,26 @@ jobs:
               '    if (config.size() >= sizeof(string_path)) return -6;',
               '    struct stat info {};',
               '    if (lstat(config.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) return -7;',
-              '    return run_embedded(command_line ? command_line : "", config.c_str());',
+              '    const std::string journalPath = root + "/xray-launch.log";',
+              '    const int fd = open(journalPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC, 0600);',
+              '    FILE* journal = fd >= 0 ? fdopen(fd, "w") : nullptr;',
+              '    if (fd >= 0 && !journal) close(fd);',
+              '    struct LaunchLog {',
+              '        FILE* file;',
+              '        LogCallback previous;',
+              '        ~LaunchLog() { if (file) { SetLogCB(previous); fclose(file); } }',
+              '    } log{journal, nullptr};',
+              '    if (journal) {',
+              '        setvbuf(journal, nullptr, _IONBF, 0);',
+              '        fputs("Starting embedded OpenXRay\\n", journal);',
+              '        log.previous = SetLogCB(LogCallback([](void* context, const char* message) {',
+              '            auto* file = static_cast<FILE*>(context);',
+              '            if (ftell(file) < 1024 * 1024) fprintf(file, "%s\\n", message);',
+              '        }, journal));',
+              '    }',
+              '    const int result = run_embedded(command_line ? command_line : "", config.c_str());',
+              '    if (journal) fprintf(journal, "OpenXRay finished with code %d\\n", result);',
+              '    return result;',
               '}',
               '',
               ''
@@ -572,10 +592,12 @@ jobs:
           cmake.write_text(targets.replace(source, source + "    standalone_main.cpp\n", 1))
           patched = p.read_text()
           assert patched.count('int st_xray_embedded_run(') == 1
-          assert 'return run_embedded(command_line ? command_line : "", config.c_str());' in patched
+          assert 'run_embedded(command_line ? command_line : "", config.c_str());' in patched
           print("Experimental X-Ray C ABI inserted and verified before CMake configuration")
 
           PY
+      - name: Fix legacy archive decoding for iPhoneOS
+        run: python3 scripts/patch_openxray_ios_archives.py upstream
       - name: Adapt the OpenXRay renderer for SDL OpenGL ES on iPhoneOS
         run: python3 scripts/patch_openxray_ios_renderer.py upstream
       - name: Attempt iPhoneOS arm64 CMake configuration

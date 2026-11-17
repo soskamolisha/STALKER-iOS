@@ -14,15 +14,19 @@ bool isDirectory(const std::string& path) {
     struct stat info {};
     return lstat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
-bool isXRayArchiveName(const std::string& name) {
+int archiveIndex(const std::string& name) {
     const std::string prefix = "gamedata.db";
-    if (name.compare(0, prefix.size(), prefix) != 0) return false;
+    if (name.compare(0, prefix.size(), prefix) != 0) return -1;
     const std::string suffix = name.substr(prefix.size());
-    if (suffix.empty() || suffix.size() > 4) return false;
+    if (suffix.empty() || suffix.size() > 4) return -1;
+    if (suffix.size() == 1 && suffix[0] >= 'a' && suffix[0] <= 'f')
+        return 10 + suffix[0] - 'a';
+    int index = 0;
     for (unsigned char c : suffix) {
-        if (c < '0' || c > '9') return false;
+        if (c < '0' || c > '9') return -1;
+        index = index * 10 + (c - '0');
     }
-    return true;
+    return index;
 }
 // Inspect loose resources without following directory symlinks.
 bool hasNonemptyLooseFile(const std::string& directory, int depth = 0) {
@@ -56,7 +60,7 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
     ArchiveInventory result;
     while (auto* entry = readdir(dir)) {
         const std::string name(entry->d_name);
-        if (!isXRayArchiveName(name)) continue;
+        if (archiveIndex(name) < 0) continue;
         const std::string path = root + "/" + name;
         struct stat info {};
         if (lstat(path.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) continue;
@@ -80,14 +84,8 @@ ArchiveInventory inspectPackedArchives(const std::string& root) {
     }
     closedir(dir);
     // Order by numeric archive index, not lexicographic spelling: db2 precedes db10.
-    auto archiveIndex = [](const std::string& name) -> unsigned int {
-        unsigned int value = 0;
-        for (size_t i = sizeof("gamedata.db") - 1; i < name.size(); ++i)
-            value = value * 10u + static_cast<unsigned int>(name[i] - '0');
-        return value;
-    };
     std::sort(result.names.begin(), result.names.end(),
-              [&](const std::string& left, const std::string& right) {
+              [](const std::string& left, const std::string& right) {
                   const auto a = archiveIndex(left), b = archiveIndex(right);
                   return a != b ? a < b : left < right;
               });

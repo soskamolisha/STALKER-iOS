@@ -29,15 +29,15 @@ int32_t st_xray_archive_chunk_read(STXRayHandle handle, uint32_t archive_index,
                                    uint32_t chunk_index, uint32_t relative_offset,
                                    void* destination, uint32_t size);
 // Decode X-Ray trivial encryption in place (0=worldwide, 1=Russian).
-// Used for legacy encrypted directory payloads before LZO decoding.
+// Used before decoding legacy encrypted directory payloads.
 int32_t st_xray_directory_decrypt(void* data, uint32_t size, int32_t key_variant);
 // Validate decoded X-Ray directory records before exposing them to the launcher.
 // Returns number of records, or -3 for malformed paths, offsets or sizes.
 int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length);
-// Try plain, worldwide-key and Russian-key LZO directory decoding in that order.
+// Try plain, worldwide-key and Russian-key directory decoding in that order.
 // Returns key_used: -1 plain, 0 worldwide, 1 Russian.
-// Returns -4 if none of the three variants yields a valid LZO stream,
-// or -5 if LZO decoding succeeds but the directory records are invalid.
+// Returns -4 if none of the three variants yields a valid compressed stream,
+// or -5 if decoding succeeds but the directory records are invalid.
 // Returns -6 if bounded retries find a valid directory larger than capacity.
 // On -6, *actual_size is the exact required byte count; *key_used remains -2.
 // The caller can allocate that many bytes and retry (up to 64 MiB).
@@ -56,7 +56,7 @@ int32_t st_xray_archive_directory_auto_decompress(STXRayHandle handle,
 int32_t st_xray_archive_directory_decompress(STXRayHandle handle, uint32_t archive_index,
                                                void* destination, uint32_t capacity,
                                                uint32_t expected_size);
-// Count records in a plain or LZO-compressed X-Ray directory without extracting files.
+// Count records in an X-Ray directory without extracting files.
 // Compressed directories use bounded decoding with key autodetection.
 int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_index);
 // Decode an LZO1X payload into an exactly sized caller-provided buffer.
@@ -64,7 +64,7 @@ int32_t st_xray_archive_directory_count(STXRayHandle handle, uint32_t archive_in
 int32_t st_xray_lzo_decompress(const void* source, uint32_t source_size,
                                void* destination, uint32_t destination_capacity,
                                uint32_t expected_size);
-// Parse one directory record from plain or LZO-compressed chunk 1.
+// Parse one directory record from chunk 1.
 int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_index,
                                         uint32_t entry_index, char* name, uint32_t name_capacity,
                                         uint32_t* size_real, uint32_t* size_compressed,

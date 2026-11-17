@@ -220,6 +220,7 @@ extern "C" const char* st_openxray_runtime_status_message(int32_t status) {
         case -7: return "Missing, empty, or invalid fsgame.ltx";
         case -8: return "Missing loose gamedata or nonempty gamedata.db0 base archive";
         case -10: return "SDL video must start on the iOS main thread";
+        case -11: return "X-Ray could not read the imported archive directories";
         default: return "X-Ray returned an unknown status";
     }
 }

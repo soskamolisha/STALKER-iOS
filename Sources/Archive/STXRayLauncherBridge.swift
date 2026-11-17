@@ -47,7 +47,7 @@ final class STXRayLauncherBridge {
             switch preflightStatus {
             case 0:
                 if !unreadableArchives.isEmpty {
-                    return "X-Ray: проверка запуска пройдена, но каталоги архивов повреждены"
+                    return "X-Ray не смог прочитать каталоги игровых архивов"
                 }
                 return "X-Ray: предварительная проверка пройдена; запуск игры не подтверждён"
             case -5:
@@ -68,8 +68,14 @@ final class STXRayLauncherBridge {
     /// SDL on iOS owns the game window and pumps its events on the main thread.
     @MainActor
     static func launchImportedShadowOfChernobyl(root: URL) async -> Int32 {
-        let readiness = await Task.detached(priority: .userInitiated) {
-            root.path.withCString { st_openxray_runtime_preflight($0) }
+        let readiness: Int32 = await Task.detached(priority: .userInitiated) {
+            do {
+                let snapshot = try inspect(root: root)
+                if snapshot.preflightStatus != 0 { return snapshot.preflightStatus }
+                return snapshot.prerequisitesPresent ? 0 : -11
+            } catch {
+                return -11
+            }
         }.value
         guard readiness == 0 else { return readiness }
         guard let defaults = XRayLaunchProfile.arguments(for: "shadow") else { return -2 }

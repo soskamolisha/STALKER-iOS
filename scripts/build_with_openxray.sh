@@ -50,6 +50,10 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
   -sdk iphoneos -destination 'generic/platform=iOS' \
   -derivedDataPath build-openxray CODE_SIGNING_ALLOWED=NO \
   ENABLE_DEBUG_DYLIB=NO STRIP_INSTALLED_PRODUCT=NO \
+  PRODUCT_BUNDLE_IDENTIFIER=com.stalkermobile.ios.openxray \
+  INFOPLIST_KEY_CFBundleDisplayName="STALKER X-Ray" \
+  MARKETING_VERSION=1.0.3 CURRENT_PROJECT_VERSION=4 \
+  INFOPLIST_KEY_CFBundleShortVersionString=1.0.3 INFOPLIST_KEY_CFBundleVersion=4 \
   OPENXRAY_ENGINE_DEFINES=ST_XRAY_STATIC_ENGINE_ADAPTER=1 \
   OPENXRAY_EXCLUDED_SOURCES="${OPENXRAY_EXCLUDED_SOURCES:-}" \
   OPENXRAY_ARCHIVE_LINK_FLAGS="$archive ${OPENXRAY_SYSTEM_LINK_FLAGS:-}" build
@@ -63,6 +67,34 @@ if ! grep -Fxq _st_xray_embedded_run_with_resources <<< "$symbols"; then
   echo "Missing resource-aware OpenXRay entry in the iPhone executable" >&2
   exit 1
 fi
+python3 - "$app" <<'PYTHON'
+from pathlib import Path
+import plistlib
+import sys
+
+app = Path(sys.argv[1])
+path = app / "Info.plist"
+info = plistlib.loads(path.read_bytes())
+assert info["CFBundleIdentifier"] == "com.stalkermobile.ios.openxray"
+assert info["CFBundleVersion"] == "4"
+icon_files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
+assert icon_files and all(any(app.glob(f"{name}*.png")) for name in icon_files)
+info.update(CFBundleName="STALKER X-Ray", CFBundleIconFiles=icon_files,
+            CFBundleIconFile=icon_files[0])
+path.write_bytes(plistlib.dumps(info))
+PYTHON
+xcrun strip -x "$app_binary"
+if /usr/bin/codesign -d "$app_binary" >/dev/null 2>&1; then
+  /usr/bin/codesign --remove-signature "$app_binary"
+fi
+verify="$(mktemp -d)"
+trap 'rm -rf "$verify"' EXIT
+ditto "$app" "$verify/${app##*/}"
+/usr/bin/codesign --force --sign - --timestamp=none "$verify/${app##*/}"
+/usr/bin/codesign --verify --strict "$verify/${app##*/}"
+/usr/bin/codesign -dv --verbose=6 "$verify/${app##*/}" > "$verify/signature.txt" 2>&1
+info_hash="$(shasum -a 256 "$app/Info.plist" | awk '{print $1}')"
+grep -Eq "^[[:space:]]*-1=$info_hash$" "$verify/signature.txt"
 ipa_output="$(pwd)/build-openxray/STALKERMobile-OpenXRay-unsigned.ipa"
 python3 scripts/package_unsigned_ipa.py "$app" "$ipa_output"
 echo "Unsigned device IPA: $ipa_output"

@@ -116,9 +116,7 @@ enum GameResourceImporter {
         }
         let name = source.lastPathComponent
         let lower = name.lowercased()
-        guard lower.hasPrefix("gamedata.db"),
-              !lower.dropFirst("gamedata.db".count).isEmpty,
-              lower.dropFirst("gamedata.db".count).allSatisfy({ $0.isNumber }) else {
+        guard STArchiveInventory.archiveNumber(lower) != nil else {
             throw ImportFailure.invalidArchive
         }
         #if os(iOS) || os(macOS)

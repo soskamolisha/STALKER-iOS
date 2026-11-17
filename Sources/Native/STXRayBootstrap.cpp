@@ -14,6 +14,59 @@
 #include <sys/stat.h>
 
 using stalker::XRayBootstrap;
+
+#if defined(ST_XRAY_STATIC_ENGINE_ADAPTER) && defined(__APPLE__)
+// Older integration archives may lack the bounded LZ-Huffman decoder.
+extern "C" bool st_openxray_decode_archive_directory(void*, size_t, void*, size_t)
+    __attribute__((weak_import));
+
+static int32_t decode_xray_directory(std::vector<unsigned char> bytes,
+                                     void* destination, uint32_t capacity,
+                                     uint32_t* actual, int32_t* key_used) {
+    constexpr uint32_t max_directory = 64u * 1024u * 1024u;
+    if (bytes.size() <= 4) return -4;
+    const auto original = bytes;
+    bool invalid_records = false;
+    std::vector<unsigned char> scratch;
+    for (int32_t key = -1; key <= 1; ++key) {
+        if (key >= 0) {
+            bytes = original;
+            if (st_xray_directory_decrypt(bytes.data(), static_cast<uint32_t>(bytes.size()), key) != 0)
+                return -3;
+        }
+        const uint32_t length = uint32_t(bytes[0]) | uint32_t(bytes[1]) << 8 |
+                                uint32_t(bytes[2]) << 16 | uint32_t(bytes[3]) << 24;
+        if (length < 19 || length > max_directory) continue;
+        auto* output = static_cast<unsigned char*>(destination);
+        if (length > capacity) {
+            scratch.resize(length);
+            output = scratch.data();
+        }
+        if (!st_openxray_decode_archive_directory(bytes.data(), bytes.size(), output, length))
+            continue;
+        // Normalize Windows separators only in path fields. The metadata can
+        // contain the same byte value and must remain intact.
+        uint32_t cursor = 0;
+        while (length - cursor >= 2) {
+            const uint32_t record = uint32_t(output[cursor]) | uint32_t(output[cursor + 1]) << 8;
+            if (record < 17 || record > length - cursor - 2) break;
+            for (uint32_t pos = cursor + 14; pos < cursor + record - 2; ++pos)
+                if (output[pos] == 92) output[pos] = '/';
+            cursor += record + 2;
+        }
+        if (st_xray_validate_directory_records(output, length) < 0) {
+            invalid_records = true;
+            continue;
+        }
+        *actual = length;
+        if (length > capacity) return -6;
+        *key_used = key;
+        return 0;
+    }
+    return invalid_records ? -5 : -4;
+}
+#endif
+
 extern "C" {
 STXRayHandle st_xray_create(void) {
     return new (std::nothrow) XRayBootstrap();
@@ -214,6 +267,15 @@ int32_t st_xray_archive_directory_auto_decrypt(STXRayHandle handle,
             if (read_result != 0) return read_result;
             cursor += amount;
         }
+#if defined(ST_XRAY_STATIC_ENGINE_ADAPTER) && defined(__APPLE__)
+        if (st_openxray_decode_archive_directory) {
+            const int32_t result = decode_xray_directory(original, destination, capacity, actual_size, key_used);
+            if (result != -4 && result != -5) return result;
+            // Older diagnostic fixtures use LZO; real archives use LZ-Huffman.
+            // A valid LZ-Huffman stream with invalid records stays an error.
+            if (result == -5) return result;
+        }
+#endif
         bool decoded_invalid_directory = false;
         for (int32_t key = -1; key <= 1; ++key) {
             std::vector<unsigned char> bytes = original;

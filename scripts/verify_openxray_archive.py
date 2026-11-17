@@ -39,7 +39,7 @@ def main():
     if not archive.is_file() or archive.stat().st_size == 0:
         parser.error(f"archive missing or empty: {archive}")
     try:
-        run("xcrun", "lipo", "-verify_arch", "arm64", str(archive))
+        run("xcrun", "lipo", str(archive), "-verify_arch", "arm64")
         symbols = run("xcrun", "nm", "-gU", str(archive))
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Archive validation failed: {error}", file=sys.stderr)

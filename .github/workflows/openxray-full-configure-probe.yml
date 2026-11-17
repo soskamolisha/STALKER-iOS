@@ -110,7 +110,7 @@ jobs:
           "$compiler" -target arm64-apple-ios17.0 -isysroot "$sdk" -std=c++17 -c \
             "$RUNNER_TEMP/st-ios-arm64-probe.cpp" -o "$RUNNER_TEMP/st-ios-arm64-probe.o"
           /usr/bin/file "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-object.txt
-          /usr/bin/lipo -verify_arch arm64 "$RUNNER_TEMP/st-ios-arm64-probe.o"
+          /usr/bin/lipo "$RUNNER_TEMP/st-ios-arm64-probe.o" -verify_arch arm64
           /usr/bin/nm -gU "$RUNNER_TEMP/st-ios-arm64-probe.o" | tee engine-diagnostics/ios-arm64-symbols.txt
           grep -F _st_ios_arm64_probe engine-diagnostics/ios-arm64-symbols.txt
           echo 'iPhoneOS arm64 compiler smoke test passed.'
@@ -746,7 +746,7 @@ jobs:
           # Reject archives without the resource-aware ABI required by the launcher.
           # A legacy-only archive cannot launch imported game assets.
           python3 scripts/verify_openxray_archive.py --require-resources engine-integration/libOpenXRayCombinedProbe.a
-          /usr/bin/lipo -verify_arch arm64 engine-integration/libOpenXRayCombinedProbe.a
+          /usr/bin/lipo engine-integration/libOpenXRayCombinedProbe.a -verify_arch arm64
           /usr/bin/nm -u engine-integration/libOpenXRayCombinedProbe.a > engine-integration/undefined-symbols.txt
           printf 'entry_point=st_xray_embedded_run\\nresource_aware_entry=present\\narchitecture=arm64\\nlink_status=unverified\\nlauncher_integration=no\\n' > engine-integration/integration-status.txt
           rm engine-integration/exported-symbols.txt

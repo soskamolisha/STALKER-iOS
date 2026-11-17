@@ -56,7 +56,7 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
 app="build-openxray/Build/Products/Release-iphoneos/STALKERiOSStarter.app"
 app_binary="$app/STALKERiOSStarter"
 test -s "$app_binary" || { echo "Missing linked iOS executable: $app_binary" >&2; exit 1; }
-xcrun lipo -verify_arch arm64 "$app_binary"
+xcrun lipo "$app_binary" -verify_arch arm64
 symbols="$(xcrun nm -gUj "$app_binary")"
 if ! grep -Fxq _st_xray_embedded_run_with_resources <<< "$symbols"; then
   echo "Missing resource-aware OpenXRay entry in the iPhone executable" >&2

@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix="openxray-import-test-") as tmp:
     tool.write_text("""#!/usr/bin/env python3
 import os
 import sys
-if sys.argv[1:3] == ['lipo', '-verify_arch']:
+if sys.argv[1] == 'lipo' and os.path.isfile(sys.argv[2]) and sys.argv[3:] == ['-verify_arch', 'arm64']:
     sys.exit(0)
 if sys.argv[1:3] == ['nm', '-gU']:
     print(os.environ['MOCK_NM'])

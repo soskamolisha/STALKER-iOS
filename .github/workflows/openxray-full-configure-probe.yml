@@ -157,14 +157,16 @@ jobs:
           xcrun lipo "$executable" -verify_arch arm64
           xcrun nm -gUj "$executable" > "$RUNNER_TEMP/openxray-install-symbols.txt"
           grep -Fxq _st_xray_embedded_run_with_resources "$RUNNER_TEMP/openxray-install-symbols.txt"
-          /usr/bin/codesign --force --sign - --timestamp=none "$app"
+          /usr/bin/codesign --force --sign - --timestamp=none \
+            --identifier com.stalkermobile.ios.openxray "$app"
           find "$staging/Payload" -type d -exec chmod 755 {} +
           output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-install-test.ipa"
           (cd "$staging" && /usr/bin/zip -qry "$output" Payload)
           /usr/bin/unzip -tq "$output"
           /usr/bin/unzip -q "$output" -d "$verify"
           /usr/bin/codesign --verify --strict --verbose=2 "$verify/$relative_app"
-          /usr/bin/codesign -dv --verbose=4 "$verify/$relative_app"
+          /usr/bin/codesign -dv --verbose=4 "$verify/$relative_app" 2>&1 | tee "$RUNNER_TEMP/openxray-install-signature.txt"
+          grep -Fxq 'Identifier=com.stalkermobile.ios.openxray' "$RUNNER_TEMP/openxray-install-signature.txt"
       - name: Upload the OpenXRay installation test IPA
         uses: actions/upload-artifact@v4
         with:

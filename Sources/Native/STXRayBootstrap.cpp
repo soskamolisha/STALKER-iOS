@@ -222,16 +222,23 @@ int32_t st_xray_validate_directory_records(const void* bytes, uint32_t length) {
         const uint32_t name_size = record_size - 16;
         const auto* name = data + position + 14;
         if (name_size == 0 || name[0] == '/' || name[0] == 92) return -3;
-        for (uint32_t i = 0; i < name_size; ++i) {
+        // xrCompress puts directory markers in the catalog with zeroed
+        // sizes, CRC and offset. Only those records may end in a separator.
+        constexpr unsigned char zero_metadata[12] {};
+        const unsigned char* metadata = data + position + 2;
+        const bool directory = std::memcmp(metadata, zero_metadata, sizeof(zero_metadata)) == 0 &&
+                               std::memcmp(name + name_size, zero_metadata, 4) == 0;
+        const uint32_t path_size = directory && name[name_size - 1] == '/' ? name_size - 1 : name_size;
+        for (uint32_t i = 0; i < path_size; ++i) {
             const unsigned char ch = name[i];
             if (ch == 0 || ch == 92 || ch == ':' || ch < 32) return -3;
-            if (ch == '/' && (i == 0 || i + 1 == name_size || name[i - 1] == '/'))
+            if (ch == '/' && (i == 0 || i + 1 == path_size || name[i - 1] == '/'))
                 return -3;
             const bool segment_start = i == 0 || name[i - 1] == '/';
             if (segment_start && ch == '.' &&
-                (i + 1 == name_size || name[i + 1] == '/' ||
-                 (i + 1 < name_size && name[i + 1] == '.' &&
-                  (i + 2 == name_size || name[i + 2] == '/'))))
+                (i + 1 == path_size || name[i + 1] == '/' ||
+                 (i + 1 < path_size && name[i + 1] == '.' &&
+                  (i + 2 == path_size || name[i + 2] == '/'))))
                 return -3;
         }
         position += record_size + 2;
@@ -489,19 +496,6 @@ int32_t st_xray_archive_directory_entry(STXRayHandle handle, uint32_t archive_in
                     if (name_length == 0 || name_length + 1 > name_capacity) return -3;
                     const unsigned char* bytes = decoded.data() + cursor;
                     const unsigned char* path = bytes + 14;
-                    if (std::memchr(path, 0, name_length)) return -3;
-                    for (uint32_t j = 0; j < name_length; ++j) {
-                        const char ch = static_cast<char>(path[j]);
-                        if (ch == ':' || static_cast<unsigned char>(ch) < 32 ||
-                            ch == '\\' || (ch == '/' && (j == 0 || j + 1 == name_length)))
-                            return -3;
-                        const bool start = j == 0 || path[j - 1] == '/';
-                        if (start && ch == '.' &&
-                            (j + 1 == name_length || path[j + 1] == '/' ||
-                             (j + 1 < name_length && path[j + 1] == '.' &&
-                              (j + 2 == name_length || path[j + 2] == '/'))))
-                            return -3;
-                    }
                     std::memcpy(name, path, name_length);
                     name[name_length] = 0;
                     auto le32 = [](const unsigned char* p) -> uint32_t {

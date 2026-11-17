@@ -110,7 +110,24 @@ def patch_locator(path):
     new = """                constexpr size_t maxDirectorySize = 64u * 1024u * 1024u;
                 const size_t outputLimit = ID == 1 ? std::min(archiveSize, maxDirectorySize) : archiveSize;
                 auto decode = [&] {
-                    return _decompressLZ(&dest, &dest_sz, src_data, dwSize, outputLimit);
+                    if (!_decompressLZ(&dest, &dest_sz, src_data, dwSize, outputLimit))
+                        return false;
+                    if (ID != 1)
+                        return true;
+                    size_t cursor = 0;
+                    while (dest_sz - cursor >= 2)
+                    {
+                        const size_t record = size_t(dest[cursor]) | size_t(dest[cursor + 1]) << 8;
+                        if (record <= 16 || record - 16 >= sizeof(string_path) ||
+                            record > dest_sz - cursor - 2)
+                            break;
+                        cursor += record + 2;
+                    }
+                    if (cursor == dest_sz)
+                        return true;
+                    xr_free(dest);
+                    dest_sz = 0;
+                    return false;
                 };
 
                 bool result = decode();

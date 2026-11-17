@@ -820,6 +820,12 @@ int main() {
         };
         check_bad_name("../a.ltx");
         check_bad_name("/abc.ltx");
+        unsigned char directory_marker[22] {};
+        directory_marker[0] = 20;
+        std::memcpy(directory_marker + 14, "dir/", 4);
+        assert(st_xray_validate_directory_records(directory_marker, sizeof(directory_marker)) == 1);
+        directory_marker[2] = 16;
+        assert(st_xray_validate_directory_records(directory_marker, sizeof(directory_marker)) == -3);
         check_bad_name("a//b.ltx");
         check_bad_name("a/../abc");
         check_bad_name("a:\\b.ltx");

@@ -96,6 +96,79 @@ jobs:
           name: openxray-launcher-linkage-log
           path: build-openxray/launcher-link.log
           if-no-files-found: ignore
+  package-install-test:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[openxray-install:')
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Resolve the linked launcher build
+        id: launcher
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          match = re.search(r"\[openxray-install:([0-9]+)\]", os.environ["COMMIT_MESSAGE"])
+          if not match:
+              raise SystemExit("Expected [openxray-install:RUN_ID]")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"run={match[1]}", file=output)
+          PY
+      - name: Retrieve the linked launcher IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: STALKERMobile-OpenXRay-unsigned-IPA
+          run-id: ${{ steps.launcher.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Prepare and verify a separate IPA for re-signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          staging="$RUNNER_TEMP/stalker-install-test"
+          verify="$RUNNER_TEMP/stalker-install-verify"
+          mkdir -p "$staging" "$verify"
+          /usr/bin/unzip -q STALKERMobile-OpenXRay-unsigned.ipa -d "$staging"
+          relative_app=Payload/STALKERiOSStarter.app
+          app="$staging/$relative_app"
+          executable="$app/STALKERiOSStarter"
+          python3 - "$app/Info.plist" <<'PY'
+          import plistlib
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          info = plistlib.loads(path.read_bytes())
+          assert info["CFBundleIdentifier"] == "com.stalkermobile.ios"
+          assert info["CFBundleSupportedPlatforms"] == ["iPhoneOS"]
+          info.update(CFBundleIdentifier="com.stalkermobile.ios.openxray",
+                      CFBundleDisplayName="STALKER X-Ray",
+                      CFBundleShortVersionString="1.0.1",
+                      CFBundleVersion="2")
+          path.write_bytes(plistlib.dumps(info, fmt=plistlib.FMT_BINARY))
+          PY
+          # Give the signer a standard Apple-created signature section and
+          # remove local symbols before signing the large linked binary.
+          xcrun strip -x "$executable"
+          xcrun lipo "$executable" -verify_arch arm64
+          xcrun nm -gUj "$executable" > "$RUNNER_TEMP/openxray-install-symbols.txt"
+          grep -Fxq _st_xray_embedded_run_with_resources "$RUNNER_TEMP/openxray-install-symbols.txt"
+          /usr/bin/codesign --force --sign - --timestamp=none "$app"
+          find "$staging/Payload" -type d -exec chmod 755 {} +
+          output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-install-test.ipa"
+          (cd "$staging" && /usr/bin/zip -qry "$output" Payload)
+          /usr/bin/unzip -tq "$output"
+          /usr/bin/unzip -q "$output" -d "$verify"
+          /usr/bin/codesign --verify --strict --verbose=2 "$verify/$relative_app"
+          /usr/bin/codesign -dv --verbose=4 "$verify/$relative_app"
+      - name: Upload the OpenXRay installation test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-OpenXRay-install-test
+          path: STALKERMobile-OpenXRay-install-test.ipa
+          if-no-files-found: error
   configure:
     needs: portable-xray-regression
     # An explicit marker lets the feature branch request a device build while

@@ -162,7 +162,9 @@ jobs:
           import sys
           path = Path(sys.argv[1])
           info = plistlib.loads(path.read_bytes())
-          assert info["CFBundleIdentifier"] == "com.stalkermobile.ios"
+          original_id = info["CFBundleIdentifier"]
+          assert original_id in ("com.stalkermobile.ios", "com.stalkermobile.ios.openxray")
+          legacy = original_id == "com.stalkermobile.ios"
           assert info["CFBundleSupportedPlatforms"] == ["iPhoneOS"]
           info.update(plistlib.loads(Path(sys.argv[2]).read_bytes()))
           files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
@@ -170,11 +172,12 @@ jobs:
           info.update(CFBundleIdentifier="com.stalkermobile.ios.openxray",
                       CFBundleDisplayName="STALKER X-Ray",
                       CFBundleName="STALKER X-Ray",
-                      CFBundleShortVersionString="1.0.2",
-                      CFBundleVersion="3",
+                      CFBundleShortVersionString="1.0.2" if legacy else info["CFBundleShortVersionString"],
+                      CFBundleVersion="3" if legacy else info["CFBundleVersion"],
                       CFBundleIconFiles=files,
                       CFBundleIconFile=files[0],
-                      UIFileSharingEnabled=True)
+                      UIFileSharingEnabled=True,
+                      LSSupportsOpeningDocumentsInPlace=True)
           path.write_bytes(plistlib.dumps(info))
           PY
           # Strip local symbols from the linked binary and deliver a clean
@@ -187,7 +190,7 @@ jobs:
           xcrun nm -gUj "$executable" > "$RUNNER_TEMP/openxray-install-symbols.txt"
           grep -Fxq _st_xray_embedded_run_with_resources "$RUNNER_TEMP/openxray-install-symbols.txt"
           find "$staging/Payload" -type d -exec chmod 755 {} +
-          output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-v3-unsigned.ipa"
+          output="$GITHUB_WORKSPACE/STALKERMobile-OpenXRay-install-unsigned.ipa"
           (cd "$staging" && /usr/bin/zip -qry "$output" Payload)
           /usr/bin/unzip -tq "$output"
           /usr/bin/unzip -q "$output" -d "$verify"
@@ -202,7 +205,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: STALKERMobile-OpenXRay-install-test
-          path: STALKERMobile-OpenXRay-v3-unsigned.ipa
+          path: STALKERMobile-OpenXRay-install-unsigned.ipa
           if-no-files-found: error
   configure:
     needs: portable-xray-regression

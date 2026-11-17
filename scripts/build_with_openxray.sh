@@ -80,7 +80,8 @@ assert info["CFBundleVersion"] == "4"
 icon_files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
 assert icon_files and all(any(app.glob(f"{name}*.png")) for name in icon_files)
 info.update(CFBundleName="STALKER X-Ray", CFBundleIconFiles=icon_files,
-            CFBundleIconFile=icon_files[0])
+            CFBundleIconFile=icon_files[0], UIFileSharingEnabled=True,
+            LSSupportsOpeningDocumentsInPlace=True)
 path.write_bytes(plistlib.dumps(info))
 PYTHON
 xcrun strip -x "$app_binary"

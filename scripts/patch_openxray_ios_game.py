@@ -31,7 +31,7 @@ def patch_settings(src):
             auto* button = buttons[i];
             if (legacyMain && button->m_btn_id == "game")
                 button->m_btn_id = "gameplay";
-            if (!button->m_btn_id_default_assigned)
+            if (!button->IsIdDefaultAssigned())
                 continue;
 
             const auto node = m_xml.NavigateToNode(tab, "button", i);
@@ -104,7 +104,7 @@ def patch_new_game(src):
         return;
     if (ShadowOfChernobylMode && (m_page == epi_new_game ||
         xr_strcmp(m_selected->WindowName(), "btn_new_game") == 0))
-        Msg("* ShoC game start: menu button %s", m_selected->WindowName());""")
+        Msg("* ShoC game start: menu button %s", m_selected->WindowName().c_str());""")
     replace(menu, '#include "UIMMShniaga.h"',
         '#include "UIMMShniaga.h"\n#include "xrEngine/defines.h"')
 

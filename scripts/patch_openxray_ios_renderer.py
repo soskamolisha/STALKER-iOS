@@ -29,6 +29,7 @@ def patch_ios_dds_loader(layers):
     }
 
 #ifdef XR_RENDER_IOS_GLES
+    texture = ios_gles::selectDDSLevels(texture, fRName);
     const bool expandDDS = ios_gles::requiresDDSConversion(texture.format());
     if (expandDDS)
     {
@@ -41,18 +42,42 @@ def patch_ios_dds_loader(layers):
         }
     }
 #endif""")
-    replace(texture, "    ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);",
+    replace(texture, "    u32 mip_cnt = u32(-1); // XXX: write to it when reading with GLI!\n\n", "")
+    replace(texture, "    int img_loaded_lod = is_target_cube(texture.target()) ? 0 : get_texture_load_lod(fn);\n"
+        "    ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);",
         """#ifdef XR_RENDER_IOS_GLES
-    if (expandDDS)
-        ret_msize = static_cast<u32>(texture.size());
-    else
-#endif
-        ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);""")
+    ret_msize = static_cast<u32>(texture.size());
+#else
+    int img_loaded_lod = is_target_cube(texture.target()) ? 0 : get_texture_load_lod(fn);
+    ret_msize = calc_texture_size(img_loaded_lod, u32(-1), img_size);
+#endif""")
 
 
 def patch_ios_texture_upload(layers):
     texture = layers / "xrRenderGL/glTexture.cpp"
     replace(texture, '#include "stdafx.h"', '#include "stdafx.h"\n\n#include <algorithm>')
+    replace(texture, '    gli::gl::format const format = GL.translate(texture.format(), texture.swizzles());',
+        '''    auto format = GL.translate(texture.format(), texture.swizzles());
+#ifdef XR_RENDER_IOS_GLES
+    // Legacy X8R8G8B8 DDS still supplies four bytes per pixel and requires
+    // RGBA storage on GLES. The GLI swizzle forces the unused byte to alpha 1.
+    if (texture.format() == gli::FORMAT_BGR8_UNORM_PACK32)
+        format.Internal = gli::gl::INTERNAL_RGBA8_UNORM;
+    else if (texture.format() == gli::FORMAT_BGR8_SRGB_PACK32)
+        format.Internal = gli::gl::INTERNAL_SRGB8_ALPHA8;
+#endif''')
+    replace(texture, '#if defined(XR_PLATFORM_WEB) || defined(XR_RENDER_IOS_GLES)\n    const bool swapRedBlue',
+        '''#if defined(XR_RENDER_IOS_GLES)
+    if (format.External != gli::gl::EXTERNAL_RED) // Fonts sample the single red channel directly.
+    {
+        glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, format.Swizzles[gli::SWIZZLE_RED]);
+        glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, format.Swizzles[gli::SWIZZLE_GREEN]);
+        glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, format.Swizzles[gli::SWIZZLE_BLUE]);
+        glTexParameteri(target, GL_TEXTURE_SWIZZLE_A, format.Swizzles[gli::SWIZZLE_ALPHA]);
+    }
+    const auto texels = [&](size_t layer, size_t face, size_t level) { return texture.data(layer, face, level); };
+#elif defined(XR_PLATFORM_WEB)
+    const bool swapRedBlue''')
     replace(texture, "    const texture_upload_unit uploadUnit(target);", """    const texture_upload_unit uploadUnit(target);
     const glm::tvec3<GLsizei> tex_extent(texture.extent());
     size_t levels = texture.levels();
@@ -200,6 +225,24 @@ def patch(layers):
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, windowInfo.info.uikit.framebuffer);
 #else
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+#endif''')
+    replace(hw, '''    glBlitFramebuffer(
+        0, 0, Device.dwWidth, Device.dwHeight,
+        0, 0, Device.dwWidth, Device.dwHeight,
+        GL_COLOR_BUFFER_BIT, GL_NEAREST);''', '''#ifdef XR_RENDER_IOS_GLES
+    // UIKit owns the native drawable. Render at vid_mode and scale the final
+    // framebuffer to that drawable without changing the UIKit window size.
+    int drawableWidth = 0, drawableHeight = 0;
+    SDL_GL_GetDrawableSize(m_window, &drawableWidth, &drawableHeight);
+    if (drawableWidth <= 0 || drawableHeight <= 0)
+        return;
+    glBlitFramebuffer(0, 0, Device.dwWidth, Device.dwHeight, 0, 0,
+        drawableWidth, drawableHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+#else
+    glBlitFramebuffer(
+        0, 0, Device.dwWidth, Device.dwHeight,
+        0, 0, Device.dwWidth, Device.dwHeight,
+        GL_COLOR_BUFFER_BIT, GL_NEAREST);
 #endif''')
     replace(hw, '#ifdef XR_PLATFORM_WEB\nnamespace xray::render::RENDER_NAMESPACE',
             '#if defined(XR_PLATFORM_WEB) || defined(XR_RENDER_IOS_GLES)\nnamespace xray::render::RENDER_NAMESPACE')

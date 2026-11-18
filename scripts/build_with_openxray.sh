@@ -43,8 +43,8 @@ fi
 
 python3 scripts/prepare_ios_app_icon.py
 xcodegen generate
-version=1.0.6
-build_number=7
+version=1.0.7
+build_number=8
 # The native bridge has a strong reference to the entry. Normal archive
 # linkage lets the linker pull the engine and dependencies it actually uses.
 xcodebuild -project STALKERiOSStarter.xcodeproj \

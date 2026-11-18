@@ -14,6 +14,7 @@ on:
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
       - 'scripts/patch_openxray_ios_game.py'
+      - 'scripts/patch_openxray_ios_display.py'
       - 'scripts/openxray_ios_gles_dds.h'
       - 'scripts/patch_openxray_ios_archives.py'
       - 'scripts/prepare_ios_app_icon.py'
@@ -643,6 +644,8 @@ jobs:
         run: python3 scripts/patch_openxray_ios_renderer.py upstream
       - name: Adapt Shadow of Chernobyl menus and game start logging
         run: python3 scripts/patch_openxray_ios_game.py upstream
+      - name: Adapt iPhone render modes and texture memory
+        run: python3 scripts/patch_openxray_ios_display.py upstream
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

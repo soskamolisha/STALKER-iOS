@@ -8,9 +8,31 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <string_view>
 
 namespace xray::render::ios_gles
 {
+inline gli::texture selectDDSLevels(const gli::texture& source, std::string_view name)
+{
+    const bool ui = name.rfind("ui\\", 0) == 0 || name.rfind("ui/", 0) == 0 || name.rfind("ui_", 0) == 0 ||
+        name.rfind("hud\\", 0) == 0 || name.rfind("hud/", 0) == 0;
+
+    // Atlas coordinates are in full-resolution pixels. Exclude their mipmaps,
+    // which can blend adjacent sprites into icons and controls.
+    const std::size_t last = ui ? 0 : source.levels() - 1;
+    std::size_t first = 0;
+    while (first < last)
+    {
+        const auto extent = source.extent(first);
+        if (std::max({extent.x, extent.y, extent.z}) <= 512)
+            break;
+        ++first;
+    }
+    if (first == 0 && last + 1 == source.levels())
+        return source;
+    return gli::view(source, 0, source.layers() - 1, 0, source.faces() - 1, first, last);
+}
+
 inline bool requiresDDSConversion(gli::format format)
 {
     // These desktop BC families are not part of OpenGL ES 3.0 on iOS.

@@ -113,8 +113,9 @@ def patch_legacy_ui(src):
 
     atlas = src / "xrUICore/XML/UITextureMaster.cpp"
     ios_include(atlas, '#include "pch.hpp"')
+    replace(atlas, '#include "UITextureMaster.h"', IOS + '\n#include <strings.h>\n#endif\n\n#include "UITextureMaster.h"')
     replace(atlas, "    // Renderer has some path transformations", IOS + r"""
-    if (ShadowOfChernobylMode && texture_name && xr_strnicmp(texture_name.c_str(), "ui_", 3) == 0)
+    if (ShadowOfChernobylMode && texture_name && strncasecmp(texture_name.c_str(), "ui_", 3) == 0)
     {
         if (texture_name == "ui_brokenline" && ItemExist("ui_brokenline_back"))
             return InitTexture("ui_brokenline_back", tc, shader_name);

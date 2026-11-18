@@ -12,6 +12,7 @@ on:
       - '.github/workflows/openxray-full-configure-probe.yml'
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
+      - 'scripts/patch_openxray_ios_game.py'
       - 'scripts/openxray_ios_gles_dds.h'
       - 'scripts/patch_openxray_ios_archives.py'
       - 'scripts/prepare_ios_app_icon.py'
@@ -590,6 +591,10 @@ jobs:
               '    struct stat info {};',
               '    if (lstat(config.c_str(), &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0) return -7;',
               '    const std::string journalPath = root + "/xray-launch.log";',
+              '    if (lstat(journalPath.c_str(), &info) == 0 && S_ISREG(info.st_mode)) {',
+              '        const std::string previousJournal = root + "/xray-launch.previous.log";',
+              '        rename(journalPath.c_str(), previousJournal.c_str());',
+              '    }',
               '    const int fd = open(journalPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC, 0600);',
               '    FILE* journal = fd >= 0 ? fdopen(fd, "w") : nullptr;',
               '    if (fd >= 0 && !journal) close(fd);',
@@ -635,6 +640,8 @@ jobs:
         run: python3 scripts/patch_openxray_ios_archives.py upstream
       - name: Adapt the OpenXRay renderer for SDL OpenGL ES on iPhoneOS
         run: python3 scripts/patch_openxray_ios_renderer.py upstream
+      - name: Adapt Shadow of Chernobyl menus and game start logging
+        run: python3 scripts/patch_openxray_ios_game.py upstream
       - name: Attempt iPhoneOS arm64 CMake configuration
         shell: bash
         run: |

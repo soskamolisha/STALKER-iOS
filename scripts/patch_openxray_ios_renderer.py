@@ -50,6 +50,63 @@ def patch_ios_dds_loader(layers):
         ret_msize = calc_texture_size(img_loaded_lod, mip_cnt, img_size);""")
 
 
+def patch_ios_texture_upload(layers):
+    texture = layers / "xrRenderGL/glTexture.cpp"
+    replace(texture, '#include "stdafx.h"', '#include "stdafx.h"\n\n#include <algorithm>')
+    replace(texture, "    const texture_upload_unit uploadUnit(target);", """    const texture_upload_unit uploadUnit(target);
+    const glm::tvec3<GLsizei> tex_extent(texture.extent());
+    size_t levels = texture.levels();
+#ifdef XR_RENDER_IOS_GLES
+    // DDS rows are tightly packed and must not inherit the GL default of four bytes.
+    GLint unpackAlignment = 4;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlignment);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    while (glGetError() != GL_NO_ERROR) {}
+
+    size_t maxLevels = 1;
+    for (auto extent = std::max({tex_extent.x, tex_extent.y, tex_extent.z}); extent > 1; extent /= 2)
+        ++maxLevels;
+    levels = std::min(levels, maxLevels);
+#endif""")
+    path_source = texture.read_text().replace("texture.levels() - 1", "levels - 1")
+    path_source = path_source.replace("static_cast<GLint>(texture.levels())", "static_cast<GLint>(levels)")
+    path_source = path_source.replace("level < texture.levels()", "level < levels")
+    texture.write_text(path_source)
+    replace(texture, "    glm::tvec3<GLsizei> const tex_extent(texture.extent());\n\n    GLenum err;", "    GLenum err;")
+    for dimensions in (2, 3):
+        replace(texture, f'''            Msg("! OpenGL: 0x%x: Invalid {dimensions}D texture: '%s'", err, fn);''',
+            f'''            Msg("! OpenGL: 0x%x: Invalid {dimensions}D texture: '%s' (format 0x%x, %dx%dx%d, %u levels)",
+                err, fn, static_cast<unsigned>(format.Internal), tex_extent.x, tex_extent.y, tex_extent.z,
+                static_cast<unsigned>(levels));''')
+    replace(texture, "    FS.r_close(S);\n\n    xr_strlwr(fn);", """#ifdef XR_RENDER_IOS_GLES
+    glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
+#endif
+    FS.r_close(S);
+
+    xr_strlwr(fn);""")
+
+    video = layers / "xrRenderGL/glSH_Texture.cpp"
+    upload = "            CHK_GL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, _w, _h, 0, GL_BGRA, GL_UNSIGNED_BYTE, nullptr));"
+    replace(video, upload, "#ifdef XR_RENDER_IOS_GLES\n"
+        "            CHK_GL(glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, _w, _h));\n"
+        "#else\n" + upload + "\n#endif")
+
+    theora = layers.parent / "xrEngine/xrTheora_Surface.cpp"
+    replace(theora, '#include "xrTheora_Stream.h"', '#include "xrTheora_Stream.h"\n\n#include <algorithm>')
+    replace(theora, """                u32& clr = data[++pos];
+                clr = subst_alpha(clr, iFloor(float((y - 16)) / K));
+            }
+        }
+    }
+}""", """                u32& clr = data[pos++];
+                clr = subst_alpha(clr, std::clamp(iFloor(float(y - 16) / K), 0, 255));
+            }
+            pos += _width;
+        }
+    }
+}""")
+
+
 def patch_ios_shader_rewriter(layers):
     shader = layers / "xrRenderPC_GL/rgl_essl_web.h"
     replace(shader, "        if (is_builtin_redeclaration(tokens))", r"""#ifdef XR_RENDER_IOS_GLES
@@ -165,6 +222,7 @@ extern "C" void glDrawElementsInstancedBaseVertexBaseInstanceWEBGL(
             '    CHK_GL(glDrawElements(topology, indexCount, GL_UNSIGNED_SHORT, indices));')
 
     patch_ios_dds_loader(layers)
+    patch_ios_texture_upload(layers)
     patch_ios_shader_rewriter(layers)
 
     cmake = layers / "xrRenderPC_GL/CMakeLists.txt"

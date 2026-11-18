@@ -5,6 +5,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    HEADER_SEARCH_PATHS: "$(inherited) $(ST_LZO_HEADER_PATH)"
+    GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) $(ST_LZO_DEFINES)"
     CLANG_CXX_LANGUAGE_STANDARD: "c++17"
     SWIFT_OBJC_BRIDGING_HEADER: "Sources/Native/Bridge.h"
     TARGETED_DEVICE_FAMILY: "1"
@@ -15,12 +17,67 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+        excludes:
+          - Native/README.md
+      - path: Resources
+        type: group
+        buildPhase: resources
+        excludes:
+          - AppIcon.png
+          - .gitkeep
+        optional: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.stalkermobilestarter
+        GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) $(OPENXRAY_ENGINE_DEFINES)"
+        EXCLUDED_SOURCE_FILE_NAMES: "$(inherited) $(OPENXRAY_EXCLUDED_SOURCES)"
+        PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios
+        INFOPLIST_KEY_CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
         GENERATE_INFOPLIST_FILE: "YES"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0.0"
+        INFOPLIST_KEY_CFBundleVersion: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_KEY_UIFileSharingEnabled: "YES"
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         SUPPORTS_MACCATALYST: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+        # Optional upstream OpenXRay static archive. Leave unset for the
+        # lightweight launcher; never treat the archive as a playable engine.
+        # A weak entry reference alone will not pull objects from a .a file.
+        OTHER_LDFLAGS: "$(inherited) $(OPENXRAY_ARCHIVE_LINK_FLAGS) $(ST_LZO_LINK_FLAGS)"
+
+  STArchiveTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      # Only XCTest Swift sources belong in the iOS unit-test bundle.
+      # Standalone C++ native probes are compiled by their dedicated workflows.
+      - path: Tests/STArchiveInventoryTests.swift
+      - path: Tests/STArchiveStoreTests.swift
+      - path: Tests/GameResourceIntegrationTests.swift
+      - path: Tests/XRayParserTestMain.swift
+    dependencies:
+      - target: STALKERiOSStarter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stalkermobile.ios.tests
+        INFOPLIST_KEY_CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGNING_ALLOWED: "NO"
+
+schemes:
+  STALKERiOSStarter:
+    build:
+      targets:
+        STALKERiOSStarter: all
+        STArchiveTests: [test]
+    test:
+      targets:
+        - STArchiveTests
+    run:
+      config: Debug
+

@@ -3,12 +3,8 @@ name: Probe real OpenXRay C++ component for iOS
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'Tests/OpenXRayMathProbe.cpp'
-      - 'Tests/OpenXRayCRCProbe.cpp'
-      - 'Tests/OpenXRayCompat/**'
-      - 'docs/OPENXRAY_IOS_PROBE.md'
-      - '.github/workflows/openxray-ios-probe.yml'
+    branches: [feature/trilogy-launcher-v3]
+    paths: [.github/workflows/openxray-ios-probe.yml]
 
 permissions:
   contents: read
@@ -98,6 +94,157 @@ jobs:
             "$RUNNER_TEMP/OpenXRayCRCProbe-ios.o"
           lipo "$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" -verify_arch arm64
           file "$RUNNER_TEMP/OpenXRayMathProbe-ios.o"
+
+      - name: Link upstream OpenXRay objects into iPhoneOS arm64 executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/openxray-ios-link-main.cpp" <<'EOF'
+          #include <cstdint>
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              return st_openxray_crc32(data, 9) == 0xcbf43926U ? 0 : 1;
+          }
+          EOF
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
+            -std=c++17 "$RUNNER_TEMP/openxray-ios-link-main.cpp" \
+            -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            -o "$RUNNER_TEMP/openxray-ios-link-smoke"
+          lipo "$RUNNER_TEMP/openxray-ios-link-smoke" -verify_arch arm64
+          xcrun nm -g "$RUNNER_TEMP/openxray-ios-link-smoke" | grep -F _st_openxray_crc32
+          echo "Upstream OpenXRay object archive linked into an arm64 iPhoneOS executable."
+
+      - name: Link OpenXRay xrCore component with STALKER Mobile native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/stalker-bridge-link-main.cpp" <<'EOF'
+          #include <cstdint>
+          #include "STOpenXRayRuntime.h"
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              if (st_openxray_crc32(data, 9) != 0xcbf43926U) return 1;
+              // CRC is a linked xrCore component; it is not the full game runtime.
+              return st_openxray_runtime_linked() == 0 ? 0 : 2;
+          }
+          EOF
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
+            -std=c++17 -I Sources/Native \
+            "$RUNNER_TEMP/stalker-bridge-link-main.cpp" \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            -o "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke"
+          lipo "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" -verify_arch arm64
+          xcrun nm -g "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" | grep -F _st_openxray_runtime_linked
+          xcrun nm -g "$RUNNER_TEMP/stalker-openxray-bridge-link-smoke" | grep -F _st_openxray_crc32
+          echo "OpenXRay xrCore component and STALKER Mobile bridge coexist in one iPhoneOS binary."
+
+      - name: Execute upstream xrCore with launcher bridge on macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/stalker-xray-host-main.cpp" <<'EOF'
+          #include <cstdint>
+          #include "STOpenXRayRuntime.h"
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          int main() {
+              const char data[] = "123456789";
+              if (st_openxray_crc32(data, 9) != 0xcbf43926U) return 1;
+              if (st_openxray_runtime_linked() != 0) return 2;
+              if (st_openxray_runtime_run(nullptr) != -2) return 3;
+              if (st_openxray_runtime_run("") != -1) return 4;
+              return 0;
+          }
+          EOF
+          clang++ -std=c++17 -O2 -Wall -Wextra \
+            -I Sources/Native -I Tests/OpenXRayCompat \
+            "$RUNNER_TEMP/stalker-xray-host-main.cpp" \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            openxray-upstream/src/xrCore/crc32.cpp \
+            Tests/OpenXRayCRCProbe.cpp \
+            -o "$RUNNER_TEMP/stalker-xray-host-integration-test"
+          "$RUNNER_TEMP/stalker-xray-host-integration-test"
+          echo "Upstream CRC32 and launcher bridge executed together on macOS host (not iPhone)."
+
+      - name: Link upstream xrCore into a real UIKit iPhone app executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/stalker-openxray-uikit.mm" <<'EOF'
+          #import <UIKit/UIKit.h>
+          #include <cstdint>
+          #include "STOpenXRayRuntime.h"
+          extern "C" std::uint32_t st_openxray_crc32(const void*, std::uint32_t);
+          @interface STProbeDelegate : UIResponder <UIApplicationDelegate>
+          @property(nonatomic, strong) UIWindow *window;
+          @end
+          @implementation STProbeDelegate
+          - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+              (void)application; (void)options;
+              const char bytes[] = "123456789";
+              BOOL crcOK = st_openxray_crc32(bytes, 9) == 0xcbf43926U;
+              BOOL runtimeMissing = st_openxray_runtime_linked() == 0;
+              self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+              UIViewController *controller = [UIViewController new];
+              controller.view.backgroundColor = UIColor.blackColor;
+              UILabel *label = [[UILabel alloc] initWithFrame:controller.view.bounds];
+              label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+              label.textAlignment = NSTextAlignmentCenter;
+              label.numberOfLines = 0;
+              label.textColor = UIColor.whiteColor;
+              label.text = crcOK && runtimeMissing ? @"OpenXRay xrCore CRC32: PASS\nFull runtime: NOT LINKED" : @"OpenXRay component: FAIL";
+              [controller.view addSubview:label];
+              self.window.rootViewController = controller;
+              [self.window makeKeyAndVisible];
+              return YES;
+          }
+          @end
+          int main(int argc, char **argv) {
+              @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass([STProbeDelegate class])); }
+          }
+          EOF
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -target arm64-apple-ios17.0 -isysroot "$SDK" \
+            -std=c++17 -fobjc-arc -I Sources/Native \
+            "$RUNNER_TEMP/stalker-openxray-uikit.mm" \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -Wl,-force_load,"$RUNNER_TEMP/libOpenXRayMathProbe-ios.a" \
+            -framework UIKit -framework Foundation \
+            -o "$RUNNER_TEMP/stalker-openxray-uikit"
+          lipo "$RUNNER_TEMP/stalker-openxray-uikit" -verify_arch arm64
+          xcrun nm -g "$RUNNER_TEMP/stalker-openxray-uikit" | grep -F _st_openxray_crc32
+          mkdir -p "$RUNNER_TEMP/STOpenXRayProbe.app"
+          cp "$RUNNER_TEMP/stalker-openxray-uikit" "$RUNNER_TEMP/STOpenXRayProbe.app/STOpenXRayProbe"
+          cat > "$RUNNER_TEMP/STOpenXRayProbe.app/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleExecutable</key><string>STOpenXRayProbe</string>
+            <key>CFBundleIdentifier</key><string>com.stalkermobile.openxrayprobe</string>
+            <key>CFBundleName</key><string>STOpenXRayProbe</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>CFBundleShortVersionString</key><string>1.0</string>
+            <key>LSRequiresIPhoneOS</key><true/>
+            <key>UILaunchScreen</key><dict/>
+          </dict></plist>
+          EOF
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$RUNNER_TEMP/STOpenXRayProbe.app/Info.plist" | grep -Fx STOpenXRayProbe
+          test ! -e "$RUNNER_TEMP/STOpenXRayProbe.app/_CodeSignature"
+          test ! -e "$RUNNER_TEMP/STOpenXRayProbe.app/embedded.mobileprovision"
+          (cd "$RUNNER_TEMP" && mkdir -p Payload && cp -R STOpenXRayProbe.app Payload/ && zip -qr STOpenXRayProbe-unsigned.ipa Payload)
+          unzip -t "$RUNNER_TEMP/STOpenXRayProbe-unsigned.ipa" | tail -n 1
+          unzip -Z1 "$RUNNER_TEMP/STOpenXRayProbe-unsigned.ipa" | grep -Fx Payload/STOpenXRayProbe.app/STOpenXRayProbe
+      - name: Upload unsigned OpenXRay UIKit component probe IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: STOpenXRayProbe-unsigned-IPA
+          if-no-files-found: error
+          path: ${{ runner.temp }}/STOpenXRayProbe-unsigned.ipa
 
       - name: Upload unsigned iOS arm64 static library (not a game or IPA)
         uses: actions/upload-artifact@v4

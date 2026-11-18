@@ -1,0 +1,41 @@
+name: X-Ray archive diagnostics tests
+
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/Native/Portable/**'
+      - 'tests/native/**'
+      - 'tools/xray_pe_imports.py'
+      - 'tools/xray_pe_inventory.py'
+      - 'tools/xray_archive_probe.py'
+      - 'tools/xray_chunk_scan.py'
+      - 'tools/xray_zip_db_peek.py'
+      - 'tests/test_xray_*.py'
+      - '.github/workflows/xray-archive-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  probe-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run all archive diagnostic regression tests
+        run: python -m unittest discover -s tests -p 'test_xray_*.py' -v
+      - name: Compile and run portable C++ binary reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-byte-reader-test tests/native/ByteReaderTests.cpp
+          /tmp/xray-byte-reader-test
+      - name: Compile and run portable C++ chunk reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-chunk-reader-test tests/native/ChunkReaderTests.cpp
+          /tmp/xray-chunk-reader-test
+      - name: Compile and run C ABI chunk reader tests
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O2 -o /tmp/xray-chunk-c-test tests/native/ChunkReaderCTests.cpp Sources/Native/Portable/ChunkReaderC.cpp
+          /tmp/xray-chunk-c-test

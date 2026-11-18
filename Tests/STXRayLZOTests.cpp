@@ -1,0 +1,63 @@
+#include "STXRayBootstrap.h"
+#include "Upstream/minilzo.h"
+#include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <vector>
+
+int main() {
+    assert(lzo_init() == LZO_E_OK);
+    const char original[] = "STALKER X-Ray archive directory test: gamedata/configs/system.ltx";
+    const lzo_uint originalSize = static_cast<lzo_uint>(sizeof(original) - 1);
+    std::vector<unsigned char> work(LZO1X_1_MEM_COMPRESS);
+    std::vector<unsigned char> compressed(originalSize + originalSize / 16 + 128);
+    lzo_uint compressedSize = static_cast<lzo_uint>(compressed.size());
+    assert(lzo1x_1_compress(reinterpret_cast<const unsigned char*>(original),
+                           originalSize, compressed.data(), &compressedSize,
+                           work.data()) == LZO_E_OK);
+    char decoded[sizeof(original)] = {};
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  decoded, sizeof(decoded), originalSize) == 0);
+    assert(std::memcmp(decoded, original, originalSize) == 0);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  decoded, originalSize - 1, originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  decoded, sizeof(decoded), originalSize + 1) != 0);
+    assert(st_xray_lzo_decompress(compressed.data(), 1,
+                                  decoded, sizeof(decoded), originalSize) != 0);
+    // Truncated and damaged packed directory data must never be accepted.
+    for (uint32_t length = 1; length < static_cast<uint32_t>(compressedSize); ++length) {
+        std::memset(decoded, 0, sizeof(decoded));
+        assert(st_xray_lzo_decompress(compressed.data(), length,
+                                      decoded, sizeof(decoded), originalSize) != 0);
+    }
+    std::vector<unsigned char> damaged(compressed.begin(), compressed.begin() + compressedSize);
+    damaged[0] ^= 0xff;
+    assert(st_xray_lzo_decompress(damaged.data(), static_cast<uint32_t>(damaged.size()),
+                                  decoded, sizeof(decoded), originalSize) != 0);
+    // A decoder must not write past the expected directory size, even if
+    // the caller provides a larger destination buffer.
+    std::vector<unsigned char> guarded(originalSize + 32, 0xa5);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  guarded.data(), static_cast<uint32_t>(guarded.size()),
+                                  originalSize) == 0);
+    for (size_t i = originalSize; i < guarded.size(); ++i)
+        assert(guarded[i] == 0xa5);
+    assert(st_xray_lzo_decompress(compressed.data(),
+                                  static_cast<uint32_t>(compressedSize),
+                                  guarded.data(), static_cast<uint32_t>(guarded.size()),
+                                  64u * 1024u * 1024u + 1u) == -3);
+    // Empty input and null buffers must fail before invoking miniLZO.
+    assert(st_xray_lzo_decompress(nullptr, 1, decoded, sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), static_cast<uint32_t>(compressedSize),
+                                  nullptr, sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), 0, decoded,
+                                  sizeof(decoded), originalSize) == -3);
+    assert(st_xray_lzo_decompress(compressed.data(), static_cast<uint32_t>(compressedSize),
+                                  decoded, sizeof(decoded), 0) == -3);
+    return 0;
+}

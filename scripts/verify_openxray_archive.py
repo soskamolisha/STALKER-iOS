@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Validate an optional arm64 OpenXRay archive before attempting iOS linkage.
+
+Run on macOS with Xcode tools installed. This script does not build the
+engine, sign an IPA, or claim that upstream X-Ray supports UIKit/Metal.
+"""
+import argparse
+from pathlib import Path
+import subprocess
+import sys
+
+
+def run(*args):
+    return subprocess.run(args, text=True, capture_output=True, check=True).stdout
+
+
+def has_defined_export(nm_output, symbol):
+    """Accept only defined external symbols, not unresolved or archive headings."""
+    for line in nm_output.splitlines():
+        parts = line.split()
+        if len(parts) < 2 or parts[-1] != symbol:
+            continue
+        kind = parts[-2]
+        # nm symbol types: U is undefined, and lowercase w/v are weak
+        # undefined references on toolchains that emit them.
+        if len(kind) == 1 and kind in "TtDdBbSsRrAaCcGgIiWwVv":
+            if kind not in "Uuvw":
+                return True
+    return False
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("archive", type=Path)
+    parser.add_argument("--require-resources", action="store_true",
+                        help="require an exported resource-aware engine entry")
+    args = parser.parse_args()
+    archive = args.archive.resolve()
+    if not archive.is_file() or archive.stat().st_size == 0:
+        parser.error(f"archive missing or empty: {archive}")
+    try:
+        run("xcrun", "lipo", str(archive), "-verify_arch", "arm64")
+        symbols = run("xcrun", "nm", "-gU", str(archive))
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"Archive validation failed: {error}", file=sys.stderr)
+        return 1
+    # A legacy entry alone cannot receive the imported game root.
+    # Always require the resource-aware entry for the iOS integration path.
+    required = ["_st_xray_embedded_run_with_resources"]
+    for symbol in required:
+        if not has_defined_export(symbols, symbol):
+            print(f"Missing {symbol[1:]} export; archive cannot run imported "
+                  "Shadow of Chernobyl resources", file=sys.stderr)
+            return 1
+    print("Validated arm64 OpenXRay archive and embedded entry symbol.")
+    print("Validated resource-aware entry export (runtime behavior remains unverified).")
+    print("WARNING: upstream platform dependencies and game execution remain unverified.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -5,7 +5,44 @@ import UniformTypeIdentifiers
 struct StalkerStarterApp: App {
     var body: some Scene {
         WindowGroup {
-            GameShellView()
+            STLauncherArchiveHost()
+                .preferredColorScheme(.dark)
+        }
+    }
+}
+
+/// Adds an archive-import entry without modifying the existing trilogy launcher.
+private struct STLauncherArchiveHost: View {
+    @StateObject private var resources = GameResourceStore()
+    @State private var showingArchiveImport = false
+    @State private var importRevision = 0
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            TrilogyLauncherView(importRevision: importRevision)
+            Button {
+                showingArchiveImport = true
+            } label: {
+                Label("Импорт файлов", systemImage: "folder.badge.plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .disabled(resources.importInProgress)
+            .padding(.top, 12)
+            .padding(.trailing, 16)
+            .accessibilityIdentifier("archiveImportButton")
+        }
+        .environmentObject(resources)
+        .onAppear {
+            // Make the destination visible in Files before the first import.
+            if let folder = try? STArchiveStore.destinationRoot() {
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            }
+            _ = try? GameResourceImporter.filesInbox()
+        }
+        .sheet(isPresented: $showingArchiveImport, onDismiss: { importRevision += 1 }) {
+            STArchiveImportView()
+                .environmentObject(resources)
                 .preferredColorScheme(.dark)
         }
     }
@@ -221,3 +258,4 @@ struct GameShellView: View {
             .accessibilityLabel(title)
     }
 }
+

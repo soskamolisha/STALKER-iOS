@@ -1,0 +1,62 @@
+name: OpenXRay iOS ARM64 compile probe
+# Manual only: macOS Actions minutes may be exhausted or billable.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios-arm64:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+      - name: Configure upstream OpenXRay for iOS arm64
+        id: configure
+        shell: bash
+        run: |
+          mkdir -p build-openxray/logs
+          set -o pipefail
+          bash scripts/probe_openxray_ios.sh 2>&1 | tee build-openxray/logs/configure.log
+      - name: Compile upstream engine (first failure captured)
+        if: steps.configure.outcome == 'success'
+        shell: bash
+        run: |
+          set -o pipefail
+          cmake --build build-openxray/ios-probe --config Release --parallel 3 2>&1 | tee build-openxray/logs/build.log
+      - name: Inspect produced iOS engine archives and integration entry
+        if: steps.configure.outcome == 'success'
+        shell: bash
+        run: |
+          set -o pipefail
+          {
+            echo "Static libraries produced by upstream build:"
+            find build-openxray/ios-probe -type f -name '*.a' -print | sort
+            echo "Checking for required resource-aware entry:"
+            found=0
+            while IFS= read -r archive; do
+              echo "Archive: $archive"
+              xcrun lipo -info "$archive" || true
+              if xcrun nm -gU "$archive" 2>/dev/null | grep -q '_st_xray_embedded_run_with_resources'; then
+                found=1
+                echo "Resource-aware entry found in $archive"
+              fi
+            done < <(find build-openxray/ios-probe -type f -name '*.a')
+            if [[ "$found" -ne 1 ]]; then
+              echo "No resource-aware engine entry exported. An upstream compile is NOT a playable launcher integration."
+              exit 1
+            fi
+          } 2>&1 | tee build-openxray/logs/linkage.log
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-probe-logs
+          path: |
+            build-openxray/logs/
+            build-openxray/ios-probe/CMakeFiles/CMakeConfigureLog.yaml
+            build-openxray/ios-probe/CMakeFiles/CMakeError.log
+          if-no-files-found: warn

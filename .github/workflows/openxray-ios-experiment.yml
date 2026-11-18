@@ -1,0 +1,567 @@
+name: OpenXRay iOS ARM64 Compile Experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_target:
+        description: "Upstream CMake target (xrCore for first iOS milestone, all for full engine)"
+        required: true
+        type: choice
+        default: xrCore
+        options:
+          - xrCore
+          - all
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - '.github/workflows/openxray-ios-experiment.yml'
+      - 'Sources/Native/**'
+      - 'project.yml'
+
+jobs:
+  upstream-ios-compile:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout launcher integration sources
+        uses: actions/checkout@v4
+        with:
+          path: launcher
+      - name: Checkout upstream OpenXRay with dependencies
+        uses: actions/checkout@v4
+        with:
+          repository: OpenXRay/xray-16
+          ref: dev
+          submodules: recursive
+          path: upstream
+      - name: Validate launcher engine ABI against upstream exports
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          expected = ("st_xray_embedded_run_with_resources", "st_xray_embedded_run")
+          root = Path("upstream")
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-abi-audit.txt"
+          candidates = []
+          for path in root.rglob("*"):
+              if path.suffix not in (".h", ".hpp", ".c", ".cc", ".cpp", ".mm"):
+                  continue
+              if len(path.parts) > 12:
+                  continue
+              try:
+                  contents = path.read_text(errors="replace")
+              except OSError:
+                  continue
+              for symbol in expected:
+                  if symbol in contents:
+                      candidates.append(f"{symbol}: {path}")
+          report.write_text("\\n".join(candidates) if candidates else
+                            "No launcher ABI entry points found in upstream source. An iOS adapter must be implemented.")
+          print(report.read_text())
+          launcher = Path("launcher/Sources/Native/STOpenXRayRuntime.cpp").read_text()
+          assert all(symbol in launcher for symbol in expected)
+          if not candidates:
+              print("ABI integration blocked: upstream library alone cannot satisfy launcher entry points.")
+          PY
+      - name: Report SDK and upstream revision
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          git -C upstream rev-parse HEAD
+      - name: Check upstream build requirements and iOS compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root = Path("upstream")
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-requirements.txt"
+          cmake = root / "CMakeLists.txt"
+          with report.open("w") as output:
+              print("Upstream CMakeLists.txt:", cmake.exists(), file=output)
+              print("iOS-related CMake references:", file=output)
+              for path in root.rglob("*.cmake"):
+                  if len(path.parts) > 9:
+                      continue
+                  try:
+                      lines = path.read_text(errors="replace").splitlines()
+                  except OSError:
+                      continue
+                  for line_number, line in enumerate(lines, 1):
+                      if "IOS" in line or "iOS" in line or "APPLE" in line:
+                          print(f"{path}:{line_number}: {line[:180]}", file=output)
+              print("Launcher requires st_xray_embedded_run_with_resources export.", file=output)
+          print(report.read_text()[:12000])
+          PY
+      - name: Restore iPhone SDL2 build cache
+        id: sdlcache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ios-deps
+          key: sdl2-2.30.12-iphoneos-arm64-ios17-${{ runner.os }}-v1
+      - name: Build SDL2 for iPhone ARM64
+        id: sdl2
+        if: steps.sdlcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch release-2.30.12 https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
+          cmake -S "$RUNNER_TEMP/sdl2" -B "$RUNNER_TEMP/sdl2-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-configure.log"
+          cmake --build "$RUNNER_TEMP/sdl2-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-build.log"
+          cmake --install "$RUNNER_TEMP/sdl2-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/sdl2-install.log"
+          find "$RUNNER_TEMP/ios-deps" -iname '*sdl*config*.cmake' -print
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
+          configs = list(prefix.rglob("SDL2Config.cmake")) + list(prefix.rglob("sdl2-config.cmake"))
+          if not configs:
+              raise SystemExit("SDL2 build finished without an installed CMake package")
+          print("Installed iPhone SDL2 package:", *configs)
+          libraries = list(prefix.rglob("libSDL2.a"))
+          if not libraries:
+              raise SystemExit("No static libSDL2.a installed for iPhone")
+          import subprocess
+          for library in libraries:
+              info = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                    capture_output=True, text=True)
+              print(library, info.stdout or info.stderr)
+              if info.returncode == 0 and "arm64" in info.stdout:
+                  break
+          else:
+              raise SystemExit("Installed SDL2 archive is not ARM64")
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              print(f"SDL2_DIR={configs[0].parent}", file=env)
+          PY
+      - name: Discover installed iOS SDL2 package
+        id: sdlready
+        if: steps.sdlcache.outputs.cache-hit == 'true' || steps.sdl2.outcome == 'success'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, subprocess
+          prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
+          configs = list(prefix.rglob("SDL2Config.cmake")) + list(prefix.rglob("sdl2-config.cmake"))
+          libs = list(prefix.rglob("libSDL2.a"))
+          if not configs or not libs:
+              raise SystemExit("Cached or built SDL2 package is incomplete")
+          if not any("arm64" in subprocess.run(["xcrun", "lipo", "-info", str(lib)],
+                      capture_output=True, text=True).stdout for lib in libs):
+              raise SystemExit("SDL2 package lacks iPhone ARM64 binary")
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              print(f"SDL2_DIR={configs[0].parent}", file=env)
+          print("Using SDL2 CMake config:", configs[0])
+          PY
+      - name: Build libogg for iPhone ARM64
+        id: ogg
+        if: steps.sdlready.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.5 https://github.com/xiph/ogg.git "$RUNNER_TEMP/libogg"
+          cmake -S "$RUNNER_TEMP/libogg" -B "$RUNNER_TEMP/libogg-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            2>&1 | tee "$RUNNER_TEMP/ogg-configure.log"
+          cmake --build "$RUNNER_TEMP/libogg-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/ogg-build.log"
+          cmake --install "$RUNNER_TEMP/libogg-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/ogg-install.log"
+          OGG_LIB="$(find "$RUNNER_TEMP/ios-deps" -name libogg.a -print -quit)"
+          test -s "$OGG_LIB"
+          xcrun lipo -info "$OGG_LIB" | grep -q arm64
+          test -f "$RUNNER_TEMP/ios-deps/include/ogg/ogg.h"
+          echo "iPhone ARM64 Ogg archive: $OGG_LIB"
+      - name: Build libjpeg-turbo for iPhone ARM64
+        id: jpeg
+        if: steps.sdlready.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 3.0.4 https://github.com/libjpeg-turbo/libjpeg-turbo.git "$RUNNER_TEMP/libjpeg-turbo"
+          cmake -S "$RUNNER_TEMP/libjpeg-turbo" -B "$RUNNER_TEMP/jpeg-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=OFF \
+            -DCMAKE_SYSTEM_PROCESSOR=arm64 \
+            -DWITH_TURBOJPEG=OFF -DWITH_JAVA=OFF \
+            2>&1 | tee "$RUNNER_TEMP/jpeg-configure.log"
+          cmake --build "$RUNNER_TEMP/jpeg-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/jpeg-build.log"
+          # Upstream's full install also expects CLI tools (cjpeg-static) that
+          # are not built for this iOS library-only configuration.
+          # Install the produced archive and public headers directly.
+          mkdir -p "$RUNNER_TEMP/ios-deps/lib" "$RUNNER_TEMP/ios-deps/include"
+          JPEG_BUILT="$(find "$RUNNER_TEMP/jpeg-ios" -name libjpeg.a -print -quit)"
+          test -s "$JPEG_BUILT"
+          cp "$JPEG_BUILT" "$RUNNER_TEMP/ios-deps/lib/libjpeg.a"
+          for header in jpeglib.h jconfig.h jmorecfg.h jerror.h; do
+            if [[ -f "$RUNNER_TEMP/jpeg-ios/$header" ]]; then
+              cp "$RUNNER_TEMP/jpeg-ios/$header" "$RUNNER_TEMP/ios-deps/include/"
+            elif [[ -f "$RUNNER_TEMP/libjpeg-turbo/$header" ]]; then
+              cp "$RUNNER_TEMP/libjpeg-turbo/$header" "$RUNNER_TEMP/ios-deps/include/"
+            else
+              echo "Missing required JPEG header: $header"
+              exit 1
+            fi
+          done
+          echo "Installed libjpeg.a and public headers without optional CLI tools" \
+            | tee "$RUNNER_TEMP/jpeg-install.log"
+          JPEG_LIB="$(find "$RUNNER_TEMP/ios-deps" -name libjpeg.a -print -quit)"
+          test -s "$JPEG_LIB"
+          xcrun lipo -info "$JPEG_LIB" | grep -q arm64
+          test -f "$RUNNER_TEMP/ios-deps/include/jpeglib.h"
+          echo "iPhone ARM64 JPEG archive: $JPEG_LIB"
+      - name: Build libvorbis for iPhone ARM64
+        id: vorbis
+        if: steps.ogg.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.3.7 https://github.com/xiph/vorbis.git "$RUNNER_TEMP/libvorbis"
+          cmake -S "$RUNNER_TEMP/libvorbis" -B "$RUNNER_TEMP/vorbis-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ios-deps" \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DOGG_ROOT="$RUNNER_TEMP/ios-deps" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF \
+            2>&1 | tee "$RUNNER_TEMP/vorbis-configure.log"
+          cmake --build "$RUNNER_TEMP/vorbis-ios" --config Release --parallel 3 \
+            2>&1 | tee "$RUNNER_TEMP/vorbis-build.log"
+          cmake --install "$RUNNER_TEMP/vorbis-ios" --config Release \
+            2>&1 | tee "$RUNNER_TEMP/vorbis-install.log"
+          test -s "$RUNNER_TEMP/ios-deps/lib/libvorbis.a"
+          test -f "$RUNNER_TEMP/ios-deps/include/vorbis/codec.h"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/libvorbis.a" | grep -q arm64
+      - name: Build libtheora for iPhone ARM64
+        id: theora
+        if: steps.ogg.outcome == 'success' && steps.vorbis.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.1.1 https://github.com/xiph/theora.git "$RUNNER_TEMP/libtheora"
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos -f clang)"
+          export AR="$(xcrun -f ar)"
+          export RANLIB="$(xcrun -f ranlib)"
+          export CFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -O2 -I$RUNNER_TEMP/ios-deps/include"
+          export LDFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -L$RUNNER_TEMP/ios-deps/lib"
+          brew install autoconf automake libtool pkg-config
+          cd "$RUNNER_TEMP/libtheora"
+          ./autogen.sh --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" \
+            --disable-shared --enable-static --disable-examples --disable-oggtest \
+            --disable-vorbistest --disable-asm \
+            2>&1 | tee "$RUNNER_TEMP/theora-configure.log"
+          make -j3 2>&1 | tee "$RUNNER_TEMP/theora-build.log"
+          make install 2>&1 | tee "$RUNNER_TEMP/theora-install.log"
+          test -s "$RUNNER_TEMP/ios-deps/lib/libtheora.a"
+          test -f "$RUNNER_TEMP/ios-deps/include/theora/theora.h"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/libtheora.a" | grep -q arm64
+      - name: Build LZO for iPhone ARM64
+        id: lzo
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz -o "$RUNNER_TEMP/lzo.tar.gz"
+          mkdir -p "$RUNNER_TEMP/lzo-src"
+          tar -xzf "$RUNNER_TEMP/lzo.tar.gz" -C "$RUNNER_TEMP/lzo-src" --strip-components=1
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          export CC="$(xcrun --sdk iphoneos -f clang)"
+          export AR="$(xcrun -f ar)"
+          export RANLIB="$(xcrun -f ranlib)"
+          export CFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0 -O2"
+          export LDFLAGS="-arch arm64 -isysroot $SDK -miphoneos-version-min=17.0"
+          cd "$RUNNER_TEMP/lzo-src"
+          ./configure --host=aarch64-apple-darwin --prefix="$RUNNER_TEMP/ios-deps" \
+            --disable-shared --enable-static 2>&1 | tee "$RUNNER_TEMP/lzo-configure.log"
+          make -j3 2>&1 | tee "$RUNNER_TEMP/lzo-build.log"
+          make install 2>&1 | tee "$RUNNER_TEMP/lzo-install.log"
+          test -s "$RUNNER_TEMP/ios-deps/lib/liblzo2.a"
+          test -f "$RUNNER_TEMP/ios-deps/include/lzo/lzo1x.h"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/liblzo2.a" | grep -q arm64
+      - name: Build Lua 5.1 for iPhone ARM64
+        id: lua
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://www.lua.org/ftp/lua-5.1.5.tar.gz -o "$RUNNER_TEMP/lua.tar.gz"
+          mkdir -p "$RUNNER_TEMP/lua-src"
+          tar -xzf "$RUNNER_TEMP/lua.tar.gz" -C "$RUNNER_TEMP/lua-src" --strip-components=1
+          # iOS does not provide system(3); disable Lua os.execute instead of
+          # attempting to invoke a shell from a sandboxed application.
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path(__import__("os").environ["RUNNER_TEMP"]) / "lua-src/src/loslib.c"
+          content = source.read_text()
+          original = "lua_pushinteger(L, system(luaL_optstring(L, 1, NULL)));"
+          replacement = 'return luaL_error(L, "os.execute is unavailable on iOS");'
+          if content.count(original) != 1:
+              raise SystemExit("Lua 5.1 os.execute patch anchor not found exactly once")
+          source.write_text(content.replace(original, replacement))
+          PY
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          cd "$RUNNER_TEMP/lua-src"
+          make -C src liblua.a -j3 \
+            CC="$(xcrun --sdk iphoneos -f clang)" \
+            AR="$(xcrun -f ar) rcu" \
+            RANLIB="$(xcrun -f ranlib)" \
+            CFLAGS="-O2 -arch arm64 -isysroot $SDK -miphoneos-version-min=17.0" \
+            2>&1 | tee "$RUNNER_TEMP/lua-build.log"
+          mkdir -p "$RUNNER_TEMP/ios-deps/lib" "$RUNNER_TEMP/ios-deps/include"
+          cp src/liblua.a "$RUNNER_TEMP/ios-deps/lib/liblua.a"
+          cp src/lua.h src/luaconf.h src/lualib.h src/lauxlib.h "$RUNNER_TEMP/ios-deps/include/"
+          test -s "$RUNNER_TEMP/ios-deps/lib/liblua.a"
+          xcrun lipo -info "$RUNNER_TEMP/ios-deps/lib/liblua.a" | grep -q arm64
+      - name: Audit upstream third-party dependency requirements
+        continue-on-error: true
+        if: steps.sdlready.outcome == 'success'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          compiler = Path("upstream/cmake/XRay.Compiler.GNULike.cmake").read_text()
+          packages = re.findall(r"find_package\s*\(\s*([A-Za-z0-9_]+)", compiler)
+          if not packages:
+              raise SystemExit("No find_package calls found; upstream dependency audit needs updating")
+          prefix = Path(os.environ["RUNNER_TEMP"]) / "ios-deps"
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios-dependencies.txt"
+          with report.open("w") as out:
+              print("Upstream find_package requirements:", file=out)
+              for package in packages:
+                  print(f"- {package}", file=out)
+              print("\nInstalled iPhone dependency prefix:", prefix, file=out)
+              for path in sorted(prefix.rglob("*Config.cmake")):
+                  print(path.relative_to(prefix), file=out)
+              print("\nNote: host macOS libraries are not valid iPhoneOS dependencies.", file=out)
+          print(report.read_text())
+          PY
+      - name: Attempt CMake configuration for iPhone ARM64
+        id: configure
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          for lib in libogg.a libjpeg.a libvorbis.a libtheora.a liblzo2.a liblua.a; do
+            test -s "$RUNNER_TEMP/ios-deps/lib/$lib" || { echo "::error::Missing iOS ARM64 dependency: $lib"; exit 1; }
+          done
+          test -n "${SDL2_DIR:-}" || { echo "::error::SDL2_DIR is missing"; exit 1; }
+          cmake -S upstream -B "$RUNNER_TEMP/openxray-ios" -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DXRAY_USE_LUAJIT=OFF \
+            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/ios-deps" \
+            -DSDL2_DIR="$SDL2_DIR" \
+            -DOGG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libogg.a" \
+            -DOGG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DJPEG_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libjpeg.a" \
+            -DJPEG_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DVORBIS_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libvorbis.a" \
+            -DVORBIS_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DTHEORA_LIBRARY="$RUNNER_TEMP/ios-deps/lib/libtheora.a" \
+            -DTHEORA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLZO_LIBRARY="$RUNNER_TEMP/ios-deps/lib/liblzo2.a" \
+            -DLZO_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DLUA_LIBRARIES="$RUNNER_TEMP/ios-deps/lib/liblua.a" \
+            -DLUA_INCLUDE_DIR="$RUNNER_TEMP/ios-deps/include" \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DCMAKE_BUILD_TYPE=Release \
+            2>&1 | tee "$RUNNER_TEMP/openxray-configure.log"
+      - name: Attempt upstream iOS compilation
+        if: steps.configure.outcome == 'success'
+        id: compile
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          TARGET="${{ github.event.inputs.build_target || 'xrCore' }}"
+          echo "Compiling upstream target: $TARGET"
+          if [ "$TARGET" = "all" ]; then
+            cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --parallel 3 \
+              -- -quiet CODE_SIGNING_ALLOWED=NO \
+              2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+          else
+            cmake --build "$RUNNER_TEMP/openxray-ios" --config Release --target xrCore --parallel 3 \
+              -- -quiet CODE_SIGNING_ALLOWED=NO \
+              2>&1 | tee "$RUNNER_TEMP/openxray-compile.log"
+          fi
+      - name: Inspect produced ARM64 static libraries and engine entry points
+        if: steps.compile.outcome == 'success'
+        id: inspect
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import os
+          root = Path(os.environ["RUNNER_TEMP"]) / "openxray-ios"
+          # OpenXRay sets its own output directory under upstream/bin.
+          # Inspect both that directory and the CMake build tree.
+          libraries = sorted(set(root.rglob("*.a")) | set(Path("upstream/bin").rglob("*.a")))
+          report = Path(os.environ["RUNNER_TEMP"]) / "openxray-linkage.txt"
+          with report.open("w") as out:
+              print(f"Static libraries: {len(libraries)}", file=out)
+              for library in libraries:
+                  print(f"\\n{library}", file=out)
+                  result = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                          capture_output=True, text=True)
+                  print((result.stdout or result.stderr).strip(), file=out)
+              print("\\nRequired launcher ABI:", file=out)
+              print("st_xray_embedded_run_with_resources(const char*, const char*)", file=out)
+              print("This upstream build is not linked to the launcher ABI.", file=out)
+          print(report.read_text())
+          if not libraries:
+              raise SystemExit("No static libraries produced; inspect build outputs")
+          arm64 = 0
+          for library in libraries:
+              result = subprocess.run(["xcrun", "lipo", "-info", str(library)],
+                                      capture_output=True, text=True)
+              if result.returncode == 0 and "arm64" in result.stdout:
+                  arm64 += 1
+          print(f"ARM64-compatible static libraries: {arm64}/{len(libraries)}")
+          if arm64 == 0:
+              raise SystemExit("No ARM64 static library available for iPhone")
+          PY
+      - name: Summarize first native compiler and CMake failures
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          temp = Path(os.environ["RUNNER_TEMP"])
+          patterns = re.compile(r"(fatal error:| error:|CMake Error|Could NOT find|No such file or directory|unsupported|not supported|undefined symbol|ld:)", re.I)
+          report = temp / "openxray-failure-summary.txt"
+          with report.open("w") as out:
+              for name in ("sdl2-configure.log", "sdl2-build.log", "sdl2-install.log", "ogg-configure.log", "ogg-build.log", "ogg-install.log", "jpeg-configure.log", "jpeg-build.log", "jpeg-install.log", "openxray-configure.log", "openxray-compile.log"):
+                  log = temp / name
+                  print(f"=== {name} ===", file=out)
+                  if not log.exists():
+                      print("No log: stage was skipped or failed before producing output.", file=out)
+                      continue
+                  matches = [(i, line.strip()) for i, line in enumerate(log.read_text(errors="replace").splitlines(), 1)
+                             if patterns.search(line)]
+                  if not matches:
+                      print("No recognized errors; inspect full log.", file=out)
+                  for line_number, line in matches[:80]:
+                      print(f"{line_number}: {line[:350]}", file=out)
+          print(report.read_text())
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("### First actionable compiler / CMake errors\n")
+              summary.write("```text\n")
+              summary.write(report.read_text()[:12000])
+              summary.write("\n```\n")
+          PY
+      - name: Record native build results
+        if: always()
+        run: |
+          echo "Target: ${{ github.event.inputs.build_target || 'xrCore' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "SDL2 CMake package: ${SDL2_DIR:-not installed}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ogg iOS outcome: ${{ steps.ogg.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "JPEG iOS outcome: ${{ steps.jpeg.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Vorbis iOS outcome: ${{ steps.vorbis.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Theora iOS outcome: ${{ steps.theora.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "LZO iOS outcome: ${{ steps.lzo.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Lua 5.1 iOS outcome: ${{ steps.lua.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.ogg.outcome }}" = "failure" ]; then
+            echo "### Blocker: libogg iPhone ARM64 build failed; see ogg logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.jpeg.outcome }}" = "failure" ]; then
+            echo "### Blocker: libjpeg-turbo iPhone ARM64 build failed; see jpeg logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.sdlready.outcome }}" != "success" ]; then
+            echo "### Blocker: SDL2 iPhone ARM64 build failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect sdl2-configure.log / sdl2-build.log / sdl2-install.log in diagnostics." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.configure.outcome }}" != "success" ]; then
+            echo "### Blocker: upstream OpenXRay CMake configuration failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect openxray-configure.log for missing iOS dependencies." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.compile.outcome }}" != "success" ]; then
+            echo "### Blocker: upstream C++ compilation failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "Inspect openxray-compile.log for the first compiler errors." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "SDL2 iOS outcome: ${{ steps.sdlready.outcome }} (cache hit: ${{ steps.sdlcache.outputs.cache-hit }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "Configure outcome: ${{ steps.configure.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Compile outcome: ${{ steps.compile.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Static library inspection: ${{ steps.inspect.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "xrCore is an upstream subsystem, not a playable engine. Even a successful xrCore build does not launch S.T.A.L.K.E.R." >> "$GITHUB_STEP_SUMMARY"
+          echo "The launcher still requires a resource-aware engine adapter and remaining upstream subsystems." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-diagnostics
+          path: |
+            ${{ runner.temp }}/sdl2-configure.log
+            ${{ runner.temp }}/sdl2-build.log
+            ${{ runner.temp }}/sdl2-install.log
+            ${{ runner.temp }}/openxray-abi-audit.txt
+            ${{ runner.temp }}/openxray-requirements.txt
+            ${{ runner.temp }}/openxray-ios-dependencies.txt
+            ${{ runner.temp }}/ogg-configure.log
+            ${{ runner.temp }}/ogg-build.log
+            ${{ runner.temp }}/ogg-install.log
+            ${{ runner.temp }}/jpeg-configure.log
+            ${{ runner.temp }}/jpeg-build.log
+            ${{ runner.temp }}/jpeg-install.log
+            ${{ runner.temp }}/vorbis-configure.log
+            ${{ runner.temp }}/vorbis-build.log
+            ${{ runner.temp }}/vorbis-install.log
+            ${{ runner.temp }}/theora-configure.log
+            ${{ runner.temp }}/theora-build.log
+            ${{ runner.temp }}/theora-install.log
+            ${{ runner.temp }}/lzo-configure.log
+            ${{ runner.temp }}/lzo-build.log
+            ${{ runner.temp }}/lzo-install.log
+            ${{ runner.temp }}/lua-build.log
+            ${{ runner.temp }}/openxray-configure.log
+            ${{ runner.temp }}/openxray-compile.log
+            ${{ runner.temp }}/openxray-linkage.txt
+            ${{ runner.temp }}/openxray-failure-summary.txt
+            ${{ runner.temp }}/openxray-ios/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+      - name: Upload compiled OpenXRay libraries for integration
+        if: steps.compile.outcome == 'success' && steps.inspect.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxray-ios-arm64-static-libraries
+          path: |
+            upstream/bin/**/*.a
+            ${{ runner.temp }}/openxray-ios/**/*.a
+          if-no-files-found: error
+          retention-days: 7
+      - name: Mark experiment unsuccessful if configure or compile failed
+        if: always()
+        run: |
+          test "${{ steps.sdlready.outcome }}" = "success"
+          test "${{ steps.configure.outcome }}" = "success"
+          test "${{ steps.compile.outcome }}" = "success"
+          test "${{ steps.inspect.outcome }}" = "success"

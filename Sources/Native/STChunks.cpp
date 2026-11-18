@@ -89,3 +89,47 @@ extern "C" int32_t st_chunk_copy_slice(const uint8_t* bytes, uint32_t length,
         destination[i] = bytes[static_cast<std::size_t>(offset) + slice_offset + i];
     return 0;
 }
+
+extern "C" int32_t st_chunk_decode(const uint8_t* bytes, uint32_t length,
+    uint32_t index, uint8_t* destination, uint32_t destination_capacity,
+    uint32_t* decoded_size, st_chunk_decoder decoder, void* context) {
+    if (!decoded_size) return -1;
+    *decoded_size = 0;
+    if (!bytes || (destination_capacity && !destination)) return -1;
+    std::uint32_t id = 0, offset = 0, size = 0, compressed = 0;
+    const int32_t status = st_chunk_at(bytes, length, index,
+                                      &id, &offset, &size, &compressed);
+    if (status != 0) return status;
+    if (compressed == 0) {
+        if (size > destination_capacity) return -6;
+        if (size && !destination) return -1;
+        for (std::uint32_t i = 0; i < size; ++i) destination[i] = bytes[offset + i];
+        *decoded_size = size;
+        return 0;
+    }
+    if (!decoder) return -4;
+    std::uint32_t written = 0;
+    const int32_t decoded = decoder(bytes + offset, size, destination,
+                                    destination_capacity, &written, context);
+    if (decoded != 0 || written > destination_capacity ||
+        (written != 0 && !destination)) return decoded == -4 ? -4 : -7;
+    *decoded_size = written;
+    return 0;
+}
+
+extern "C" int32_t st_chunk_scan_decoded_children(const uint8_t* bytes,
+    uint32_t length, uint32_t parent_index, uint8_t* scratch,
+    uint32_t scratch_capacity, uint32_t* decoded_size, uint32_t* child_count,
+    uint32_t* first_child_id, st_chunk_decoder decoder, void* context) {
+    if (!decoded_size || !child_count || !first_child_id) return -1;
+    *decoded_size = 0;
+    *child_count = 0;
+    *first_child_id = 0;
+    const int32_t status = st_chunk_decode(bytes, length, parent_index,
+        scratch, scratch_capacity, decoded_size, decoder, context);
+    if (status != 0) return status;
+    if (*decoded_size == 0) return 0;
+    std::uint32_t first_size = 0;
+    return st_chunk_scan(scratch, *decoded_size, child_count,
+                         first_child_id, &first_size);
+}

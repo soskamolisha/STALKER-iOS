@@ -1,0 +1,266 @@
+name: Archive Import iOS Build
+
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'project.yml'
+      - '.github/workflows/archive-import-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: archive-import-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile-ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+      - name: Generate Xcode project
+        run: |
+          python3 scripts/prepare_ios_app_icon.py
+          xcodegen generate
+      - name: Verify launcher archive-import integration
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          app = Path("Sources/StalkerStarterApp.swift").read_text()
+          importer = Path("Sources/Archive/STArchiveImportView.swift").read_text()
+          launcher = Path("Sources/TrilogyLauncherView.swift").read_text()
+          store = Path("Sources/GameResourceImporter.swift").read_text()
+          assert "STLauncherArchiveHost()" in app
+          assert "STArchiveImportView()" in app
+          assert "GameFolderPicker" in importer and "GameFolderPicker" in launcher
+          assert "resources.importFolder(" in importer and "resources.importFolder(" in launcher
+          assert "STArchiveInventory.scan(directory: destination)" in importer
+          assert "st_xray_create()" in importer
+          assert "st_xray_attach_resources(handle, $0)" in importer
+          assert "st_openxray_runtime_preflight($0)" in importer
+          assert "st_openxray_runtime_resources_linked()" in importer
+          assert "moveItem(at: incomingFolder, to: target)" in store
+          print("Archive import entry, persistence, and status wiring found")
+          PY
+      - name: Record Xcode and SDK versions
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+          xcodegen --version
+      - name: Verify XCTest excludes standalone C++ probes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          project = Path("STALKERiOSStarter.xcodeproj/project.pbxproj").read_text()
+          # Standalone native probes belong to dedicated C++ workflows, not XCTest.
+          forbidden = [p.name for p in Path("Tests").glob("*.cpp") if p.name in project]
+          if forbidden:
+              raise SystemExit("Unexpected C++ probe references in Xcode project: " + ", ".join(forbidden))
+          print("Xcode project contains no standalone Tests/*.cpp probes")
+          PY
+      - name: Swift syntax preflight
+        run: |
+          set -euo pipefail
+          # Parse every app Swift file before the more expensive simulator build.
+          {
+            find Sources Tests -type f -name '*.swift' -print0 | while IFS= read -r -d '' source; do
+              echo "Checking Swift syntax: $source"
+              xcrun swiftc -frontend -parse "$source"
+            done
+          } 2>&1 | tee "$RUNNER_TEMP/stalker-swift-syntax.log"
+      - name: Build for iOS Simulator (unsigned)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/stalker-simulator-build.log"
+      - name: Build for physical iPhone (unsigned)
+        # Still build the app when unit-test compilation fails, so IPA diagnostics are independent.
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-device" \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/stalker-device-build.log"
+      - name: Verify physical iPhone app binary and bundle
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          test -s "$APP/STALKERiOSStarter"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.stalkermobile.ios"
+          test "$EXECUTABLE" = "STALKERiOSStarter"
+          echo "Verified bundle ID: $BUNDLE_ID; executable: $EXECUTABLE"
+          file "$APP/STALKERiOSStarter"
+          lipo -archs "$APP/STALKERiOSStarter" | grep -qw arm64
+          echo "Verified nonempty arm64 iPhone app executable"
+      - name: Package unsigned IPA
+        # A failed XCTest build should not prevent packaging a successfully built iPhone app.
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-device/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" Payload)
+          unzip -t "$RUNNER_TEMP/STALKERMobile-unsigned.ipa"
+          unzip -Z1 "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" | grep -qx "Payload/STALKERiOSStarter.app/Info.plist"
+          unzip -Z1 "$RUNNER_TEMP/STALKERMobile-unsigned.ipa" | grep -qx "Payload/STALKERiOSStarter.app/STALKERiOSStarter"
+          echo "IPA contains the expected iPhone app and executable"
+      - name: Upload unsigned IPA for external signing
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-unsigned-ipa
+          path: ${{ runner.temp }}/STALKERMobile-unsigned.ipa
+          if-no-files-found: error
+      - name: Compile archive unit tests for iOS Simulator
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -o pipefail
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-simulator-tests" \
+            CODE_SIGNING_ALLOWED=NO \
+            build-for-testing 2>&1 | tee "$RUNNER_TEMP/stalker-tests-build.log"
+      - name: Verify simulator test host and XCTest bundle identifiers
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          PRODUCTS="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator"
+          APP="$PRODUCTS/STALKERiOSStarter.app"
+          TESTS="$PRODUCTS/STArchiveTests.xctest"
+          # Xcode can place a hosted unit-test bundle under the host app's PlugIns.
+          if [[ ! -d "$TESTS" && -d "$APP/PlugIns/STArchiveTests.xctest" ]]; then
+            TESTS="$APP/PlugIns/STArchiveTests.xctest"
+          fi
+          echo "Simulator build products:"
+          find "$RUNNER_TEMP/stalker-simulator-tests/Build/Products" -maxdepth 4 \
+            \( -name '*.app' -o -name '*.xctest' -o -name '*.xctestrun' -o -name 'Info.plist' \) -print
+          if [[ ! -d "$APP" || ! -d "$TESTS" ]]; then
+            echo "Missing expected app or test bundle. App: $APP; tests: $TESTS"
+            exit 1
+          fi
+          for bundle in "$APP" "$TESTS"; do
+            test -s "$bundle/Info.plist" || { echo "Missing Info.plist: $bundle"; exit 1; }
+            echo "Inspecting $bundle/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist" || {
+              echo "Missing CFBundleIdentifier in $bundle"
+              /usr/libexec/PlistBuddy -c Print "$bundle/Info.plist" | head -60
+              exit 1
+            }
+            identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$bundle/Info.plist")
+            test -n "$identifier" || { echo "Empty bundle ID: $bundle"; exit 1; }
+            echo "$bundle => $identifier"
+          done
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.stalkermobile.ios"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$TESTS/Info.plist")" = "com.stalkermobile.ios.tests"
+          # Simulator installation also requires a valid package type and executable.
+          for bundle in "$APP" "$TESTS"; do
+            /usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$bundle/Info.plist"
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$bundle/Info.plist"
+          done
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$APP/Info.plist")" = "APPL"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$TESTS/Info.plist")" = "BNDL"
+          APP_EXEC=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist")
+          TEST_EXEC=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$TESTS/Info.plist")
+          test -s "$APP/$APP_EXEC" || { echo "Missing host executable $APP_EXEC"; exit 1; }
+          test -s "$TESTS/$TEST_EXEC" || { echo "Missing test executable $TEST_EXEC"; exit 1; }
+      - name: Run archive integration tests on iPhone Simulator
+        if: github.event_name == 'workflow_dispatch'
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          data=json.load(sys.stdin)
+          candidates=[d for devices in data["devices"].values() for d in devices
+                      if d.get("isAvailable") and "iPhone" in d.get("name","")]
+          if not candidates:
+              raise SystemExit("No available iPhone simulator; cannot claim tests passed")
+          print(candidates[0]["udid"])
+          ')"
+          echo "Running XCTest on iPhone Simulator $DEVICE_ID"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "Checking direct simulator installation before XCTest"
+          APP="$RUNNER_TEMP/stalker-simulator-tests/Build/Products/Debug-iphonesimulator/STALKERiOSStarter.app"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          xcrun simctl install "$DEVICE_ID" "$APP" 2>&1 | tee "$RUNNER_TEMP/stalker-simulator-install.log"
+          xcrun simctl get_app_container "$DEVICE_ID" com.stalkermobile.ios app
+          XCTESTRUN="$(find "$RUNNER_TEMP/stalker-simulator-tests/Build/Products" -maxdepth 1 -name '*.xctestrun' -print -quit)"
+          test -n "$XCTESTRUN" || { echo "Missing build-for-testing .xctestrun file"; exit 1; }
+          echo "Using compiled test bundle: $XCTESTRUN"
+          xcodebuild \
+            -xctestrun "$XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -resultBundlePath "$RUNNER_TEMP/stalker-archive-tests.xcresult" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            test-without-building 2>&1 | tee "$RUNNER_TEMP/stalker-tests-run.log"
+      - name: Upload XCTest result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-archive-xctest-results
+          path: ${{ runner.temp }}/stalker-archive-tests.xcresult
+          if-no-files-found: ignore
+      - name: Summarize first Swift and linker failures
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          temp = Path(os.environ["RUNNER_TEMP"])
+          pattern = re.compile(r"(^|\s)(error:|fatal error:)|BUILD FAILED|TEST BUILD FAILED|The following build commands failed|undefined symbols|ld: |clang: error:", re.I)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("### iOS build diagnostics\n")
+              for filename in ("stalker-swift-syntax.log", "stalker-simulator-build.log", "stalker-tests-build.log", "stalker-tests-run.log", "stalker-simulator-install.log", "stalker-device-build.log"):
+                  summary.write(f"\n**{filename}**\n")
+                  file = temp / filename
+                  if not file.exists():
+                      summary.write("Not run\n")
+                      continue
+                  all_lines = file.read_text(errors="replace").splitlines()
+                  lines = [f"{index + 1}: {line[:600]}" for index, line in enumerate(all_lines)
+                           if pattern.search(line)]
+                  if lines:
+                      summary.write("```text\n" + "\n".join(lines[:20]) + "\n```\n")
+                  else:
+                      summary.write("No matching compiler errors found\n")
+          PY
+      - name: Upload build logs (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: STALKERMobile-build-logs
+          path: |
+            ${{ runner.temp }}/stalker-swift-syntax.log
+            ${{ runner.temp }}/stalker-simulator-build.log
+            ${{ runner.temp }}/stalker-device-build.log
+            ${{ runner.temp }}/stalker-tests-build.log
+            ${{ runner.temp }}/stalker-tests-run.log
+          if-no-files-found: ignore
+

@@ -1,0 +1,44 @@
+name: Native chunk regression
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/Native/STChunks.cpp'
+      - 'Sources/Native/STChunks.h'
+      - 'Sources/Native/STLZOAdapter.cpp'
+      - 'Sources/Native/STLZOAdapter.h'
+      - 'Tests/STChunksRegression.cpp'
+      - '.github/workflows/native-chunk-regression.yml'
+  pull_request:
+  workflow_dispatch:
+jobs:
+  native-chunks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LZO development headers
+        run: sudo apt-get update && sudo apt-get install -y liblzo2-dev
+      - name: Compile native chunk regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp Sources/Native/STLZOAdapter.cpp \
+            -o /tmp/stchunks-regression
+      - name: Compile native regression with real LZO1X
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -O1 -g \
+            -DST_HAVE_LZO1X=1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp Sources/Native/STLZOAdapter.cpp \
+            -llzo2 -o /tmp/stchunks-lzo-regression
+      - name: Run native chunk regression
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/stchunks-regression
+      - name: Run real LZO1X regression
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/stchunks-lzo-regression

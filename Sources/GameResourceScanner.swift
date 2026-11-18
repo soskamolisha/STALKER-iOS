@@ -1,0 +1,120 @@
+import Foundation
+
+/// Single-pass, off-main-thread inventory of imported X-Ray resource folders.
+enum GameResourceScanner {
+    struct Inventory {
+        let count: Int
+        let bytes: Int64
+        let detected: Bool
+        let hasCompressedArchives: Bool
+        let diagnostics: String
+        let archiveCount: Int
+        let archiveSummary: String
+        let firstArchiveHeader: String
+    }
+
+    /// X-Ray archive naming convention: gamedata.db0, gamedata.dba, gamedata.db10.
+    /// Reject lookalikes such as gamedata.db.backup.
+    static func isArchiveName(_ name: String) -> Bool {
+        let prefix = "gamedata.db"
+        guard name.hasPrefix(prefix) else { return false }
+        let suffix = name.dropFirst(prefix.count)
+        return ((1...4).contains(suffix.count) && suffix.utf8.allSatisfy { (48...57).contains($0) }) ||
+            ((1...2).contains(suffix.count) && suffix.unicodeScalars.allSatisfy { scalar in
+            (scalar.value >= 48 && scalar.value <= 57) ||
+            (scalar.value >= 65 && scalar.value <= 90) ||
+            (scalar.value >= 97 && scalar.value <= 122)
+        })
+    }
+
+    /// Edition hints from loose level names only; packed archives are ambiguous.
+    private static func looseLevelEditionHint(in root: URL) -> String {
+        let levels = root.appendingPathComponent("gamedata/levels", isDirectory: true)
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: levels.path) else {
+            return "edition: unknown (packed or no loose levels)"
+        }
+        let names = Set(entries.map { $0.lowercased() })
+        func isLevelDirectory(_ name: String) -> Bool {
+            guard names.contains(name) else { return false }
+            var isDirectory: ObjCBool = false
+            let candidate = levels.appendingPathComponent(name, isDirectory: true)
+            return FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory)
+                && isDirectory.boolValue
+        }
+        let cop = isLevelDirectory("zaton") || isLevelDirectory("jupiter")
+        let cs = isLevelDirectory("marsh")
+        if cop && cs { return "edition: mixed level markers" }
+        if cop { return "edition hint: Call of Pripyat" }
+        if cs { return "edition hint: Clear Sky" }
+        return "edition: unknown (no distinctive loose levels)"
+    }
+
+    static func scan(_ folder: URL) -> Inventory? {
+        let fm = FileManager.default
+        guard (try? folder.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink != true else { return nil }
+        var rootIsDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: folder.path, isDirectory: &rootIsDirectory),
+              rootIsDirectory.boolValue else { return nil }
+        let entries = (try? fm.contentsOfDirectory(atPath: folder.path)) ?? []
+        let names = Set(entries.map { $0.lowercased() })
+        let config = names.contains("fsgame.ltx")
+        let data = names.contains("gamedata") || names.contains(where: isArchiveName)
+        var hasCompressedArchives = names.contains { name in
+            name.hasSuffix(".zip") && isArchiveName(String(name.dropLast(4)))
+        }
+        let diagnostics = "fsgame.ltx: \(config ? "yes" : "no") · gamedata: \(data ? "yes" : "no") · \(looseLevelEditionHint(in: folder))"
+
+        let enumerator = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey])
+        var count = 0
+        var bytes: Int64 = 0
+        var archiveCount = 0
+        var archiveBytes: Int64 = 0
+        var emptyArchives = 0
+        var hasLooseGameFile = false
+        var hasNonemptyArchive = false
+        var header = "No X-Ray archive header available"
+        while let file = enumerator?.nextObject() as? URL {
+            let name = file.lastPathComponent.lowercased()
+            guard let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .isSymbolicLinkKey]),
+                  info.isSymbolicLink != true,
+                  info.isRegularFile == true else { continue }
+            count += 1
+            let size = Int64(info.fileSize ?? 0)
+            bytes += size
+            let relativePath = String(file.standardizedFileURL.path.dropFirst(folder.standardizedFileURL.path.count + 1)).lowercased()
+            if relativePath.hasPrefix("gamedata/") && size > 0 { hasLooseGameFile = true }
+            // Files providers may return the same directory URL with or without
+            // a trailing slash. Compare paths, not URL directory hints.
+            guard file.deletingLastPathComponent().standardizedFileURL.path == folder.standardizedFileURL.path,
+                  isArchiveName(name) else { continue }
+            if size > 0 {
+                guard let handle = try? FileHandle(forReadingFrom: file) else { continue }
+                let prefix = try? handle.read(upToCount: 8)
+                try? handle.close()
+                guard let prefix, !prefix.isEmpty else { continue }
+                if prefix.starts(with: [0x50, 0x4b, 0x03, 0x04]) ||
+                    prefix.starts(with: [0x50, 0x4b, 0x05, 0x06]) ||
+                    prefix.starts(with: [0x50, 0x4b, 0x07, 0x08]) {
+                    hasCompressedArchives = true
+                    continue
+                }
+                hasNonemptyArchive = true
+                if archiveBytes == 0 {
+                    header = "\(file.lastPathComponent): \(XRayArchiveInspector.headerHex(prefix))"
+                }
+            }
+            archiveCount += 1
+            archiveBytes += size
+            if size == 0 { emptyArchives += 1 }
+        }
+        let archiveSummary = archiveCount == 0 ? "No gamedata.db archives found" :
+            "\(archiveCount) archives, \(ByteCountFormatter.string(fromByteCount: archiveBytes, countStyle: .file)), \(emptyArchives) empty"
+        // A config file by itself must never appear as imported game data.
+        let detected = data && (hasLooseGameFile || hasNonemptyArchive)
+        return Inventory(count: count, bytes: bytes, detected: detected,
+                         hasCompressedArchives: hasCompressedArchives,
+                         diagnostics: diagnostics, archiveCount: archiveCount,
+                         archiveSummary: archiveSummary, firstArchiveHeader: header)
+    }
+}
+

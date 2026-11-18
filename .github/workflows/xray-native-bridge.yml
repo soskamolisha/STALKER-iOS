@@ -1,0 +1,74 @@
+name: X-Ray Native Bridge Build and Tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Sources/Native/STOpenXRayRuntime.*'
+      - 'Tests/Native/**'
+      - '.github/workflows/xray-native-bridge.yml'
+jobs:
+  host-native-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile real native runtime and test harness
+        run: |
+          set -eux
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/Native/OpenXRayRuntimeSmoke.cpp \
+            -o /tmp/stalker-xray-runtime-smoke
+      - name: Configure host executable symbol exports
+        run: |
+          if [ "$(uname)" = "Darwin" ]; then
+            echo 'MOCK_EXPORT_FLAG=-Wl,-export_dynamic' >> "$GITHUB_ENV"
+          else
+            echo 'MOCK_EXPORT_FLAG=-rdynamic' >> "$GITHUB_ENV"
+          fi
+      - name: Compile linked mock-engine integration test
+        run: |
+          set -eux
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/Native/OpenXRayMockEngine.cpp \
+            "$MOCK_EXPORT_FLAG" \
+            -o /tmp/stalker-xray-mock-engine
+      - name: Compile strongly linked static engine adapter test
+        run: |
+          set -eux
+          c++ -std=c++17 -Wall -Wextra -Werror -DST_XRAY_STATIC_ENGINE_ADAPTER \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            Tests/Native/OpenXRayMockEngine.cpp \
+            -o /tmp/stalker-xray-static-adapter
+      - name: Execute strongly linked adapter integration test
+        run: /tmp/stalker-xray-static-adapter
+      - name: Execute linked mock-engine integration test
+        run: /tmp/stalker-xray-mock-engine
+      - name: Execute resource validation and missing-engine tests
+        run: /tmp/stalker-xray-runtime-smoke
+  iphoneos-arm64-bridge:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cross-compile native bridge for physical iPhone
+        run: |
+          set -eux
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          xcrun --sdk iphoneos clang++ -std=c++17 -arch arm64 \
+            -isysroot "$SDK" -miphoneos-version-min=17.0 \
+            -Wall -Wextra -Werror -c \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -o /tmp/STOpenXRayRuntime-arm64.o
+          xcrun ar rcs /tmp/libSTOpenXRayRuntime-arm64.a /tmp/STOpenXRayRuntime-arm64.o
+          xcrun lipo -info /tmp/libSTOpenXRayRuntime-arm64.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xray-native-bridge-iphoneos-arm64
+          path: /tmp/libSTOpenXRayRuntime-arm64.a
+          retention-days: 7

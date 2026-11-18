@@ -1,0 +1,151 @@
+name: iOS MiniLZO native build
+on:
+  push:
+    branches:
+      - feature/trilogy-launcher-v3
+    paths:
+      - 'Scripts/build-ios-minilzo.sh'
+      - 'Sources/Native/STLZOAdapter.cpp'
+      - 'Sources/Native/STLZOAdapter.h'
+      - 'Sources/Native/STChunks.cpp'
+      - 'Sources/Native/STChunks.h'
+      - 'Tests/STChunksRegression.cpp'
+      - 'Sources/Native/STOpenXRayRuntime.cpp'
+      - 'Sources/Native/XRayBootstrap.cpp'
+      - 'Tests/STXRayArchiveCatalogRegression.cpp'
+      - 'Tests/STOpenXRayPreflightRegression.cpp'
+      - 'Scripts/test-archive-inventory-macos.sh'
+      - 'Tests/STArchiveInventoryTests.swift'
+      - 'project.yml'
+      - '.github/workflows/ios-minilzo.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  iphoneos-arm64:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify archive inventory on macOS
+        run: bash Scripts/test-archive-inventory-macos.sh
+      - name: Verify native X-Ray resource preflight on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            Tests/STOpenXRayPreflightRegression.cpp \
+            Sources/Native/STOpenXRayRuntime.cpp \
+            -o "$RUNNER_TEMP/stalker-preflight-test"
+          "$RUNNER_TEMP/stalker-preflight-test"
+      - name: Verify native X-Ray archive catalog on macOS
+        shell: bash
+        run: |
+          set -euo pipefail
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            Tests/STXRayArchiveCatalogRegression.cpp \
+            Sources/Native/XRayBootstrap.cpp Sources/Native/XRayLevelCatalog.cpp \
+            -o "$RUNNER_TEMP/stalker-catalog-test"
+          "$RUNNER_TEMP/stalker-catalog-test"
+      - name: Build MiniLZO for physical iPhone
+        run: bash Scripts/build-ios-minilzo.sh
+      - name: Verify real MiniLZO roundtrip on macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/build/minilzo-ios"
+          HEADER="$ROOT/lzo-2.10/minilzo"
+          clang -O2 -I"$HEADER" -c "$HEADER/minilzo.c" -o "$ROOT/minilzo-host.o"
+          clang++ -std=c++17 -Wall -Wextra -Werror -O1 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            Tests/STChunksRegression.cpp Sources/Native/STChunks.cpp \
+            Sources/Native/STLZOAdapter.cpp "$ROOT/minilzo-host.o" \
+            -o "$ROOT/stchunks-minilzo-host"
+          "$ROOT/stchunks-minilzo-host"
+      - name: Compile and link iOS chunk decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          CXX="$(xcrun --sdk iphoneos --find clang++)"
+          ROOT="$PWD/build/minilzo-ios"
+          HEADER="$ROOT/lzo-2.10/minilzo"
+          "$CXX" -std=c++17 -Wall -Wextra -Werror -arch arm64 \
+            -isysroot "$SDK" -miphoneos-version-min=17.0 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            -c Sources/Native/STChunks.cpp -o "$ROOT/STChunks.o"
+          "$CXX" -std=c++17 -Wall -Wextra -Werror -arch arm64 \
+            -isysroot "$SDK" -miphoneos-version-min=17.0 \
+            -DST_HAVE_LZO1X=1 -I"$HEADER" \
+            -c Sources/Native/STLZOAdapter.cpp -o "$ROOT/STLZOAdapter.o"
+          xcrun --sdk iphoneos ar rcs "$ROOT/libstchunks-lzo.a" \
+            "$ROOT/STChunks.o" "$ROOT/STLZOAdapter.o" "$ROOT/minilzo.o"
+          xcrun lipo -info "$ROOT/libstchunks-lzo.a"
+          xcrun nm "$ROOT/libstchunks-lzo.a" > "$ROOT/native-symbols.txt"
+          awk '$NF == "_st_chunk_decode_lzo" { found = 1 } END { exit !found }' "$ROOT/native-symbols.txt"
+      - name: Build iOS launcher with MiniLZO linked
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate --spec project.yml
+          ROOT="$PWD/build/minilzo-ios"
+          xcodebuild -project STALKERiOSStarter.xcodeproj \
+            -scheme STALKERiOSStarter \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/stalker-lzo-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            ST_LZO_HEADER_PATH="$ROOT/lzo-2.10/minilzo" \
+            ST_LZO_DEFINES=ST_HAVE_LZO1X=1 \
+            ST_LZO_LINK_FLAGS="-Wl,-u,_st_chunk_decode_lzo -Wl,-u,_st_lzo1x_available -Wl,-u,_lzo1x_decompress_safe $ROOT/libminilzo.a" \
+            build
+      - name: Verify linked LZO symbols in unsigned app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          test -d "$APP"
+          test -f "$APP/STALKERiOSStarter"
+          xcrun lipo -info "$APP/STALKERiOSStarter"
+          xcrun nm "$APP/STALKERiOSStarter" > "$RUNNER_TEMP/stalker-lzo-symbols.txt"
+          for symbol in _st_chunk_decode_lzo _lzo1x_decompress_safe _st_lzo1x_available; do
+            if ! awk -v expected="$symbol" '$NF == expected { found = 1 } END { exit !found }' "$RUNNER_TEMP/stalker-lzo-symbols.txt"; then
+              echo "::error::Missing linked symbol: $symbol"
+              exit 1
+            fi
+          done
+      - name: Package unsigned IPA for ESign
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app"
+          mkdir -p "$RUNNER_TEMP/stalker-ipa/Payload"
+          ditto "$APP" "$RUNNER_TEMP/stalker-ipa/Payload/STALKERiOSStarter.app"
+          cd "$RUNNER_TEMP/stalker-ipa"
+          zip -qry "$GITHUB_WORKSPACE/STALKERMobile-MiniLZO-unsigned.ipa" Payload
+          IPA="$GITHUB_WORKSPACE/STALKERMobile-MiniLZO-unsigned.ipa"
+          unzip -t "$IPA" >/dev/null
+          unzip -Z1 "$IPA" | grep -Fx 'Payload/STALKERiOSStarter.app/Info.plist'
+          unzip -Z1 "$IPA" | grep -Fx 'Payload/STALKERiOSStarter.app/STALKERiOSStarter'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Info.plist" | grep -Fx 'STALKERiOSStarter'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" | grep -Fx 'com.stalkermobile.ios'
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: stalker-mobile-minilzo-unsigned-ipa
+          path: STALKERMobile-MiniLZO-unsigned.ipa
+          if-no-files-found: error
+      - name: Upload unsigned iOS app for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: stalker-ios-minilzo-unsigned-app
+          path: ${{ runner.temp }}/stalker-lzo-derived/Build/Products/Debug-iphoneos/STALKERiOSStarter.app
+          if-no-files-found: error
+      - name: Upload iPhone arm64 native library
+        uses: actions/upload-artifact@v4
+        with:
+          name: stchunks-minilzo-iphoneos-arm64
+          path: build/minilzo-ios/libstchunks-lzo.a
+          if-no-files-found: error

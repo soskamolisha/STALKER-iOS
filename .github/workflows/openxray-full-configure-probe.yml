@@ -10,6 +10,7 @@ on:
     branches: [feature/trilogy-launcher-v3]
     paths:
       - '.github/workflows/openxray-full-configure-probe.yml'
+      - 'scripts/build_with_openxray.sh'
       - 'scripts/openxray_system_link_flags.py'
       - 'scripts/patch_openxray_ios_renderer.py'
       - 'scripts/patch_openxray_ios_game.py'
@@ -42,7 +43,7 @@ jobs:
   link-existing-archive:
     needs: portable-xray-regression
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[openxray-link:')
-    runs-on: macos-15
+    runs-on: macos-26-intel
     timeout-minutes: 20
     permissions:
       contents: read

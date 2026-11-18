@@ -43,6 +43,8 @@ fi
 
 python3 scripts/prepare_ios_app_icon.py
 xcodegen generate
+version=1.0.6
+build_number=7
 # The native bridge has a strong reference to the entry. Normal archive
 # linkage lets the linker pull the engine and dependencies it actually uses.
 xcodebuild -project STALKERiOSStarter.xcodeproj \
@@ -52,8 +54,8 @@ xcodebuild -project STALKERiOSStarter.xcodeproj \
   ENABLE_DEBUG_DYLIB=NO STRIP_INSTALLED_PRODUCT=NO \
   PRODUCT_BUNDLE_IDENTIFIER=com.stalkermobile.ios.openxray \
   INFOPLIST_KEY_CFBundleDisplayName="STALKER X-Ray" \
-  MARKETING_VERSION=1.0.6 CURRENT_PROJECT_VERSION=7 \
-  INFOPLIST_KEY_CFBundleShortVersionString=1.0.6 INFOPLIST_KEY_CFBundleVersion=7 \
+  MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build_number" \
+  INFOPLIST_KEY_CFBundleShortVersionString="$version" INFOPLIST_KEY_CFBundleVersion="$build_number" \
   OPENXRAY_ENGINE_DEFINES=ST_XRAY_STATIC_ENGINE_ADAPTER=1 \
   OPENXRAY_EXCLUDED_SOURCES="${OPENXRAY_EXCLUDED_SOURCES:-}" \
   OPENXRAY_ARCHIVE_LINK_FLAGS="$archive ${OPENXRAY_SYSTEM_LINK_FLAGS:-}" build
@@ -67,16 +69,18 @@ if ! grep -Fxq _st_xray_embedded_run_with_resources <<< "$symbols"; then
   echo "Missing resource-aware OpenXRay entry in the iPhone executable" >&2
   exit 1
 fi
-python3 - "$app" <<'PYTHON'
+python3 - "$app" "$version" "$build_number" <<'PYTHON'
 from pathlib import Path
 import plistlib
 import sys
 
-app = Path(sys.argv[1])
+app_dir, version, build_number = sys.argv[1:]
+app = Path(app_dir)
 path = app / "Info.plist"
 info = plistlib.loads(path.read_bytes())
 assert info["CFBundleIdentifier"] == "com.stalkermobile.ios.openxray"
-assert info["CFBundleVersion"] == "6"
+assert info["CFBundleShortVersionString"] == version, info["CFBundleShortVersionString"]
+assert info["CFBundleVersion"] == build_number, info["CFBundleVersion"]
 assert "rcp_scale * float2(offset)" in (app / "gather.ps").read_text()
 icon_files = info["CFBundleIcons"]["CFBundlePrimaryIcon"]["CFBundleIconFiles"]
 assert icon_files and all(any(app.glob(f"{name}*.png")) for name in icon_files)
